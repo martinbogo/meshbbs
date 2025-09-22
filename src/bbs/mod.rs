@@ -16,8 +16,11 @@ pub use server::BbsServer;
 
 // Optional re-exports for downstream crates when feature enabled
 #[cfg(feature = "api-reexports")]
+#[allow(unused_imports)]
 pub use session::Session;
 #[cfg(feature = "api-reexports")]
+#[allow(unused_imports)]
 pub use commands::CommandProcessor;
 #[cfg(feature = "api-reexports")]
+#[allow(unused_imports)]
 pub use public::{PublicState, PublicCommandParser};

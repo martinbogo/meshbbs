@@ -207,6 +207,7 @@ impl BbsServer {
     #[allow(dead_code)]
     pub async fn test_prune_idle(&mut self) { self.prune_idle_sessions().await; }
     #[cfg(any(test, feature = "meshtastic-proto"))]
+    #[allow(dead_code)]
     pub fn last_banner(&self) -> Option<&String> { self.last_banner.as_ref() }
 
         fn build_banner(&self) -> String {

@@ -42,6 +42,7 @@ impl SlipDecoder {
     }
 }
 
+#[allow(dead_code)]
 pub fn slip_encode(payload: &[u8]) -> Vec<u8> {
     let mut out = Vec::with_capacity(payload.len() + 2);
     out.push(END); // start delimiter (optional, ensures clean boundary)
