@@ -111,7 +111,7 @@ impl CommandProcessor {
                 ))
             }
             "Q" | "QUIT" | "GOODBYE" | "BYE" => { session.logout().await?; Ok("Goodbye! 73s".to_string()) }
-            "HELP" | "?" => {
+            "H" | "HELP" | "?" => {
                 // Build contextual help: groups for Auth, Messaging, Moderation, Administration
                 let mut out = String::from("Commands:\n");
                 if !session.is_logged_in() {
