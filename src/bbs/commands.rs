@@ -101,7 +101,18 @@ impl CommandProcessor {
             }
             "Q" | "QUIT" | "GOODBYE" | "BYE" => { session.logout().await?; Ok("Goodbye! 73s".to_string()) }
             "HELP" | "?" => {
-                Ok("Commands:\nREGISTER <u> <p> - Create account\nLOGIN <u> [p] - Login (password if set & different node)\n[M]essages - Read/post messages\n[U]ser - User settings\n[Q]uit - Logout\n>".to_string())
+                let mut lines = Vec::new();
+                if !session.is_logged_in() {
+                    lines.push("REGISTER <u> <p> - Create account");
+                    lines.push("LOGIN <u> [p] - Login");
+                }
+                lines.push("[M]essages - Read/post messages");
+                lines.push("[U]ser - User settings");
+                lines.push("[Q]uit - Logout");
+                let mut out = String::from("Commands:\n");
+                out.push_str(&lines.join("\n"));
+                out.push_str("\n>");
+                Ok(out)
             }
             _ => Ok("Unknown command. Type HELP for commands.\n>".to_string())
         }
