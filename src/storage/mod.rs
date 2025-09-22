@@ -7,11 +7,12 @@ use std::path::Path;
 use tokio::fs;
 use uuid::Uuid;
 use password_hash::{PasswordHasher, PasswordVerifier};
-use argon2::{Argon2, Params};
+use argon2::{Argon2, Params, Algorithm, Version};
 
 /// Main storage interface
 pub struct Storage {
     data_dir: String,
+    argon2: Argon2<'static>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -69,16 +70,28 @@ impl Storage {
         
         Ok(Storage {
             data_dir: data_dir.to_string(),
+            argon2: Argon2::default(),
         })
+    }
+
+    /// Initialize storage with explicit Argon2 params
+    pub async fn new_with_params(data_dir: &str, params: Option<Params>) -> Result<Self> {
+        // Ensure base and subdirectories just like `new`
+        fs::create_dir_all(data_dir).await?;
+        let messages_dir = Path::new(data_dir).join("messages");
+        let users_dir = Path::new(data_dir).join("users");
+        let files_dir = Path::new(data_dir).join("files");
+        fs::create_dir_all(&messages_dir).await?;
+        fs::create_dir_all(&users_dir).await?;
+        fs::create_dir_all(&files_dir).await?;
+        let argon2 = if let Some(p) = params { Argon2::new(Algorithm::Argon2id, Version::V0x13, p) } else { Argon2::default() };
+        Ok(Storage { data_dir: data_dir.to_string(), argon2 })
     }
 
     /// Return the base data directory path used by this storage instance
     pub fn base_dir(&self) -> &str { &self.data_dir }
 
-    fn argon2_configured() -> Argon2<'static> {
-        // For now use Argon2id defaults; placeholder for future dynamic configuration injection.
-        Argon2::default()
-    }
+    fn argon2_configured(&self) -> &Argon2<'static> { &self.argon2 }
 
     /// Register a new user with password; fails if user exists.
     pub async fn register_user(&mut self, username: &str, password: &str, maybe_node: Option<&str>) -> Result<()> {
@@ -89,8 +102,7 @@ impl Storage {
         let user_file = users_dir.join(format!("{}.json", username));
         let now = Utc::now();
         let salt = password_hash::SaltString::generate(&mut rand::thread_rng());
-        let argon = Self::argon2_configured();
-        let hash = argon.hash_password(password.as_bytes(), &salt)
+        let hash = self.argon2_configured().hash_password(password.as_bytes(), &salt)
             .map_err(|e| anyhow!("Password hash failure: {e}"))?;
         let user = User {
             username: username.to_string(),
@@ -145,8 +157,7 @@ impl Storage {
         let content = fs::read_to_string(&user_file).await?;
         let mut user: User = serde_json::from_str(&content)?;
         let salt = password_hash::SaltString::generate(&mut rand::thread_rng());
-        let argon = Self::argon2_configured();
-        let hash = argon.hash_password(new_password.as_bytes(), &salt)
+        let hash = self.argon2_configured().hash_password(new_password.as_bytes(), &salt)
             .map_err(|e| anyhow!("Password hash failure: {e}"))?;
         user.password_hash = Some(hash.to_string());
         user.last_login = Utc::now(); // treat as activity
@@ -163,6 +174,10 @@ impl Storage {
         if !user_file.exists() { return Err(anyhow!("User not found")); }
         let content = fs::read_to_string(&user_file).await?;
         let mut user: User = serde_json::from_str(&content)?;
+        // Prevent changing sysop level (level 10) via storage API to enforce immutability
+        if user.user_level == 10 && user.username == username && new_level != 10 {
+            return Err(anyhow!("Cannot modify sysop level"));
+        }
         user.user_level = new_level;
         user.last_login = Utc::now(); // treat promotion as activity
         let json_content = serde_json::to_string_pretty(&user)?;

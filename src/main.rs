@@ -60,20 +60,15 @@ enum Commands {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
     
-    // Initialize logging based on verbosity
-    let log_level = match cli.verbose {
-        0 => "info",
-        1 => "debug",
-        _ => "trace",
-    };
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(log_level))
-        .init();
+    // Load config early to configure logging (except for Init which writes default later)
+    let pre_config = match cli.command { Commands::Init => None, _ => Config::load(&cli.config).await.ok() };
+    init_logging(&pre_config, cli.verbose);
 
     info!("Starting MeshBBS v{}", env!("CARGO_PKG_VERSION"));
 
     match cli.command {
         Commands::Start { port } => {
-            let config = Config::load(&cli.config).await?;
+            let config = pre_config.unwrap_or(Config::load(&cli.config).await?);
             // Capture configured port before moving config into server
             let configured_port = config.meshtastic.port.clone();
             let mut bbs = BbsServer::new(config).await?;
@@ -105,7 +100,7 @@ async fn main() -> Result<()> {
             info!("Configuration file created at {}", cli.config);
         }
         Commands::Status => {
-            let config = Config::load(&cli.config).await?;
+            let config = pre_config.unwrap_or(Config::load(&cli.config).await?);
             let bbs = BbsServer::new(config).await?;
             bbs.show_status().await?;
         }
@@ -113,7 +108,7 @@ async fn main() -> Result<()> {
             use password_hash::{PasswordHasher, SaltString};
             use argon2::Argon2;
             // Read existing config
-            let mut config = Config::load(&cli.config).await?;
+            let mut config = pre_config.unwrap_or(Config::load(&cli.config).await?);
             println!("Setting sysop password for '{}'.", config.bbs.sysop);
             // Prompt twice without echo
             let pass1 = rpassword::prompt_password("New password: ")?;
@@ -188,4 +183,48 @@ async fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+fn init_logging(config: &Option<Config>, verbosity: u8) {
+    use std::io::Write;
+    let mut builder = env_logger::Builder::new();
+    // Base level from CLI verbosity overrides config
+    let base_level = match verbosity { 0 => log::LevelFilter::Info, 1 => log::LevelFilter::Debug, _ => log::LevelFilter::Trace };
+    builder.filter_level(base_level);
+    if let Some(cfg) = config {
+        let security_path = cfg.logging.security_file.clone();
+        if let Some(ref file) = cfg.logging.file {
+            if let Ok(f) = std::fs::OpenOptions::new().create(true).append(true).open(file) {
+                let mutex = std::sync::Arc::new(std::sync::Mutex::new(f));
+                let write_mutex = mutex.clone();
+                builder.format(move |fmt, record| {
+                    let ts = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ");
+                    let line = format!("{} [{}] {}", ts, record.level(), record.args());
+                    if let Ok(mut guard) = write_mutex.lock() { let _ = writeln!(guard, "{}", line); }
+                    if record.target() == "security" {
+                        if let Some(ref sec_path) = security_path {
+                            if let Ok(mut sf) = std::fs::OpenOptions::new().create(true).append(true).open(sec_path) {
+                                let _ = writeln!(sf, "{}", line);
+                            }
+                        }
+                    }
+                    writeln!(fmt, "{}", line)
+                });
+            } else {
+                builder.format(|fmt, record| {
+                    writeln!(fmt, "{} [{}] {}", chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ"), record.level(), record.args())
+                });
+            }
+        } else {
+            builder.format(|fmt, record| {
+                let ts = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ");
+                writeln!(fmt, "{} [{}] {}", ts, record.level(), record.args())
+            });
+        }
+    } else {
+        builder.format(|fmt, record| {
+            writeln!(fmt, "{} [{}] {}", chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ"), record.level(), record.args())
+        });
+    }
+    let _ = builder.try_init();
 }

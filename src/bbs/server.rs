@@ -34,12 +34,28 @@ pub struct BbsServer {
     weather_cache: Option<(Instant, String)>, // (fetched_at, value)
     #[cfg(feature = "meshtastic-proto")]
     pending_direct: Vec<(u32, String)>, // queue of (dest_node_id, message) awaiting our node id
+    #[cfg(test)]
+    pub(crate) test_messages: Vec<(String,String)>, // (to, message)
 }
 
 impl BbsServer {
     /// Create a new BBS server instance
     pub async fn new(config: Config) -> Result<Self> {
-        let storage = Storage::new(&config.storage.data_dir).await?;
+        // Build optional Argon2 params from config
+        let storage = {
+            use argon2::Params;
+            if let Some(a) = &config.security.argon2 {
+                let mut builder = Params::DEFAULT;
+                // Params::new(memory, time, parallelism, output_length) -> Result
+                let mem = a.memory_kib.unwrap_or(builder.m_cost());
+                let time = a.time_cost.unwrap_or(builder.t_cost());
+                let para = a.parallelism.unwrap_or(builder.p_cost());
+                let params = Params::new(mem, time, para, None).ok();
+                Storage::new_with_params(&config.storage.data_dir, params).await?
+            } else {
+                Storage::new(&config.storage.data_dir).await?
+            }
+        };
         
         Ok(BbsServer {
             config,
@@ -56,6 +72,8 @@ impl BbsServer {
             weather_cache: None,
             #[cfg(feature = "meshtastic-proto")]
             pending_direct: Vec::new(),
+            #[cfg(test)]
+            test_messages: Vec::new(),
         })
     }
 
@@ -192,6 +210,17 @@ impl BbsServer {
     /// Test/helper accessor: fetch user record
     pub async fn get_user(&self, username: &str) -> Result<Option<crate::storage::User>> {
         self.storage.get_user(username).await
+    }
+
+    #[doc(hidden)]
+    pub async fn test_register(&mut self, username: &str, pass: &str) -> Result<()> {
+        self.storage.register_user(username, pass, None).await
+    }
+    #[doc(hidden)]
+    pub async fn test_update_level(&mut self, username: &str, lvl: u8) -> Result<()> {
+        // Prevent modifying sysop in tests to mirror production command restrictions
+        if username == self.config.bbs.sysop { return Err(anyhow::anyhow!("Cannot modify sysop level")); }
+        self.storage.update_user_level(username, lvl).await.map(|_| ())
     }
 
     /// Receive a message from the Meshtastic device
@@ -531,6 +560,8 @@ impl BbsServer {
         } else {
             warn!("No device connected, cannot send message");
         }
+        #[cfg(test)]
+        self.test_messages.push((to_node.to_string(), message.to_string()));
         Ok(())
     }
 

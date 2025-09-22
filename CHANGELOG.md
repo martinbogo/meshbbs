@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Security: Added configurable Argon2 password hashing parameters (memory_kib, time_cost, parallelism) under [security.argon2] in config.
+- Security: Introduced dedicated security log target duplication to optional `logging.security_file` with PROMOTE/DEMOTE and password related events.
+- Security: Enforced immutability of sysop access level (cannot demote or change via storage API).
 
 ### Added
 - Initial project structure and skeleton

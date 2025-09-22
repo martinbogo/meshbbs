@@ -68,6 +68,8 @@ pub struct WebConfig {
 pub struct LoggingConfig {
     pub level: String,
     pub file: Option<String>,
+    #[serde(default)]
+    pub security_file: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -170,6 +172,7 @@ impl Default for Config {
             logging: LoggingConfig {
                 level: "info".to_string(),
                 file: Some("meshbbs.log".to_string()),
+                security_file: Some("meshbbs-security.log".to_string()),
             },
             security: SecurityConfig::default(),
         }

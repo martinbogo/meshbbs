@@ -20,7 +20,7 @@ fn sysop_user_seeded_with_hash() {
             storage: StorageConfig { data_dir: datadir.to_str().unwrap().to_string(), max_message_size: 1024, message_retention_days: 30, max_messages_per_area: 100 },
             message_areas: HashMap::new(),
             web: WebConfig { enabled: false, bind_address: "127.0.0.1".into(), port: 8080, admin_username: "a".into(), admin_password: "b".into() },
-            logging: LoggingConfig { level: "info".into(), file: None },
+            logging: LoggingConfig { level: "info".into(), file: None, security_file: None },
             security: Default::default(),
         };
         let mut server = BbsServer::new(cfg).await.unwrap();
