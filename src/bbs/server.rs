@@ -344,14 +344,21 @@ impl BbsServer {
                                             else {
                                                 let updated = if !node_bound { self.storage.bind_user_node(user, &node_key).await? } else { u };
                                                 session.login(updated.username.clone(), updated.user_level).await?;
-                                                deferred_reply = Some(format!("Welcome {}!\n>", updated.username));
+                                                let mut banner = self.config.bbs.welcome_message.clone();
+                                                // Clamp to protocol size (230 bytes) to avoid rejection downstream
+                                                if banner.as_bytes().len() > 230 { let mut truncated = banner.into_bytes(); truncated.truncate(230); banner = String::from_utf8_lossy(&truncated).to_string(); }
+                                                if !banner.ends_with('\n') { banner.push('\n'); }
+                                                deferred_reply = Some(format!("{}>", banner));
                                             }
                                         }
                                     } else {
                                         // Either no password set or already bound to this node; allow login without password
                                         let updated = if !node_bound { self.storage.bind_user_node(user, &node_key).await? } else { u };
                                         session.login(updated.username.clone(), updated.user_level).await?;
-                                        deferred_reply = Some(format!("Welcome {}!\n>", updated.username));
+                                        let mut banner = self.config.bbs.welcome_message.clone();
+                                        if banner.as_bytes().len() > 230 { let mut truncated = banner.into_bytes(); truncated.truncate(230); banner = String::from_utf8_lossy(&truncated).to_string(); }
+                                        if !banner.ends_with('\n') { banner.push('\n'); }
+                                        deferred_reply = Some(format!("{}>", banner));
                                     }
                                 }
                             }
