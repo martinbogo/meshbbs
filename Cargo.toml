@@ -1,0 +1,74 @@
+[package]
+name = "meshbbs"
+version = "0.1.0"
+edition = "2021"
+authors = ["Martin Bogomolni <martinbogo@gmail.com>"]
+description = "A Bulletin Board System (BBS) for Meshtastic mesh networks"
+license = "CC-BY-NC-4.0"
+repository = "https://github.com/martinbogo/meshbbs"
+keywords = ["meshtastic", "bbs", "mesh", "network", "bulletin-board"]
+categories = ["network-programming", "embedded"]
+readme = "README.md"
+
+[dependencies]
+# Core async runtime
+tokio = { version = "1.0", features = ["full"] }
+
+# Command line interface
+clap = { version = "4.0", features = ["derive"] }
+
+# Serialization for messages and config
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+rand = { version = "0.8", default-features = true }
+
+# Logging
+log = "0.4"
+env_logger = "0.10"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# UUID for message IDs
+uuid = { version = "1.0", features = ["v4", "serde"] }
+
+# Optional: For direct serial communication with Meshtastic devices
+serialport = { version = "4.0", optional = true }
+
+# Optional: For HTTP API interface
+axum = { version = "0.7", optional = true }
+tower = { version = "0.4", optional = true }
+
+# Optional: Meshtastic protobuf support
+prost = { version = "0.12", optional = true }
+prost-types = { version = "0.12", optional = true }
+bytes = { version = "1.5", optional = true }
+unsigned-varint = { version = "0.7", default-features = false }
+
+[build-dependencies]
+prost-build = { version = "0.12" }
+
+[features]
+default = ["serial"]
+serial = ["dep:serialport"]
+web = ["dep:axum", "dep:tower"]
+meshtastic-proto = ["dep:prost", "dep:prost-types", "dep:bytes"]
+
+[dev-dependencies]
+# Testing utilities
+tokio-test = "0.4"
+
+[[bin]]
+name = "meshbbs"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"

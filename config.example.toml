@@ -1,0 +1,63 @@
+# Example configuration for MeshBBS
+# Copy this to config.toml and customize for your setup
+
+[bbs]
+name = "MeshBBS Station"
+sysop = "Your Name"
+location = "Your Location"
+description = "A bulletin board system for mesh networks"
+max_users = 100
+welcome_message = "Welcome to MeshBBS! Type HELP for commands."
+
+[meshtastic]
+# Serial port for Meshtastic device (Linux/macOS: /dev/ttyUSB0, Windows: COM3)
+port = "/dev/ttyUSB0"
+baud_rate = 115200
+# Your Meshtastic node ID (will be auto-detected if not specified)
+node_id = ""
+# Channel to monitor (0 = primary channel)
+channel = 0
+
+[storage]
+# Directory to store BBS data
+data_dir = "./data"
+# Maximum size for a single message (bytes)
+max_message_size = 1024
+# How long to keep messages (days)
+message_retention_days = 30
+# Maximum number of messages per area
+max_messages_per_area = 1000
+
+[message_areas]
+# Define message areas/forums
+[message_areas.general]
+name = "General Discussion"
+description = "General chat and discussion"
+read_level = 0
+post_level = 0
+
+[message_areas.technical]
+name = "Technical Support"
+description = "Technical help and support"
+read_level = 0
+post_level = 0
+
+[message_areas.announcements]
+name = "Announcements"
+description = "Important announcements"
+read_level = 0
+post_level = 10  # Higher level required to post
+
+[web]
+# Enable web interface for administration
+enabled = false
+bind_address = "127.0.0.1"
+port = 8080
+# Basic auth for admin interface
+admin_username = "admin"
+admin_password = "changeme"
+
+[logging]
+level = "info"
+# Log file path (optional)
+file = "meshbbs.log"
