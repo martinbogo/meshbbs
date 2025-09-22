@@ -41,10 +41,10 @@ impl BbsServer {
     /// Create a new BBS server instance
     pub async fn new(config: Config) -> Result<Self> {
         // Build optional Argon2 params from config
-        let storage = {
+        let mut storage = {
             use argon2::Params;
             if let Some(a) = &config.security.argon2 {
-                let mut builder = Params::DEFAULT;
+                let builder = Params::DEFAULT;
                 // Params::new(memory, time, parallelism, output_length) -> Result
                 let mem = a.memory_kib.unwrap_or(builder.m_cost());
                 let time = a.time_cost.unwrap_or(builder.t_cost());
@@ -56,6 +56,11 @@ impl BbsServer {
             }
         };
         
+        // Populate area level map from config.message_areas
+        let mut level_map = std::collections::HashMap::new();
+        for (k,v) in &config.message_areas { level_map.insert(k.clone(), (v.read_level, v.post_level)); }
+        storage.set_area_levels(level_map);
+
         Ok(BbsServer {
             config,
             storage,
@@ -212,28 +217,32 @@ impl BbsServer {
     }
 
     // Test & moderation helpers (public so integration tests can invoke)
-    #[allow(dead_code)]
     pub async fn test_register(&mut self, username: &str, pass: &str) -> Result<()> { self.storage.register_user(username, pass, None).await }
-    #[allow(dead_code)]
     pub async fn test_update_level(&mut self, username: &str, lvl: u8) -> Result<()> { if username == self.config.bbs.sysop { return Err(anyhow::anyhow!("Cannot modify sysop level")); } self.storage.update_user_level(username, lvl).await.map(|_| ()) }
-    #[allow(dead_code)]
     pub async fn test_store_message(&mut self, area: &str, author: &str, content: &str) -> Result<String> { self.storage.store_message(area, author, content).await }
-    #[allow(dead_code)]
     pub async fn test_get_messages(&self, area: &str, limit: usize) -> Result<Vec<crate::storage::Message>> { self.storage.get_messages(area, limit).await }
+    pub fn test_is_locked(&self, area: &str) -> bool { self.storage.is_area_locked(area) }
+    pub async fn test_deletion_page(&self, page: usize, size: usize) -> Result<Vec<crate::storage::DeletionAuditEntry>> { self.storage.get_deletion_audit_page(page, size).await }
 
     // Moderator / sysop internal helpers
     pub async fn moderator_delete_message(&mut self, area: &str, id: &str, actor: &str) -> Result<bool> {
         let deleted = self.storage.delete_message(area, id).await?;
-        if deleted { sec_log!("DELETE by {}: {}/{}", actor, area, id); }
+        if deleted {
+            sec_log!("DELETE by {}: {}/{}", actor, area, id);
+            // Fire and forget audit append; if it fails, surface as error to caller
+            self.storage.append_deletion_audit(area, id, actor).await?;
+        }
         Ok(deleted)
     }
-    pub fn moderator_lock_area(&mut self, area: &str, actor: &str) {
-        self.storage.lock_area(area);
+    pub async fn moderator_lock_area(&mut self, area: &str, actor: &str) -> Result<()> {
+        self.storage.lock_area_persist(area).await?;
         sec_log!("LOCK by {}: {}", actor, area);
+        Ok(())
     }
-    pub fn moderator_unlock_area(&mut self, area: &str, actor: &str) {
-        self.storage.unlock_area(area);
+    pub async fn moderator_unlock_area(&mut self, area: &str, actor: &str) -> Result<()> {
+        self.storage.unlock_area_persist(area).await?;
         sec_log!("UNLOCK by {}: {}", actor, area);
+        Ok(())
     }
 
 
@@ -302,7 +311,7 @@ impl BbsServer {
                 } else if upper.starts_with("LOGIN ") {
                     // LOGIN <username> [password]
                     // Redact password portion if present for logging
-                    if let Some(space_idx) = content.find(' ') { // after LOGIN
+                    if let Some(_space_idx) = content.find(' ') { // after LOGIN
                         let mut parts = content.split_whitespace();
                         let _login_kw = parts.next();
                         let user_part = parts.next().unwrap_or("");
@@ -490,6 +499,26 @@ impl BbsServer {
                             deferred_reply = Some(format!("Area {} unlocked.\n>", area));
                         }
                     }
+                } else if upper.starts_with("DELLOG") {
+                    if session.user_level < LEVEL_MODERATOR { deferred_reply = Some("Permission denied.\n>".into()); }
+                    else {
+                        // DELLOG [page]
+                        let parts: Vec<&str> = content.split_whitespace().collect();
+                        let page: usize = if parts.len() >= 2 { parts[1].parse().unwrap_or(1) } else { 1 };
+                        let page = if page == 0 { 1 } else { page };
+                        match self.storage.get_deletion_audit_page(page, 10).await {
+                            Ok(entries) => {
+                                if entries.is_empty() { deferred_reply = Some("No entries.\n>".into()); }
+                                else {
+                                    let mut out = format!("Deletion Log Page {}:\n", page);
+                                    for e in entries { out.push_str(&format!("{} {} {} by {}\n", e.timestamp.format("%m/%d %H:%M"), e.area, e.id, e.actor)); }
+                                    out.push_str(">\n");
+                                    deferred_reply = Some(out);
+                                }
+                            }
+                            Err(e) => deferred_reply = Some(format!("Failed: {}\n>", e)),
+                        }
+                    }
                 } else if upper == "LOGOUT" {
                     if session.is_logged_in() {
                         let name = session.display_name();
@@ -517,8 +546,12 @@ impl BbsServer {
                             Err(e) => { deferred_reply = Some(format!("Delete failed: {}\n>", e)); }
                         }
                     }
-                    PostAction::Lock{area,actor} => { self.moderator_lock_area(&area, &actor); }
-                    PostAction::Unlock{area,actor} => { self.moderator_unlock_area(&area, &actor); }
+                    PostAction::Lock{area,actor} => {
+                        if let Err(e) = self.moderator_lock_area(&area, &actor).await { deferred_reply.get_or_insert(format!("Lock failed: {}\n>", e)); }
+                    }
+                    PostAction::Unlock{area,actor} => {
+                        if let Err(e) = self.moderator_unlock_area(&area, &actor).await { deferred_reply.get_or_insert(format!("Unlock failed: {}\n>", e)); }
+                    }
                 }
                 if let Some(msg) = deferred_reply { self.send_message(&node_key, &msg).await?; }
             }

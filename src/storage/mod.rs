@@ -4,7 +4,8 @@ use anyhow::{Result, anyhow};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
+use std::io::ErrorKind;
 use tokio::fs;
 use uuid::Uuid;
 use password_hash::{PasswordHasher, PasswordVerifier};
@@ -15,6 +16,8 @@ pub struct Storage {
     data_dir: String,
     argon2: Argon2<'static>,
     locked_areas: HashSet<String>,
+    #[allow(dead_code)]
+    area_levels: std::collections::HashMap<String, (u8,u8)>, // area -> (read_level, post_level)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25,6 +28,14 @@ pub struct Message {
     pub content: String,
     pub timestamp: DateTime<Utc>,
     pub replies: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeletionAuditEntry {
+    pub timestamp: DateTime<Utc>,
+    pub area: String,
+    pub id: String,
+    pub actor: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -70,10 +81,12 @@ impl Storage {
         fs::create_dir_all(&users_dir).await?;
         fs::create_dir_all(&files_dir).await?;
         
+        let locked = Self::load_locked_areas(data_dir).await?;
         Ok(Storage {
             data_dir: data_dir.to_string(),
             argon2: Argon2::default(),
-            locked_areas: HashSet::new(),
+            locked_areas: locked,
+            area_levels: HashMap::new(),
         })
     }
 
@@ -88,7 +101,32 @@ impl Storage {
         fs::create_dir_all(&users_dir).await?;
         fs::create_dir_all(&files_dir).await?;
         let argon2 = if let Some(p) = params { Argon2::new(Algorithm::Argon2id, Version::V0x13, p) } else { Argon2::default() };
-        Ok(Storage { data_dir: data_dir.to_string(), argon2, locked_areas: HashSet::new() })
+        let locked = Self::load_locked_areas(data_dir).await?;
+        Ok(Storage { data_dir: data_dir.to_string(), argon2, locked_areas: locked, area_levels: HashMap::new() })
+    }
+
+    pub fn set_area_levels(&mut self, map: std::collections::HashMap<String,(u8,u8)>) { self.area_levels = map; }
+    pub fn get_area_levels(&self, area: &str) -> Option<(u8,u8)> { self.area_levels.get(area).copied() }
+
+    async fn load_locked_areas(data_dir: &str) -> Result<HashSet<String>> {
+        let path = Path::new(data_dir).join("locked_areas.json");
+        match fs::read_to_string(&path).await {
+            Ok(data) => {
+                let v: Vec<String> = serde_json::from_str(&data).unwrap_or_default();
+                Ok(v.into_iter().collect())
+            }
+            Err(e) if e.kind() == ErrorKind::NotFound => Ok(HashSet::new()),
+            Err(e) => Err(anyhow!("Failed reading locked areas: {e}")),
+        }
+    }
+
+    async fn persist_locked_areas(&self) -> Result<()> {
+        let path = Path::new(&self.data_dir).join("locked_areas.json");
+        let mut list: Vec<String> = self.locked_areas.iter().cloned().collect();
+        list.sort();
+        let data = serde_json::to_string_pretty(&list)?;
+        fs::write(path, data).await?;
+        Ok(())
     }
 
     /// Return the base data directory path used by this storage instance
@@ -191,6 +229,11 @@ impl Storage {
     /// Store a new message
     pub async fn store_message(&mut self, area: &str, author: &str, content: &str) -> Result<String> {
         if self.locked_areas.contains(area) { return Err(anyhow!("Area locked")); }
+        if let Some((_, post_level)) = self.get_area_levels(area) {
+            // Determine author level (missing user defaults to 0/1?) default user level is 1 but config might use 0; use 0 baseline
+            let author_level = if let Some(user) = self.get_user(author).await? { user.user_level } else { 0 };
+            if author_level < post_level { return Err(anyhow!("Insufficient level to post")); }
+        }
         let message = Message {
             id: Uuid::new_v4().to_string(),
             area: area.to_string(),
@@ -218,12 +261,49 @@ impl Storage {
         Ok(false)
     }
 
+    /// Append a deletion audit entry (caller ensures deletion occurred)
+    pub async fn append_deletion_audit(&self, area: &str, id: &str, actor: &str) -> Result<()> {
+        let path = Path::new(&self.data_dir).join("deletion_audit.log");
+        let entry = DeletionAuditEntry { timestamp: Utc::now(), area: area.to_string(), id: id.to_string(), actor: actor.to_string() };
+        let line = serde_json::to_string(&entry)? + "\n";
+        use tokio::io::AsyncWriteExt;
+        let mut file = if path.exists() { tokio::fs::OpenOptions::new().append(true).open(&path).await? } else { tokio::fs::OpenOptions::new().create(true).write(true).append(true).open(&path).await? };
+        file.write_all(line.as_bytes()).await?;
+        Ok(())
+    }
+
+    /// Fetch a page of deletion audit entries (newest first). page is 1-based.
+    pub async fn get_deletion_audit_page(&self, page: usize, page_size: usize) -> Result<Vec<DeletionAuditEntry>> {
+        if page == 0 { return Ok(vec![]); }
+        let path = Path::new(&self.data_dir).join("deletion_audit.log");
+        if !path.exists() { return Ok(vec![]); }
+        let content = fs::read_to_string(path).await?;
+        let mut entries: Vec<DeletionAuditEntry> = content.lines().filter_map(|l| serde_json::from_str(l).ok()).collect();
+        // Newest first: original order is append older->newer; reverse
+        entries.reverse();
+        let start = (page - 1) * page_size;
+        if start >= entries.len() { return Ok(vec![]); }
+        let end = (start + page_size).min(entries.len());
+        Ok(entries[start..end].to_vec())
+    }
+
     /// Lock a message area (prevent posting)
     pub fn lock_area(&mut self, area: &str) { self.locked_areas.insert(area.to_string()); }
     /// Unlock a message area
     pub fn unlock_area(&mut self, area: &str) { self.locked_areas.remove(area); }
     /// Check if area locked
     pub fn is_area_locked(&self, area: &str) -> bool { self.locked_areas.contains(area) }
+
+        /// Lock area and persist
+        pub async fn lock_area_persist(&mut self, area: &str) -> Result<()> {
+            self.lock_area(area);
+            self.persist_locked_areas().await
+        }
+        /// Unlock area and persist
+        pub async fn unlock_area_persist(&mut self, area: &str) -> Result<()> {
+            self.unlock_area(area);
+            self.persist_locked_areas().await
+        }
 
     /// Get recent messages from an area
     pub async fn get_messages(&self, area: &str, limit: usize) -> Result<Vec<Message>> {

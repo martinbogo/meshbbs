@@ -2,6 +2,13 @@ use anyhow::Result;
 // use log::{debug}; // retained for future detailed command tracing
 
 use crate::storage::Storage;
+
+fn self_area_can_read(user_level: u8, area: &str, storage: &Storage) -> bool {
+    if let Some((r,_)) = storage.get_area_levels(area) { user_level >= r } else { true }
+}
+fn self_area_can_post(user_level: u8, area: &str, storage: &Storage) -> bool {
+    if let Some((_,p)) = storage.get_area_levels(area) { user_level >= p } else { true }
+}
 use super::session::{Session, SessionState};
 
 /// Processes BBS commands from users
@@ -35,6 +42,8 @@ impl CommandProcessor {
     async fn try_inline_message_command(&self, session: &mut Session, raw: &str, upper: &str, storage: &mut Storage) -> Result<Option<String>> {
         if upper.starts_with("READ") {
             let area = raw.split_whitespace().nth(1).unwrap_or("general").to_lowercase();
+            // Permission check
+            if !self_area_can_read(session.user_level, &area, storage) { return Ok(Some("Permission denied.\n>".into())); }
             session.current_area = Some(area.clone());
             let messages = storage.get_messages(&area, 10).await?;
             let mut response = format!("Messages in {}:\n", area);
@@ -47,6 +56,8 @@ impl CommandProcessor {
             let second = parts.next();
             let (area, text) = if let Some(s) = second { if let Some(rest) = parts.next() { (s.to_lowercase(), rest) } else { (session.current_area.clone().unwrap_or("general".into()), s) } } else { (session.current_area.clone().unwrap_or("general".into()), "") };
             if text.is_empty() { return Ok(Some("Usage: POST [area] <message>".into())); }
+            if storage.is_area_locked(&area) { return Ok(Some("Area locked.\n>".into())); }
+            if !self_area_can_post(session.user_level, &area, storage) { return Ok(Some("Permission denied.\n>".into())); }
             let author = session.display_name();
             storage.store_message(&area, &author, text).await?;
             return Ok(Some(format!("Posted to {}.\n>", area)));
@@ -54,7 +65,7 @@ impl CommandProcessor {
         if upper == "AREAS" || upper == "LIST" {
             let areas = storage.list_message_areas().await?;
             let mut response = "Areas:\n".to_string();
-            for a in areas { response.push_str(&format!("- {}\n", a)); }
+            for a in areas { if self_area_can_read(session.user_level, &a, storage) { response.push_str(&format!("- {}\n", a)); } }
             response.push_str(">\n");
             return Ok(Some(response));
         }
@@ -113,6 +124,7 @@ impl CommandProcessor {
                     if session.user_level >= 5 {
                         lines.push("DELETE <area> <id> - Delete a message");
                         lines.push("LOCK <area> / UNLOCK <area> - Control posting");
+                        lines.push("DELLOG [page] - View deletion audit log (page size 10)");
                     }
                     if session.user_level >= 10 { lines.push("PROMOTE <user> | DEMOTE <user> - Manage roles"); }
                 }

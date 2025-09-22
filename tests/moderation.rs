@@ -40,14 +40,14 @@ async fn lock_prevents_post_regular_allows_moderator() {
     server.test_register("bob", "Password123").await.unwrap();
     server.test_register("mod", "Password123").await.unwrap();
     server.test_update_level("mod", 5).await.unwrap();
-    server.moderator_lock_area("general", "mod");
+    server.moderator_lock_area("general", "mod").await.unwrap();
     // Regular user posting via storage directly should error due to lock
     let err = server.test_store_message("general", "bob", "Hi").await.err();
     assert!(err.is_some());
     // Moderator posts by temporarily unlocking, posting, re-locking (simulate command path which would check)
-    server.moderator_unlock_area("general", "mod");
+    server.moderator_unlock_area("general", "mod").await.unwrap();
     server.test_store_message("general", "mod", "Announcement").await.unwrap();
-    server.moderator_lock_area("general", "mod");
+    server.moderator_lock_area("general", "mod").await.unwrap();
     let msgs = server.test_get_messages("general", 10).await.unwrap();
     assert_eq!(msgs.len(), 1);
     assert_eq!(msgs[0].content, "Announcement");
