@@ -56,6 +56,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [0.6.0] - 2025-09-22
+
+### Added
+- Password-based authentication with Argon2id hashing (argon2 + password-hash crates)
+- `REGISTER <user> <pass>` direct message command to create new user accounts (node auto-bound)
+- Enhanced `LOGIN <user> [pass]` semantics: password required only if user has a password hash and is logging in from a new (unbound) node
+- Node binding persistence (first successful login/registration binds node id to user record)
+- `LOGOUT` direct command to end the session (binding retained for future passwordless login from same node)
+- Updated HELP and welcome messaging to guide new authentication flow
+
+### Changed
+- User schema: added `password_hash` (optional), `node_id` made optional; `access_level` internally renamed to `user_level` (serde alias preserves backward compatibility)
+- Direct session bootstrap no longer depends on prior public-channel LOGIN; users can immediately REGISTER or LOGIN via DM
+- HELP DM now references authentication commands
+
+### Fixed
+- Eliminated ambiguity where legacy LOGIN path accepted any username without credential checks (now gated by stored hash when present)
+
+### Migration Notes
+- Existing user JSON files (without `password_hash`) remain valid; those users can LOGIN without a password and become node-bound on first login
+- To enforce passwords for existing users, delete their JSON file and have them re-REGISTER, or implement a future SETPASS command
+
+### Security
+- Introduces hashed credential storage using Argon2 default parameters; no plaintext passwords stored
+
+
 ## [0.1.0] - 2025-09-21
 
 ### Added

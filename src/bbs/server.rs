@@ -1,6 +1,7 @@
 use anyhow::Result;
 use log::{info, warn, debug, trace};
 use tokio::time::sleep; // for short polling delay
+use tokio::time::{Instant, Duration};
 use tokio::sync::mpsc;
 use std::collections::HashMap;
 
@@ -21,6 +22,10 @@ pub struct BbsServer {
     message_tx: Option<mpsc::UnboundedSender<String>>,
     public_state: PublicState,
     public_parser: PublicCommandParser,
+    #[cfg(feature = "weather")]
+    weather_cache: Option<(Instant, String)>, // (fetched_at, value)
+    #[cfg(feature = "meshtastic-proto")]
+    pending_direct: Vec<(u32, String)>, // queue of (dest_node_id, message) awaiting our node id
 }
 
 impl BbsServer {
@@ -39,6 +44,10 @@ impl BbsServer {
                 std::time::Duration::from_secs(300)
             ),
             public_parser: PublicCommandParser::new(),
+            #[cfg(feature = "weather")]
+            weather_cache: None,
+            #[cfg(feature = "meshtastic-proto")]
+            pending_direct: Vec::new(),
         })
     }
 
@@ -58,9 +67,30 @@ impl BbsServer {
         
         let (tx, mut rx) = mpsc::unbounded_channel();
         self.message_tx = Some(tx);
+        // Heartbeat / want_config scheduling state (only meaningful with meshtastic-proto feature)
+        #[cfg(feature = "meshtastic-proto")] 
+        let mut last_hb = Instant::now();
+        #[cfg(feature = "meshtastic-proto")] 
+        let start_instant = Instant::now();
+        #[cfg(feature = "meshtastic-proto")] 
+    let ascii_lines: usize = 0; // count legacy ASCII summaries before binary detected
+        #[cfg(feature = "meshtastic-proto")] 
+        let mut ascii_warned = false;
         
         // Main message processing loop
         loop {
+            // Periodic handshake maintenance (heartbeat + want_config) prior to draining events to minimize latency
+            #[cfg(feature = "meshtastic-proto")]
+            if let Some(dev) = &mut self.device {
+                // Send heartbeat every 3s until initial sync complete, afterwards every ~30s (simple heuristic)
+                let hb_interval = if dev.is_config_complete() { Duration::from_secs(30) } else { Duration::from_secs(3) };
+                if last_hb.elapsed() >= hb_interval {
+                    if let Err(e) = dev.send_heartbeat() { debug!("heartbeat send error: {e:?}"); }
+                    last_hb = Instant::now();
+                }
+                // Always attempt want_config (function internally rate-limits and stops once complete)
+                if let Err(e) = dev.ensure_want_config() { debug!("ensure_want_config error: {e:?}"); }
+            }
             // First drain any text events outside the select to avoid borrowing self across await points in same branch.
             // Drain text events first collecting them to avoid holding device borrow across awaits
             #[cfg(feature = "meshtastic-proto")]
@@ -73,25 +103,36 @@ impl BbsServer {
             }
 
             tokio::select! {
-                // Handle incoming messages from Meshtastic
                 msg = self.receive_message() => {
-                    if let Ok(Some(summary)) = msg {
-                        debug!("Legacy summary: {}", summary);
-                    }
+                    if let Ok(Some(summary)) = msg { debug!("Legacy summary: {}", summary); }
                 }
-                // Handle internal messages
                 msg = rx.recv() => {
-                    if let Some(internal_msg) = msg {
-                        debug!("Processing internal message: {}", internal_msg);
+                    if let Some(internal_msg) = msg { debug!("Processing internal message: {}", internal_msg); }
+                }
+                _ = tokio::signal::ctrl_c() => { info!("Received shutdown signal"); break; }
+                _ = sleep(std::time::Duration::from_millis(25)) => {}
+            }
+            // After select loop iteration, evaluate ASCII-only heuristic warning
+            #[cfg(feature = "meshtastic-proto")] {
+                if let Some(dev) = &self.device {
+                    if !ascii_warned && !dev.binary_detected() && start_instant.elapsed() > Duration::from_secs(8) && ascii_lines > 15 {
+                        warn!("No protobuf binary frames detected after 8s ({} ASCII lines seen). Device may still be in text console mode. Ensure: meshtastic --set serial.enabled true --set serial.mode PROTO", ascii_lines);
+                        ascii_warned = true;
                     }
                 }
-                // Handle graceful shutdown
-                _ = tokio::signal::ctrl_c() => {
-                    info!("Received shutdown signal");
-                    break;
+                // Flush any queued direct messages once we have our node id (after processing events & reads)
+                if let Some(dev_mut) = &mut self.device {
+                    if dev_mut.our_node_id().is_some() && !self.pending_direct.is_empty() {
+                        let mut still_pending = Vec::new();
+                        for (dest, msg) in self.pending_direct.drain(..) {
+                            match dev_mut.send_text_packet(Some(dest), 0, &msg) {
+                                Ok(_) => debug!("Flushed pending DM to {dest}"),
+                                Err(e) => { warn!("Pending DM send to {dest} failed: {e:?}"); still_pending.push((dest, msg)); }
+                            }
+                        }
+                        self.pending_direct = still_pending;
+                    }
                 }
-                // Idle delay
-                _ = sleep(std::time::Duration::from_millis(25)) => {}
             }
         }
         
@@ -110,63 +151,103 @@ impl BbsServer {
         }
     }
 
-    /// Process an incoming message from the mesh network
-    async fn process_incoming_message(&mut self, message: String) -> Result<()> {
-        debug!("Processing incoming message: {}", message);
-        
-        // Parse message format: "FROM_NODE:MESSAGE_CONTENT"
-        if let Some((from_node, content)) = message.split_once(':') {
-            let session_id = from_node.to_string();
-            
-            // Get or create session for this node
-            if !self.sessions.contains_key(&session_id) {
-                let session = Session::new(session_id.clone(), from_node.to_string());
-                self.sessions.insert(session_id.clone(), session);
-                info!("New session created for node: {}", from_node);
-            }
-            
-            if let Some(session) = self.sessions.get_mut(&session_id) {
-                let response = session.process_command(content, &mut self.storage).await?;
-                
-                if !response.is_empty() {
-                    self.send_message(&session_id, &response).await?;
-                }
-            }
-        }
-        
-        Ok(())
-    }
 
     #[cfg(all(feature = "meshtastic-proto"))]
     #[cfg_attr(test, allow(dead_code))]
     pub async fn route_text_event(&mut self, ev: TextEvent) -> Result<()> {
         // Trace-log every text event for debugging purposes
-        trace!("TextEvent src={} direct={} channel={:?} content='{}'", ev.source, ev.is_direct, ev.channel, ev.content);
+    trace!("TextEvent BEGIN src={} direct={} channel={:?} content='{}'", ev.source, ev.is_direct, ev.channel, ev.content);
         // Source node id string form
         let node_key = ev.source.to_string();
         if ev.is_direct {
             // Direct (private) path: ensure session exists, finalize pending login if any
             if !self.sessions.contains_key(&node_key) {
+                trace!("Creating new session for direct node {}", node_key);
                 let mut session = Session::new(node_key.clone(), node_key.clone());
                 // If there was a pending login, apply username now
                 if let Some(username) = self.public_state.take_pending(&node_key) {
+                    trace!("Applying pending public login '{}' to new DM session {}", username, node_key);
                     session.login(username, 1).await?;
                 } else {
                     // Optionally send a small greeting expecting LOGIN if not logged in
-                    let _ = self.send_message(&node_key, "Welcome to MeshBBS (private). Type LOGIN <name> or HELP").await;
+                    let _ = self.send_message(&node_key, "Welcome to MeshBBS (private). Use REGISTER <name> <pass> to create an account or LOGIN <name> [pass]. Type HELP for basics.").await;
                 }
                 self.sessions.insert(node_key.clone(), session);
             }
             if let Some(session) = self.sessions.get_mut(&node_key) {
-                let content = ev.content.trim();
-                // Allow LOGIN inside DM (direct login path)
-                if content.to_uppercase().starts_with("LOGIN ") && !session.is_logged_in() {
-                    let username = content[6..].trim();
-                    if !username.is_empty() { session.login(username.to_string(), 1).await?; }
+                #[cfg(feature = "meshtastic-proto")]
+                if let (Some(dev), Ok(idnum)) = (&self.device, node_key.parse::<u32>()) {
+                    let (short, long) = dev.format_node_combined(idnum);
+                    session.update_labels(Some(short), Some(long));
                 }
-                // Process all content (including potential inline commands) through command processor
-                let response = session.process_command(content, &mut self.storage).await?;
-                if !response.is_empty() { self.send_message(&node_key, &response).await?; }
+                let content = ev.content.trim();
+                let upper = content.to_uppercase();
+                if upper.starts_with("REGISTER ") {
+                    // REGISTER <username> <password>
+                    let parts: Vec<&str> = content.split_whitespace().collect();
+                    if parts.len() < 3 { self.send_message(&node_key, "Usage: REGISTER <username> <password>\n>").await?; }
+                    else {
+                        let user = parts[1];
+                        let pass = parts[2];
+                        match self.storage.register_user(user, pass, Some(&node_key)).await {
+                            Ok(_) => {
+                                session.login(user.to_string(), 1).await?;
+                                self.send_message(&node_key, &format!("Registered and logged in as {}.\n>", user)).await?;
+                            }
+                            Err(e) => { self.send_message(&node_key, &format!("Register failed: {}\n>", e)).await?; }
+                        }
+                    }
+                } else if upper.starts_with("LOGIN ") {
+                    // LOGIN <username> [password]
+                    trace!("Direct LOGIN attempt from node {} raw='{}'", node_key, content);
+                    if session.is_logged_in() { self.send_message(&node_key, &format!("Already logged in as {}.\n>", session.display_name())).await?; }
+                    else {
+                        let parts: Vec<&str> = content.split_whitespace().collect();
+                        if parts.len() < 2 { self.send_message(&node_key, "Usage: LOGIN <username> [password]\n>").await?; }
+                        else {
+                            let user = parts[1];
+                            let password_opt = if parts.len() >= 3 { Some(parts[2]) } else { None };
+                            // Fetch user
+                            match self.storage.get_user(user).await? {
+                                None => { self.send_message(&node_key, "No such user. Use REGISTER <u> <p>.\n>").await?; }
+                                Some(u) => {
+                                    // Determine if password required
+                                    let needs_password = u.password_hash.is_some();
+                                    let node_bound = u.node_id.as_deref() == Some(&node_key);
+                                    if needs_password && !node_bound {
+                                        if password_opt.is_none() { self.send_message(&node_key, "Password required: LOGIN <user> <pass>\n>").await?; }
+                                        else {
+                                            let pass = password_opt.unwrap();
+                                            let (_maybe, ok) = self.storage.verify_user_password(user, pass).await?;
+                                            if !ok { self.send_message(&node_key, "Invalid password.\n>").await?; }
+                                            else {
+                                                let updated = if !node_bound { self.storage.bind_user_node(user, &node_key).await? } else { u };
+                                                session.login(updated.username.clone(), updated.user_level).await?;
+                                                self.send_message(&node_key, &format!("Welcome {}!\n>", updated.username)).await?;
+                                            }
+                                        }
+                                    } else {
+                                        // Either no password set or already bound to this node; allow login without password
+                                        let updated = if !node_bound { self.storage.bind_user_node(user, &node_key).await? } else { u };
+                                        session.login(updated.username.clone(), updated.user_level).await?;
+                                        self.send_message(&node_key, &format!("Welcome {}!\n>", updated.username)).await?;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else if upper == "LOGOUT" {
+                    if session.is_logged_in() {
+                        let name = session.display_name();
+                        session.logout().await?;
+                        self.send_message(&node_key, &format!("User {} logged out.\n>", name)).await?;
+                    } else { self.send_message(&node_key, "Not logged in.\n>").await?; }
+                } else {
+                    // Process all content (including potential inline commands) through command processor
+                    trace!("Processing direct command/session input from {} => '{}'", node_key, content);
+                    let response = session.process_command(content, &mut self.storage).await?;
+                    if !response.is_empty() { self.send_message(&node_key, &response).await?; }
+                }
             }
         } else {
             // Public channel event: parse lightweight commands
@@ -176,7 +257,45 @@ impl BbsServer {
             match cmd {
                 PublicCommand::Help => {
                     if self.public_state.should_reply(&node_key) {
-                        self.send_message(&node_key, "MeshBBS Public Help: LOGIN <name> to begin, then send me a direct message (DM) to continue.").await?;
+                        // Compose public notice and detailed DM help
+                        // Prefer a friendly node label (long name) if protobuf node catalog knows it
+                        #[cfg(feature = "meshtastic-proto")]
+                        let friendly = if let Some(dev) = &self.device { if let Ok(id) = node_key.parse::<u32>() { dev.format_node_short_label(id) } else { node_key.clone() } } else { node_key.clone() };
+                        #[cfg(not(feature = "meshtastic-proto"))]
+                        let friendly = node_key.clone();
+                        let public_notice = format!("[{}] - please check your DM's for {} help", friendly, self.config.bbs.name);
+                        #[cfg(feature = "meshtastic-proto")]
+                        {
+                            if let Some(dev) = &mut self.device {
+                                if let Err(e) = dev.send_text_packet(None, 0, &public_notice) { warn!("Public HELP broadcast failed: {e:?}"); }
+                            }
+                        }
+                        // Always attempt to DM help (direct reply) so user gets instructions
+                        let dm_help = "Help: LOGIN <name> to begin. After login via DM you can: LIST AREAS | READ <area> | POST <area>. Type HELP anytime.";
+                        let mut dm_ok = false;
+                        // Prefer direct protobuf send if device present
+                        #[cfg(feature = "meshtastic-proto")]
+                        if let Some(dev) = &mut self.device {
+                            if dev.our_node_id().is_some() {
+                                if let Err(e) = dev.send_text_packet(Some(ev.source), 0, dm_help) {
+                                    warn!("Direct DM help send failed via protobuf path: {e:?}");
+                                } else { dm_ok = true; }
+                            } else {
+                                // Queue until our node id known to ensure proper from field
+                                self.pending_direct.push((ev.source, dm_help.to_string()));
+                                debug!("Queued HELP DM for {} until our node id known", ev.source);
+                                dm_ok = true; // treat as handled (queued)
+                            }
+                        }
+                        if !dm_ok {
+                            if let Err(e) = self.send_message(&node_key, dm_help).await {
+                                warn!("Fallback DM help send failed: {e:?}");
+                            } else {
+                                debug!("Sent HELP DM to {} via fallback path", node_key);
+                            }
+                        } else {
+                            debug!("Sent HELP DM to {} via protobuf path", node_key);
+                        }
                     }
                 }
                 PublicCommand::Login(username) => {
@@ -184,6 +303,28 @@ impl BbsServer {
                         self.public_state.set_pending(&node_key, username.clone());
                         let reply = format!("Login pending for '{}'. Open a direct message to this node and say HI or LOGIN <name> again to complete.", username);
                         self.send_message(&node_key, &reply).await?;
+                    }
+                }
+                PublicCommand::Weather => {
+                    if self.public_state.should_reply(&node_key) {
+                        let weather = self.fetch_weather().await.unwrap_or_else(|| "Weather unavailable".to_string());
+                        // If protobuf feature active, broadcast to public (channel 0) so everyone sees it
+                        #[cfg(feature = "meshtastic-proto")]
+                        {
+                            if let Some(dev) = &mut self.device {
+                                match dev.send_text_packet(None, 0, &weather) {
+                                    Ok(_) => {
+                                        trace!("Broadcasted weather to public channel: '{}'", weather);
+                                        return Ok(()); // do not DM the requester
+                                    }
+                                    Err(e) => {
+                                        warn!("Weather broadcast failed: {e:?}");
+                                    }
+                                }
+                            }
+                        }
+                        // If we reach here (no meshtastic-proto or no device / broadcast failed), do nothing further.
+                        // Intentionally NOT sending a private message; user requirement: only public channel output.
                     }
                 }
                 PublicCommand::Invalid(reason) => {
@@ -209,6 +350,54 @@ impl BbsServer {
             warn!("No device connected, cannot send message");
         }
         Ok(())
+    }
+
+    #[allow(unused)]
+    #[cfg(feature = "weather")]
+    async fn fetch_weather(&mut self) -> Option<String> {
+        use tokio::time::timeout;
+        const TTL: Duration = Duration::from_secs(15 * 60); // 15 minutes
+        // If we have a fresh cached value, return it immediately
+        if let Some((ts, val)) = &self.weather_cache {
+            if ts.elapsed() < TTL { return Some(val.clone()); }
+        }
+        // Attempt refresh
+        let zipcode = self.config.bbs.zipcode.trim();
+        let url = format!("https://wttr.in/{}?format=%l:+%C+%t", zipcode);
+        trace!("Fetching weather from {} (refresh)", url);
+        let fut = async {
+            let client = reqwest::Client::new();
+            match client.get(&url).send().await {
+                Ok(resp) => {
+                    if !resp.status().is_success() { return None; }
+                    match resp.text().await { Ok(txt) => Some(Self::sanitize_weather(&txt)), Err(_) => None }
+                },
+                Err(e) => { debug!("weather fetch error: {e:?}"); None }
+            }
+        };
+        let result = match timeout(Duration::from_secs(4), fut).await { Ok(v) => v, Err(_) => None };
+        match result {
+            Some(v) => { self.weather_cache = Some((Instant::now(), v.clone())); Some(v) },
+            None => {
+                // If refresh failed but we have a stale cached value, reuse it
+                if let Some((_, val)) = &self.weather_cache { return Some(val.clone()); }
+                None
+            }
+        }
+    }
+
+    #[allow(unused)]
+    #[cfg(not(feature = "weather"))]
+    async fn fetch_weather(&mut self) -> Option<String> { None }
+
+    fn sanitize_weather(raw: &str) -> String {
+        let mut out = String::new();
+        for ch in raw.chars() {
+            if ch == '\n' { break; }
+            if ch.is_ascii() && !ch.is_control() { out.push(ch); }
+        }
+        let trimmed = out.trim();
+        if trimmed.is_empty() { "Weather unavailable".to_string() } else { format!("Weather: {}", trimmed) }
     }
 
     /// Show BBS status and statistics

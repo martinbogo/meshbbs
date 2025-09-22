@@ -1,6 +1,6 @@
 [package]
 name = "meshbbs"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
 authors = ["Martin Bogomolni <martinbogo@gmail.com>"]
 description = "A Bulletin Board System (BBS) for Meshtastic mesh networks"
@@ -22,6 +22,8 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 toml = "0.8"
 rand = { version = "0.8", default-features = true }
+argon2 = { version = "0.5", default-features = false, features = ["std"] }
+password-hash = "0.5"
 
 # Logging
 log = "0.4"
