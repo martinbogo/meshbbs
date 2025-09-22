@@ -33,8 +33,7 @@ pub struct BbsServer {
     weather_cache: Option<(Instant, String)>, // (fetched_at, value)
     #[cfg(feature = "meshtastic-proto")]
     pending_direct: Vec<(u32, String)>, // queue of (dest_node_id, message) awaiting our node id
-    #[cfg(test)]
-    pub(crate) test_messages: Vec<(String,String)>, // (to, message)
+    pub(crate) test_messages: Vec<(String,String)>, // (to, message) - always enabled for observability
     // Track the last login banner for test assertions only.
     #[cfg(any(test, feature = "meshtastic-proto"))]
     last_banner: Option<String>,
@@ -85,7 +84,6 @@ impl BbsServer {
             weather_cache: None,
             #[cfg(feature = "meshtastic-proto")]
             pending_direct: Vec::new(),
-            #[cfg(test)]
             test_messages: Vec::new(),
             #[cfg(any(test, feature = "meshtastic-proto"))]
             last_banner: None,
@@ -212,6 +210,7 @@ impl BbsServer {
     #[cfg(any(test, feature = "meshtastic-proto"))]
     #[allow(dead_code)]
     pub fn last_banner(&self) -> Option<&String> { self.last_banner.as_ref() }
+    pub fn test_messages(&self) -> &Vec<(String,String)> { &self.test_messages }
 
         fn build_banner(&self) -> String {
             let mut banner = format!("{}\n{}", self.config.bbs.welcome_message, self.config.bbs.description);
@@ -229,6 +228,17 @@ impl BbsServer {
             { self.last_banner = Some(banner.clone()); }
             if unread > 0 { banner.push_str(&format!("{} new messages since your last login.\n", unread)); }
             banner
+        }
+        /// Format the unread summary line according to spec.
+        /// When unread == 0 -> "There are no new messages.\n"
+        /// When unread == 1 -> "1 new message since your last login.\n"
+        /// When unread > 1 -> "<n> new messages since your last login.\n"
+        fn format_unread_line(unread: u32) -> String {
+            match unread {
+                0 => "There are no new messages.\n".to_string(),
+                1 => "1 new message since your last login.\n".to_string(),
+                n => format!("{} new messages since your last login.\n", n)
+            }
         }
 
     /// Ensure sysop user exists / synchronized with config (extracted for testability)
@@ -350,11 +360,12 @@ impl BbsServer {
                             let prev_last = user_before.last_login;
                             let unread = self.storage.count_messages_since(prev_last).await.unwrap_or(0);
                             let _ = self.storage.record_user_login(&username).await; // update last_login
-                            let banner = self.prepare_login_banner(unread);
-                            let _ = self.send_message(&node_key, &format!("{}>", banner)).await;
+                            let summary = Self::format_unread_line(unread);
+                            let _ = self.send_message(&node_key, &format!("Welcome, {} you are now logged in.\n{}>", username, summary)).await;
                         } else {
-                            let banner = self.prepare_login_banner(0);
-                            let _ = self.send_message(&node_key, &format!("{}>", banner)).await;
+                            // New user case shouldn't normally happen here, fallback to zero unread
+                            let summary = Self::format_unread_line(0);
+                            let _ = self.send_message(&node_key, &format!("Welcome, {} you are now logged in.\n{}>", username, summary)).await;
                         }
                     }
                 } else {
@@ -393,7 +404,7 @@ impl BbsServer {
                             if pass.len() < 4 { deferred_reply = Some("Password too short (min 4).\n>".into()); }
                             else {
                                 match self.storage.register_user(user, pass, Some(&node_key)).await {
-                                    Ok(_) => { session.login(user.to_string(), 1).await?; deferred_reply = Some(format!("Registered and logged in as {}.\nWelcome, {} you are now logged in.\n>", user, user)); }
+                                    Ok(_) => { session.login(user.to_string(), 1).await?; let summary = Self::format_unread_line(0); deferred_reply = Some(format!("Registered and logged in as {}.\nWelcome, {} you are now logged in.\n{}>", user, user, summary)); }
                                     Err(e) => { deferred_reply = Some(format!("Register failed: {}\n>", e)); }
                                 }
                             }
@@ -427,8 +438,8 @@ impl BbsServer {
                                                     // set_user_password already bumped last_login, so computing unread would yield zero. This is acceptable; show none.
                                                     let _ = self.storage.record_user_login(user).await; // ensure fresh timestamp after full login
                                                     // No unread count expected here (legacy first login)
-                                                    let banner = self.prepare_login_banner(0);
-                                                    deferred_reply = Some(format!("Password set. {}Welcome, {} you are now logged in.\n>", banner, updated.username));
+                                                    let summary = Self::format_unread_line(0); // first login after setting password shows no unread
+                                                    deferred_reply = Some(format!("Password set. Welcome, {} you are now logged in.\n{}>", updated.username, summary));
                                                 }
                                             } else {
                                                 deferred_reply = Some("Password not set. LOGIN <user> <newpass> to set your password.\n>".into());
@@ -446,8 +457,8 @@ impl BbsServer {
                                                     let prev_last = updated.last_login; // captured before we update last_login again
                                                     let unread = self.storage.count_messages_since(prev_last).await.unwrap_or(0);
                                                     let updated2 = self.storage.record_user_login(user).await.unwrap_or(updated);
-                                                    let banner = self.prepare_login_banner(unread);
-                                                    deferred_reply = Some(format!("{}Welcome, {} you are now logged in.\n>", banner, updated2.username));
+                                                    let summary = Self::format_unread_line(unread);
+                                                    deferred_reply = Some(format!("Welcome, {} you are now logged in.\n{}>", updated2.username, summary));
                                                 }
                                             }
                                         }
@@ -728,7 +739,6 @@ impl BbsServer {
         } else {
             warn!("No device connected, cannot send message");
         }
-        #[cfg(test)]
         self.test_messages.push((to_node.to_string(), message.to_string()));
         Ok(())
     }

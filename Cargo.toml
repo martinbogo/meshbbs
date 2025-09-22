@@ -76,7 +76,9 @@ name = "meshbbs"
 path = "src/main.rs"
 
 [profile.release]
+incremental = false
+strip = "symbols"
 opt-level = 3
-lto = true
-codegen-units = 1
+lto = "thin"
+codegen-units = 4
 panic = "abort"

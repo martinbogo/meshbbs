@@ -19,10 +19,15 @@ async fn welcome_message_sent_on_login() {
     let dm_login = TextEvent { source: 42, dest: Some(99), is_direct: true, channel: None, content: "LOGIN alice".into() };
     server.route_text_event(dm_login).await.expect("dm login");
 
-    // Assert that a banner was sent containing both custom line and description (clamped logic already elsewhere)
-    // test_messages collects (to, message) pairs
-    let description = Config::default().bbs.description;
-    let banner = server.last_banner().expect("banner recorded");
-    assert!(banner.contains("Custom Banner Line"), "banner missing custom line: {banner}");
-    assert!(banner.contains(&description), "banner missing description: {banner}");
+    // New behavior: pending public login finalization should NOT send the full banner, only the welcome + unread summary.
+    // Find the message sent to node "42" that contains welcome line.
+    let mut found = false;
+    for (_to, msg) in server.test_messages() {
+        if msg.contains("Welcome, alice you are now logged in.") {
+            // Should also contain unread summary line (no new messages for new user)
+            assert!(msg.contains("There are no new messages."), "login response missing unread summary: {msg}");
+            found = true;
+        }
+    }
+    assert!(found, "Did not find login welcome message in test_messages");
 }
