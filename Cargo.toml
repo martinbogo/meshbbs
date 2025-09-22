@@ -1,6 +1,6 @@
 [package]
 name = "meshbbs"
-version = "0.1.0"
+version = "0.5.0"
 edition = "2021"
 authors = ["Martin Bogomolni <martinbogo@gmail.com>"]
 description = "A Bulletin Board System (BBS) for Meshtastic mesh networks"
@@ -49,16 +49,19 @@ prost = { version = "0.12", optional = true }
 prost-types = { version = "0.12", optional = true }
 bytes = { version = "1.5", optional = true }
 unsigned-varint = { version = "0.7", default-features = false }
+reqwest = { version = "0.11", optional = true, default-features = false, features = ["rustls-tls"] }
 
 [build-dependencies]
 prost-build = { version = "0.12" }
 
 [features]
-default = ["serial"]
+# Enable major functional features by default (serial IO, web server, protobuf, weather, extra API re-exports)
+default = ["serial", "web", "meshtastic-proto", "weather", "api-reexports"]
 serial = ["dep:serialport"]
 web = ["dep:axum", "dep:tower"]
 meshtastic-proto = ["dep:prost", "dep:prost-types", "dep:bytes"]
-proto-silence = [] # Suppress warnings from generated protobuf surface when combined with meshtastic-proto
+weather = ["dep:reqwest"]
+api-reexports = [] # Export internal types (Session, CommandProcessor, PublicState, PublicCommandParser)
 
 [dev-dependencies]
 # Testing utilities
