@@ -182,55 +182,57 @@ impl BbsServer {
                 }
                 let content = ev.content.trim();
                 let upper = content.to_uppercase();
+                // We'll accumulate an optional immediate reply to send after we release the session borrow
+                let mut deferred_reply: Option<String> = None;
                 if upper.starts_with("REGISTER ") {
                     // REGISTER <username> <password>
                     let parts: Vec<&str> = content.split_whitespace().collect();
-                    if parts.len() < 3 { self.send_message(&node_key, "Usage: REGISTER <username> <password>\n>").await?; }
+                    if parts.len() < 3 { deferred_reply = Some("Usage: REGISTER <username> <password>\n>".to_string()); }
                     else {
                         let user = parts[1];
                         let pass = parts[2];
                         match self.storage.register_user(user, pass, Some(&node_key)).await {
                             Ok(_) => {
                                 session.login(user.to_string(), 1).await?;
-                                self.send_message(&node_key, &format!("Registered and logged in as {}.\n>", user)).await?;
+                                deferred_reply = Some(format!("Registered and logged in as {}.\n>", user));
                             }
-                            Err(e) => { self.send_message(&node_key, &format!("Register failed: {}\n>", e)).await?; }
+                            Err(e) => { deferred_reply = Some(format!("Register failed: {}\n>", e)); }
                         }
                     }
                 } else if upper.starts_with("LOGIN ") {
                     // LOGIN <username> [password]
                     trace!("Direct LOGIN attempt from node {} raw='{}'", node_key, content);
-                    if session.is_logged_in() { self.send_message(&node_key, &format!("Already logged in as {}.\n>", session.display_name())).await?; }
+                    if session.is_logged_in() { deferred_reply = Some(format!("Already logged in as {}.\n>", session.display_name())); }
                     else {
                         let parts: Vec<&str> = content.split_whitespace().collect();
-                        if parts.len() < 2 { self.send_message(&node_key, "Usage: LOGIN <username> [password]\n>").await?; }
+                        if parts.len() < 2 { deferred_reply = Some("Usage: LOGIN <username> [password]\n>".to_string()); }
                         else {
                             let user = parts[1];
                             let password_opt = if parts.len() >= 3 { Some(parts[2]) } else { None };
                             // Fetch user
                             match self.storage.get_user(user).await? {
-                                None => { self.send_message(&node_key, "No such user. Use REGISTER <u> <p>.\n>").await?; }
+                                None => { deferred_reply = Some("No such user. Use REGISTER <u> <p>.\n>".to_string()); }
                                 Some(u) => {
                                     // Determine if password required
                                     let needs_password = u.password_hash.is_some();
                                     let node_bound = u.node_id.as_deref() == Some(&node_key);
                                     if needs_password && !node_bound {
-                                        if password_opt.is_none() { self.send_message(&node_key, "Password required: LOGIN <user> <pass>\n>").await?; }
+                                        if password_opt.is_none() { deferred_reply = Some("Password required: LOGIN <user> <pass>\n>".to_string()); }
                                         else {
                                             let pass = password_opt.unwrap();
                                             let (_maybe, ok) = self.storage.verify_user_password(user, pass).await?;
-                                            if !ok { self.send_message(&node_key, "Invalid password.\n>").await?; }
+                                            if !ok { deferred_reply = Some("Invalid password.\n>".to_string()); }
                                             else {
                                                 let updated = if !node_bound { self.storage.bind_user_node(user, &node_key).await? } else { u };
                                                 session.login(updated.username.clone(), updated.user_level).await?;
-                                                self.send_message(&node_key, &format!("Welcome {}!\n>", updated.username)).await?;
+                                                deferred_reply = Some(format!("Welcome {}!\n>", updated.username));
                                             }
                                         }
                                     } else {
                                         // Either no password set or already bound to this node; allow login without password
                                         let updated = if !node_bound { self.storage.bind_user_node(user, &node_key).await? } else { u };
                                         session.login(updated.username.clone(), updated.user_level).await?;
-                                        self.send_message(&node_key, &format!("Welcome {}!\n>", updated.username)).await?;
+                                        deferred_reply = Some(format!("Welcome {}!\n>", updated.username));
                                     }
                                 }
                             }
@@ -240,14 +242,17 @@ impl BbsServer {
                     if session.is_logged_in() {
                         let name = session.display_name();
                         session.logout().await?;
-                        self.send_message(&node_key, &format!("User {} logged out.\n>", name)).await?;
-                    } else { self.send_message(&node_key, "Not logged in.\n>").await?; }
+                        deferred_reply = Some(format!("User {} logged out.\n>", name));
+                    } else { deferred_reply = Some("Not logged in.\n>".to_string()); }
                 } else {
                     // Process all content (including potential inline commands) through command processor
                     trace!("Processing direct command/session input from {} => '{}'", node_key, content);
                     let response = session.process_command(content, &mut self.storage).await?;
-                    if !response.is_empty() { self.send_message(&node_key, &response).await?; }
+                    if !response.is_empty() { deferred_reply = Some(response); }
                 }
+                // End of session mutable borrow scope; now send any deferred reply
+                drop(session);
+                if let Some(msg) = deferred_reply { self.send_message(&node_key, &msg).await?; }
             }
         } else {
             // Public channel event: parse lightweight commands
@@ -308,23 +313,28 @@ impl BbsServer {
                 PublicCommand::Weather => {
                     if self.public_state.should_reply(&node_key) {
                         let weather = self.fetch_weather().await.unwrap_or_else(|| "Weather unavailable".to_string());
-                        // If protobuf feature active, broadcast to public (channel 0) so everyone sees it
+                        let mut broadcasted = false;
                         #[cfg(feature = "meshtastic-proto")]
                         {
                             if let Some(dev) = &mut self.device {
                                 match dev.send_text_packet(None, 0, &weather) {
                                     Ok(_) => {
                                         trace!("Broadcasted weather to public channel: '{}'", weather);
-                                        return Ok(()); // do not DM the requester
+                                        broadcasted = true;
                                     }
                                     Err(e) => {
-                                        warn!("Weather broadcast failed: {e:?}");
+                                        warn!("Weather broadcast failed: {e:?} (will fallback DM)");
                                     }
                                 }
+                            } else {
+                                debug!("No device connected; cannot broadcast weather, will fallback DM");
                             }
                         }
-                        // If we reach here (no meshtastic-proto or no device / broadcast failed), do nothing further.
-                        // Intentionally NOT sending a private message; user requirement: only public channel output.
+                        if !broadcasted {
+                            // Fallback: send as direct message so user gets feedback instead of silence
+                            let reply = format!("Weather: {}", weather);
+                            if let Err(e) = self.send_message(&node_key, &reply).await { warn!("Weather DM fallback failed: {e:?}"); }
+                        }
                     }
                 }
                 PublicCommand::Invalid(reason) => {
