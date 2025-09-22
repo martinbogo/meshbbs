@@ -355,7 +355,10 @@ impl BbsServer {
                         }
                     }
                 } else {
-                    let _ = self.send_message(&node_key, "Welcome to MeshBBS. Use REGISTER <name> <pass> to create an account or LOGIN <name> <pass>. Type HELP for basics.").await;
+                    // Show full banner even before authentication to ensure consistent experience
+                    let banner = self.prepare_login_banner(0);
+                    let guidance = "Use REGISTER <name> <pass> to create an account or LOGIN <name> <pass>. Type HELP for basics.";
+                    let _ = self.send_message(&node_key, &format!("{}{}\n>", banner, guidance)).await;
                 }
                 self.sessions.insert(node_key.clone(), session);
             }
