@@ -1,5 +1,5 @@
 use anyhow::Result;
-use log::{info, warn, error}; // error may be used in feature-gated SmokeTest; keep warn & info
+use log::{info, warn};
 use clap::{Parser, Subcommand};
 
 mod bbs;

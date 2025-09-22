@@ -1,6 +1,6 @@
 [package]
 name = "meshbbs"
-version = "0.8.0"
+version = "0.8.10"
 edition = "2021"
 authors = ["Martin Bogomolni <martinbogo@gmail.com>"]
 description = "A Bulletin Board System (BBS) for Meshtastic mesh networks"
@@ -59,7 +59,7 @@ prost-build = { version = "0.12" }
 
 [features]
 # Enable major functional features by default (serial IO, web server, protobuf, weather, extra API re-exports)
-default = ["serial", "web", "meshtastic-proto", "weather", "api-reexports"]
+default = ["serial", "meshtastic-proto", "weather", "api-reexports"]
 serial = ["dep:serialport"]
 web = ["dep:axum", "dep:tower"]
 meshtastic-proto = ["dep:prost", "dep:prost-types", "dep:bytes"]

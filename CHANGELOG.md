@@ -11,6 +11,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Hard enforcement: messages larger than 230 bytes are rejected (config values above 230 are clamped).
 
+## [0.8.10] - 2025-09-22
+### Added
+- `bbs.session_timeout` configuration with idle session pruning (auto logout after inactivity).
+- `bbs.max_users` enforcement blocking additional logins when capacity reached.
+- `bbs.welcome_message` now appended with `bbs.description` on successful login (combined banner clamped to 230 bytes).
+- Tests for session limits and welcome banner.
+
+### Changed
+- Login banner now includes BBS description line.
+- Removed deprecated web configuration section from `config.toml` and default feature list.
+- Modernized chrono usage in tests (replaced deprecated `timestamp_nanos`).
+- Reduced unnecessary imports and cleaned warnings.
+
+### Removed
+- `WebConfig` struct and `[web]` section (feature deferred); `web` feature no longer enabled by default.
+
+### Fixed
+- Auto-login path now respects `max_users` capacity.
+- Minor borrow checker and initialization issues from prior refactor.
+
+### Migration Notes
+- Remove any `[web]` section from existing `config.toml` (ignored if present).
+- Add new fields to your `[bbs]` section if upgrading: `max_users`, `session_timeout`, `welcome_message`, `description` (if not already present). Existing installs should regenerate or manually merge.
+
 ## [0.8.0] - 2025-09-22
 - Security: Added configurable Argon2 password hashing parameters (memory_kib, time_cost, parallelism) under [security.argon2] in config.
 - Security: Introduced dedicated security log target duplication to optional `logging.security_file` with PROMOTE/DEMOTE and password related events.

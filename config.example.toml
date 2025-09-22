@@ -8,6 +8,7 @@ location = "Your Location"
 zipcode = "97210"
 description = "A bulletin board system for mesh networks"
 max_users = 100
+session_timeout = 10 # minutes of inactivity before automatic logout
 welcome_message = "Welcome to MeshBBS! Type HELP for commands."
 
 [meshtastic]

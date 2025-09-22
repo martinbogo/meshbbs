@@ -1,7 +1,6 @@
 #![cfg(feature = "meshtastic-proto")]
 use meshbbs::bbs::{BbsServer};
 use meshbbs::config::Config;
-use meshbbs::storage::Storage; // for type references (ensuring feature compile)
 
 // NOTE: This is a high-level logical integration skeleton. In the absence of a real MeshtasticDevice
 // mock layer in the codebase, we simulate the public -> DM flow by directly invoking internal

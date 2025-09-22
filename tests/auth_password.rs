@@ -1,6 +1,5 @@
 use meshbbs::storage::Storage;
 use tokio::runtime::Runtime;
-use std::fs;
 
 #[test]
 fn password_set_and_change() {

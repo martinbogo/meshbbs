@@ -19,7 +19,10 @@ async fn welcome_message_sent_on_login() {
     let dm_login = TextEvent { source: 42, dest: Some(99), is_direct: true, channel: None, content: "LOGIN alice".into() };
     server.route_text_event(dm_login).await.expect("dm login");
 
-    // We currently have no direct capture of outbound messages in tests; to validate integration we'd need
-    // to expose a hook or log. For now this test ensures no panic and path executes. Future enhancement
-    // could wrap send_message to record last banner for assertion.
+    // Assert that a banner was sent containing both custom line and description (clamped logic already elsewhere)
+    // test_messages collects (to, message) pairs
+    let description = Config::default().bbs.description;
+    let banner = server.last_banner().expect("banner recorded");
+    assert!(banner.contains("Custom Banner Line"), "banner missing custom line: {banner}");
+    assert!(banner.contains(&description), "banner missing description: {banner}");
 }

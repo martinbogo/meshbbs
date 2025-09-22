@@ -14,7 +14,6 @@ MeshBBS brings the classic BBS experience to modern mesh networks, allowing user
 - 👥 **User Management**: User accounts, roles (User, Moderator, Sysop)
 - 🔐 **Security**: Argon2id password hashing, configurable parameters, sysop immutability
 - 📊 **Statistics**: Network and usage statistics
-- 🌐 **Web Interface**: Optional web-based administration panel
 - ⚡ **Async Design**: Built with Tokio for high performance
 - 🛎️ **Public Discovery + DM Sessions**: Low-noise public channel handshake (HELP / LOGIN) leading to authenticated Direct Message sessions
 - 🧷 **Persistent Area Locks**: Moderators can LOCK / UNLOCK areas; state survives restarts
@@ -61,21 +60,33 @@ The BBS is configured via a `config.toml` file. Run `meshbbs init` to create a d
 name = "MeshBBS Station"
 sysop = "Your Name"
 location = "Your Location"
-max_users = 100
+zipcode = "97210"
+description = "A bulletin board system for mesh networks"
+max_users = 100             # Hard cap on concurrent logged-in sessions
+session_timeout = 10        # Minutes of inactivity before auto-logout
+welcome_message = "Welcome to MeshBBS! Type HELP for commands." # Shown on login then description appended
 
 [meshtastic]
 port = "/dev/ttyUSB0"
 baud_rate = 115200
-node_id = "your_node_id"
+node_id = ""
+channel = 0
 
 [storage]
 data_dir = "./data"
-max_message_size = 230 # Protocol hard cap; values above 230 are clamped
+max_message_size = 230        # Protocol hard cap; higher values are clamped
 message_retention_days = 30
+max_messages_per_area = 1000
 
-[web]
-enabled = false
-bind_address = "127.0.0.1:8080"
+[message_areas.general]
+name = "General Discussion"
+description = "General chat and discussion"
+read_level = 0
+post_level = 0
+
+[logging]
+level = "info"
+file = "meshbbs.log"
 ```
 
 ## Usage
@@ -176,7 +187,7 @@ MeshBBS is built with a modular architecture:
 	- Parses protobuf frames (when `meshtastic-proto` is enabled) and emits structured `TextEvent` items consumed by the BBS routing logic (public vs DM).
 - **`storage/`**: Message and file storage subsystem
 - **`config/`**: Configuration management
-- **`web/`** (optional): Web administration interface
+	(Web interface support was removed in 0.8.10; configuration stubs and default feature were dropped.)
 
 ## Development
 
@@ -201,14 +212,12 @@ RUST_LOG=debug cargo run -- start
 The project uses Cargo features to enable optional functionality:
 
 - `serial` (default): Serial port communication with Meshtastic devices
-- `web`: Web interface for administration
- - `meshtastic-proto`: Enable protobuf parsing of native Meshtastic packets (requires Meshtastic .proto files)
+- `meshtastic-proto` (default): Enable protobuf parsing of native Meshtastic packets
+- `weather` (default): Enable weather lookup (uses zipcode + wttr.in)
+- `api-reexports` (default): Re-export internal types for downstream crates
 
 ```bash
-# Build with web interface
-cargo build --features web
-
-# Build minimal version without serial support
+# Build minimal version without serial & protobuf
 cargo build --no-default-features
 
 # Build with Meshtastic protobuf parsing (placeholder proto)

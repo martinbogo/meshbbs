@@ -6,17 +6,6 @@ use std::collections::HashMap;
 use tokio::fs;
 
 /// Main configuration structure
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Config {
-    pub bbs: BbsConfig,
-    pub meshtastic: MeshtasticConfig,
-    pub storage: StorageConfig,
-    pub message_areas: HashMap<String, MessageAreaConfig>,
-    pub web: WebConfig,
-    pub logging: LoggingConfig,
-    #[serde(default)]
-    pub security: SecurityConfig,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BbsConfig {
@@ -26,9 +15,20 @@ pub struct BbsConfig {
     pub zipcode: String,
     pub description: String,
     pub max_users: u32,
+    pub session_timeout: u32, // minutes
     pub welcome_message: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sysop_password_hash: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Config {
+    pub bbs: BbsConfig,
+    pub meshtastic: MeshtasticConfig,
+    pub storage: StorageConfig,
+    pub message_areas: HashMap<String, MessageAreaConfig>,
+    pub logging: LoggingConfig,
+    pub security: Option<SecurityConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -53,15 +53,6 @@ pub struct MessageAreaConfig {
     pub description: String,
     pub read_level: u8,
     pub post_level: u8,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WebConfig {
-    pub enabled: bool,
-    pub bind_address: String,
-    pub port: u16,
-    pub admin_username: String,
-    pub admin_password: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -146,6 +137,7 @@ impl Default for Config {
                 zipcode: "97210".to_string(),
                 description: "A bulletin board system for mesh networks".to_string(),
                 max_users: 100,
+                session_timeout: 10,
                 welcome_message: "Welcome to MeshBBS! Type HELP for commands.".to_string(),
                 sysop_password_hash: None,
             },
@@ -162,19 +154,12 @@ impl Default for Config {
                 max_messages_per_area: 1000,
             },
             message_areas,
-            web: WebConfig {
-                enabled: false,
-                bind_address: "127.0.0.1".to_string(),
-                port: 8080,
-                admin_username: "admin".to_string(),
-                admin_password: "changeme".to_string(),
-            },
             logging: LoggingConfig {
                 level: "info".to_string(),
                 file: Some("meshbbs.log".to_string()),
                 security_file: Some("meshbbs-security.log".to_string()),
             },
-            security: SecurityConfig::default(),
+            security: Some(SecurityConfig::default()),
         }
     }
 }
