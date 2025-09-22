@@ -19,12 +19,12 @@ struct Cli {
     #[command(subcommand)]
     command: Commands,
     
-    /// Configuration file path
-    #[arg(short, long, default_value = "config.toml")]
+    /// Configuration file path (can be used before or after subcommand)
+    #[arg(short, long, default_value = "config.toml", global = true)]
     config: String,
     
-    /// Verbose logging
-    #[arg(short, long, action = clap::ArgAction::Count)]
+    /// Verbose logging (-v, -vv for more; may appear before or after subcommand)
+    #[arg(short, long, action = clap::ArgAction::Count, global = true)]
     verbose: u8,
 }
 

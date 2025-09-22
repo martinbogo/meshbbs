@@ -5,7 +5,9 @@ use tokio::sync::mpsc;
 use std::collections::HashMap;
 
 use crate::config::Config;
-use crate::meshtastic::{MeshtasticDevice, TextEvent};
+use crate::meshtastic::MeshtasticDevice;
+#[cfg(feature = "meshtastic-proto")]
+use crate::meshtastic::TextEvent;
 use crate::storage::Storage;
 use super::session::Session;
 use super::public::{PublicState, PublicCommandParser, PublicCommand};
@@ -61,11 +63,14 @@ impl BbsServer {
         loop {
             // First drain any text events outside the select to avoid borrowing self across await points in same branch.
             // Drain text events first collecting them to avoid holding device borrow across awaits
-            let mut drained_events = Vec::new();
-            if let Some(dev) = &mut self.device {
-                while let Some(ev) = dev.next_text_event() { drained_events.push(ev); }
+            #[cfg(feature = "meshtastic-proto")]
+            {
+                let mut drained_events = Vec::new();
+                if let Some(dev) = &mut self.device {
+                    while let Some(ev) = dev.next_text_event() { drained_events.push(ev); }
+                }
+                for ev in drained_events { if let Err(e) = self.route_text_event(ev).await { warn!("route_text_event error: {e:?}"); } }
             }
-            for ev in drained_events { if let Err(e) = self.route_text_event(ev).await { warn!("route_text_event error: {e:?}"); } }
 
             tokio::select! {
                 // Handle incoming messages from Meshtastic
@@ -132,6 +137,7 @@ impl BbsServer {
         Ok(())
     }
 
+    #[cfg(all(feature = "meshtastic-proto"))]
     #[cfg_attr(test, allow(dead_code))]
     pub async fn route_text_event(&mut self, ev: TextEvent) -> Result<()> {
         // Trace-log every text event for debugging purposes
