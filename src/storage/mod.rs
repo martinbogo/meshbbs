@@ -503,34 +503,4 @@ impl Storage {
         })
     }
 
-    /// Clean up old messages based on retention policy
-    pub async fn cleanup_old_messages(&mut self, retention_days: u32) -> Result<u32> {
-        let cutoff_date = Utc::now() - chrono::Duration::days(retention_days as i64);
-        let mut deleted_count = 0;
-        
-        let messages_dir = Path::new(&self.data_dir).join("messages");
-        if !messages_dir.exists() {
-            return Ok(0);
-        }
-        
-        let mut area_entries = fs::read_dir(&messages_dir).await?;
-        while let Some(area_entry) = area_entries.next_entry().await? {
-            if area_entry.file_type().await?.is_dir() {
-                let mut message_entries = fs::read_dir(area_entry.path()).await?;
-                while let Some(message_entry) = message_entries.next_entry().await? {
-                    if message_entry.path().extension().and_then(|s| s.to_str()) == Some("json") {
-                        let content = fs::read_to_string(message_entry.path()).await?;
-                        if let Ok(message) = serde_json::from_str::<Message>(&content) {
-                            if message.timestamp < cutoff_date {
-                                fs::remove_file(message_entry.path()).await?;
-                                deleted_count += 1;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
-        Ok(deleted_count)
-    }
 }
