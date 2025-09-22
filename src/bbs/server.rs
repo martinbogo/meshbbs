@@ -132,7 +132,8 @@ impl BbsServer {
         Ok(())
     }
 
-    async fn route_text_event(&mut self, ev: TextEvent) -> Result<()> {
+    #[cfg_attr(test, allow(dead_code))]
+    pub async fn route_text_event(&mut self, ev: TextEvent) -> Result<()> {
         // Source node id string form
         let node_key = ev.source.to_string();
         if ev.is_direct {
@@ -154,10 +155,10 @@ impl BbsServer {
                 if content.to_uppercase().starts_with("LOGIN ") && !session.is_logged_in() {
                     let username = content[6..].trim();
                     if !username.is_empty() { session.login(username.to_string(), 1).await?; }
-                } else {
-                    let response = session.process_command(content, &mut self.storage).await?;
-                    if !response.is_empty() { self.send_message(&node_key, &response).await?; }
                 }
+                // Process all content (including potential inline commands) through command processor
+                let response = session.process_command(content, &mut self.storage).await?;
+                if !response.is_empty() { self.send_message(&node_key, &response).await?; }
             }
         } else {
             // Public channel event: parse lightweight commands

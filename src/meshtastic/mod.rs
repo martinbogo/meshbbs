@@ -330,7 +330,7 @@ impl MeshtasticDevice {
                 FRPayload::ConfigCompleteId(id) => { return Some(format!("CONFIG_COMPLETE:{id}")); }
                 FRPayload::Packet(pkt) => {
                     if let Some(MPPayload::Decoded(data_msg)) = &pkt.payload_variant {
-                        let port = PortNum::from_i32(data_msg.portnum).unwrap_or(PortNum::UnknownApp);
+                        let port = PortNum::try_from(data_msg.portnum).unwrap_or(PortNum::UnknownApp);
                         match port {
                             PortNum::TextMessageApp => {
                                 if let Ok(text) = std::str::from_utf8(&data_msg.payload) {

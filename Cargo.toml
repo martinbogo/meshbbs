@@ -58,6 +58,7 @@ default = ["serial"]
 serial = ["dep:serialport"]
 web = ["dep:axum", "dep:tower"]
 meshtastic-proto = ["dep:prost", "dep:prost-types", "dep:bytes"]
+proto-silence = [] # Suppress warnings from generated protobuf surface when combined with meshtastic-proto
 
 [dev-dependencies]
 # Testing utilities

@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rate limiting of public replies to reduce channel noise
 - Structured `TextEvent` extraction layer decoupling frame parsing from session routing
 - Unit tests for `PublicCommandParser` covering help, login, invalid login, and unknown inputs
+- Inline Direct Message (DM) command set: `READ [area]`, `POST [area] <text>`, `AREAS`/`LIST` for quick interactions without menu traversal
+- Integration test simulating public `LOGIN` then DM session with inline commands
+- `proto-silence` feature flag to suppress unused warnings from generated Meshtastic protobuf surface
 
 ### Changed
 - Nothing yet
@@ -34,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refactored async server loop to drain parsed text events prior to awaiting new IO to satisfy borrow checker
 - Parser now classifies bare `login` without username as Invalid instead of Unknown
 - Build script now reliably generates `meshtastic.rs` when upstream protos are available (avoids placeholder mismatch)
+- Added re-export layer for `proto-silence` feature and replaced deprecated `PortNum::from_i32` with `TryFrom<i32>` usage
 
 ### Deprecated
 - Nothing yet

@@ -14,19 +14,69 @@ impl CommandProcessor {
 
     /// Process a command and return a response
     pub async fn process(&self, session: &mut Session, command: &str, storage: &mut Storage) -> Result<String> {
-        let cmd = command.trim().to_uppercase();
+        let raw = command.trim();
+        let cmd_upper = raw.to_uppercase();
         
         match session.state {
-            SessionState::Connected => self.handle_initial_connection(session, &cmd, storage).await,
-            SessionState::LoggingIn => self.handle_login(session, &cmd, storage).await,
-            SessionState::MainMenu => self.handle_main_menu(session, &cmd, storage).await,
-            SessionState::MessageAreas => self.handle_message_areas(session, &cmd, storage).await,
-            SessionState::ReadingMessages => self.handle_reading_messages(session, &cmd, storage).await,
-            SessionState::PostingMessage => self.handle_posting_message(session, &cmd, storage).await,
-            SessionState::FileAreas => self.handle_file_areas(session, &cmd, storage).await,
-            SessionState::UserMenu => self.handle_user_menu(session, &cmd, storage).await,
+            SessionState::Connected => self.handle_initial_connection(session, &cmd_upper, storage).await,
+            SessionState::LoggingIn => self.handle_login(session, &cmd_upper, storage).await,
+            SessionState::MainMenu => {
+                // Allow inline short commands in DM: READ, POST <msg>, LIST, AREAS
+                if let Some(resp) = self.try_inline_message_command(session, raw, &cmd_upper, storage).await? {
+                    return Ok(resp);
+                }
+                self.handle_main_menu(session, &cmd_upper, storage).await
+            }
+            SessionState::MessageAreas => {
+                if let Some(resp) = self.try_inline_message_command(session, raw, &cmd_upper, storage).await? {
+                    return Ok(resp);
+                }
+                self.handle_message_areas(session, &cmd_upper, storage).await
+            }
+            SessionState::ReadingMessages => self.handle_reading_messages(session, &cmd_upper, storage).await,
+            SessionState::PostingMessage => self.handle_posting_message(session, &cmd_upper, storage).await,
+            SessionState::FileAreas => self.handle_file_areas(session, &cmd_upper, storage).await,
+            SessionState::UserMenu => self.handle_user_menu(session, &cmd_upper, storage).await,
             SessionState::Disconnected => Ok("Session disconnected.".to_string()),
         }
+    }
+
+    async fn try_inline_message_command(&self, session: &mut Session, raw: &str, upper: &str, storage: &mut Storage) -> Result<Option<String>> {
+        // Inline commands available anytime in MainMenu or MessageAreas to reduce round trips
+        // READ [area]
+        if upper.starts_with("READ") {
+            let area = raw.split_whitespace().nth(1).unwrap_or("general").to_lowercase();
+            session.current_area = Some(area.clone());
+            let messages = storage.get_messages(&area, 10).await?;
+            let mut response = format!("Messages in {}:\n", area);
+            for msg in messages {
+                response.push_str(&format!("{} | {}\n{}\n---\n", msg.author, msg.timestamp.format("%m/%d %H:%M"), msg.content));
+            }
+            response.push_str(">\n");
+            return Ok(Some(response));
+        }
+        // POST <area?> <text...>
+        if upper.starts_with("POST ") {
+            let mut parts = raw.splitn(3, ' ');
+            parts.next(); // POST
+            let second = parts.next();
+            let (area, text) = if let Some(s) = second { // if second exists, decide if it's area or message
+                // treat token as area if we also have remaining text; otherwise use current area
+                if let Some(rest) = parts.next() { (s.to_lowercase(), rest) } else { (session.current_area.clone().unwrap_or("general".into()), s) }
+            } else { (session.current_area.clone().unwrap_or("general".into()), "") };
+            if text.is_empty() { return Ok(Some("Usage: POST [area] <message>".into())); }
+            let author = session.display_name();
+            storage.store_message(&area, &author, text).await?;
+            return Ok(Some(format!("Posted to {}.\n>", area)));
+        }
+        if upper == "AREAS" || upper == "LIST" { // LIST alias
+            let areas = storage.list_message_areas().await?;
+            let mut response = "Areas:\n".to_string();
+            for a in areas { response.push_str(&format!("- {}\n", a)); }
+            response.push_str(">\n");
+            return Ok(Some(response));
+        }
+        Ok(None)
     }
 
     async fn handle_initial_connection(&self, session: &mut Session, _cmd: &str, _storage: &mut Storage) -> Result<String> {
