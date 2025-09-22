@@ -105,6 +105,11 @@ impl CommandProcessor {
                 if !session.is_logged_in() {
                     lines.push("REGISTER <u> <p> - Create account");
                     lines.push("LOGIN <u> [p] - Login");
+                } else {
+                    // Show password management depending on current account state
+                    // We cannot easily know if password set without storage here, so give both hints minimalistically.
+                    lines.push("SETPASS <new> - Set password (if none)");
+                    lines.push("CHPASS <old> <new> - Change password");
                 }
                 lines.push("[M]essages - Read/post messages");
                 lines.push("[U]ser - User settings");

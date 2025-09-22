@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Inline Direct Message (DM) command set: `READ [area]`, `POST [area] <text>`, `AREAS`/`LIST` for quick interactions without menu traversal
 - Integration test simulating public `LOGIN` then DM session with inline commands
 - `proto-silence` feature flag to suppress unused warnings from generated Meshtastic protobuf surface
+- Password management commands: `SETPASS <new>` (if no password set) and `CHPASS <old> <new>` to change existing password
 
 ### Changed
 - Nothing yet

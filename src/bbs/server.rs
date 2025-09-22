@@ -238,6 +238,61 @@ impl BbsServer {
                             }
                         }
                     }
+                } else if upper.starts_with("CHPASS ") {
+                    // Change existing password: CHPASS <old> <new>
+                    // Do not trace raw command to avoid leaking secrets
+                    if session.is_logged_in() {
+                        let parts: Vec<&str> = content.split_whitespace().collect();
+                        if parts.len() < 3 { deferred_reply = Some("Usage: CHPASS <old> <new>\n>".to_string()); } else {
+                            let old = parts[1];
+                            let newp = parts[2];
+                            if newp.len() < 8 { deferred_reply = Some("New password too short (min 8).\n>".to_string()); }
+                            else if newp.len() > 128 { deferred_reply = Some("New password too long.\n>".to_string()); }
+                            else {
+                                // Verify old password (if user has one); if no password set, instruct SETPASS instead
+                                if let Some(user_name) = &session.username {
+                                    match self.storage.get_user(user_name).await? {
+                                        Some(u) => {
+                                            if u.password_hash.is_none() { deferred_reply = Some("No existing password. Use SETPASS <new>.\n>".to_string()); }
+                                            else {
+                                                let (_u2, ok) = self.storage.verify_user_password(user_name, old).await?;
+                                                if !ok { deferred_reply = Some("Invalid password.\n>".to_string()); }
+                                                else if old == newp { deferred_reply = Some("New password must differ.\n>".to_string()); }
+                                                else {
+                                                    self.storage.update_user_password(user_name, newp).await?;
+                                                    deferred_reply = Some("Password changed.\n>".to_string());
+                                                }
+                                            }
+                                        }
+                                        None => { deferred_reply = Some("Session user missing.\n>".to_string()); }
+                                    }
+                                } else { deferred_reply = Some("Not logged in.\n>".to_string()); }
+                            }
+                        }
+                    } else { deferred_reply = Some("Not logged in.\n>".to_string()); }
+                } else if upper.starts_with("SETPASS ") {
+                    // Set initial password when none exists: SETPASS <new>
+                    if session.is_logged_in() {
+                        let parts: Vec<&str> = content.split_whitespace().collect();
+                        if parts.len() < 2 { deferred_reply = Some("Usage: SETPASS <new>\n>".to_string()); }
+                        else {
+                            let newp = parts[1];
+                            if newp.len() < 8 { deferred_reply = Some("New password too short (min 8).\n>".to_string()); }
+                            else if newp.len() > 128 { deferred_reply = Some("New password too long.\n>".to_string()); }
+                            else if let Some(user_name) = &session.username {
+                                match self.storage.get_user(user_name).await? {
+                                    Some(u) => {
+                                        if u.password_hash.is_some() { deferred_reply = Some("Password already set. Use CHPASS <old> <new>.\n>".to_string()); }
+                                        else {
+                                            self.storage.update_user_password(user_name, newp).await?;
+                                            deferred_reply = Some("Password set.\n>".to_string());
+                                        }
+                                    }
+                                    None => deferred_reply = Some("Session user missing.\n>".to_string())
+                                }
+                            } else { deferred_reply = Some("Not logged in.\n>".to_string()); }
+                        }
+                    } else { deferred_reply = Some("Not logged in.\n>".to_string()); }
                 } else if upper == "LOGOUT" {
                     if session.is_logged_in() {
                         let name = session.display_name();

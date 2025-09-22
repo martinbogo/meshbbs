@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 use tokio::fs;
 use uuid::Uuid;
+use password_hash::{PasswordHasher, PasswordVerifier};
 
 /// Main storage interface
 pub struct Storage {
@@ -123,6 +124,26 @@ impl Storage {
         let json_content = serde_json::to_string_pretty(&user)?;
         fs::write(user_file, json_content).await?;
         Ok(user)
+    }
+
+    /// Update (set or change) a user's password. Always overwrites existing hash.
+    pub async fn update_user_password(&mut self, username: &str, new_password: &str) -> Result<()> {
+        if new_password.len() < 8 { return Err(anyhow!("Password too short (min 8)")); }
+        if new_password.len() > 128 { return Err(anyhow!("Password too long")); }
+        let users_dir = Path::new(&self.data_dir).join("users");
+        let user_file = users_dir.join(format!("{}.json", username));
+        if !user_file.exists() { return Err(anyhow!("User not found")); }
+        let content = fs::read_to_string(&user_file).await?;
+        let mut user: User = serde_json::from_str(&content)?;
+        let salt = password_hash::SaltString::generate(&mut rand::thread_rng());
+        let argon = argon2::Argon2::default();
+        let hash = argon.hash_password(new_password.as_bytes(), &salt)
+            .map_err(|e| anyhow!("Password hash failure: {e}"))?;
+        user.password_hash = Some(hash.to_string());
+        user.last_login = Utc::now(); // treat as activity
+        let json_content = serde_json::to_string_pretty(&user)?;
+        fs::write(user_file, json_content).await?;
+        Ok(())
     }
 
     /// Store a new message
