@@ -11,6 +11,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Hard enforcement: messages larger than 230 bytes are rejected (config values above 230 are clamped).
 
+## [0.8.11] - 2025-09-22
+### Added
+- Unread message notification at login: shows "<n> new messages since your last login" when applicable.
+- Role-aware HELP output: HELP now tailors command list for guests, users, moderators, and sysop (moderation/admin commands hidden unless authorized).
+
+### Changed
+- Login banner construction centralized (internal refactor) to ensure consistent truncation and future extensibility.
+- Passwordless legacy accounts must now set a password on first LOGIN attempt (guidance message provided); enforcement clarified.
+
+### Removed
+- Obsolete "(private)" tag in initial Direct Message welcome (reduced clutter).
+
+### Fixed
+- HELP output no longer exposes moderator/sysop commands to lower roles.
+- Banner duplication reduced preventing subtle divergences during future changes.
+
+### Migration Notes
+- No schema changes. Existing user records remain compatible. Legacy passwordless users will be prompted to set a password upon next login attempt.
+
+
 ## [0.8.10] - 2025-09-22
 ### Added
 - `bbs.session_timeout` configuration with idle session pruning (auto logout after inactivity).

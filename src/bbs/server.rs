@@ -211,6 +211,16 @@ impl BbsServer {
             banner
         }
 
+        /// Prepare the login banner, recording the base (without unread line) to `last_banner`.
+        /// If `unread > 0`, appends the unread message count line.
+        fn prepare_login_banner(&mut self, unread: u32) -> String {
+            let mut banner = self.build_banner();
+            // Store the base banner before mutation so tests can assert core content
+            self.last_banner = Some(banner.clone());
+            if unread > 0 { banner.push_str(&format!("{} new messages since your last login.\n", unread)); }
+            banner
+        }
+
     /// Ensure sysop user exists / synchronized with config (extracted for testability)
     pub async fn seed_sysop(&mut self) -> Result<()> {
         if let Some(hash) = &self.config.bbs.sysop_password_hash {
@@ -323,13 +333,10 @@ impl BbsServer {
                             let prev_last = user_before.last_login;
                             let unread = self.storage.count_messages_since(prev_last).await.unwrap_or(0);
                             let _ = self.storage.record_user_login(&username).await; // update last_login
-                            let mut banner = self.build_banner();
-                            self.last_banner = Some(banner.clone());
-                            if unread > 0 { banner.push_str(&format!("{} new messages since your last login.\n", unread)); }
+                            let banner = self.prepare_login_banner(unread);
                             let _ = self.send_message(&node_key, &format!("{}>", banner)).await;
                         } else {
-                            let mut banner = self.build_banner();
-                            self.last_banner = Some(banner.clone());
+                            let banner = self.prepare_login_banner(0);
                             let _ = self.send_message(&node_key, &format!("{}>", banner)).await;
                         }
                     }
@@ -395,9 +402,8 @@ impl BbsServer {
                                                     // First-time password set; unread messages prior to this first authenticated login are based on prior last_login value.
                                                     // set_user_password already bumped last_login, so computing unread would yield zero. This is acceptable; show none.
                                                     let _ = self.storage.record_user_login(user).await; // ensure fresh timestamp after full login
-                                                    let mut banner = self.build_banner();
-                                                    self.last_banner = Some(banner.clone());
-                                                    // No unread count expected here (legacy first login);
+                                                    // No unread count expected here (legacy first login)
+                                                    let banner = self.prepare_login_banner(0);
                                                     deferred_reply = Some(format!("Password set. {}Welcome, {} you are now logged in.\n>", banner, updated.username));
                                                 }
                                             } else {
@@ -416,9 +422,7 @@ impl BbsServer {
                                                     let prev_last = updated.last_login; // captured before we update last_login again
                                                     let unread = self.storage.count_messages_since(prev_last).await.unwrap_or(0);
                                                     let updated2 = self.storage.record_user_login(user).await.unwrap_or(updated);
-                                                    let mut banner = self.build_banner();
-                                                    self.last_banner = Some(banner.clone());
-                                                    if unread > 0 { banner.push_str(&format!("{} new messages since your last login.\n", unread)); }
+                                                    let banner = self.prepare_login_banner(unread);
                                                     deferred_reply = Some(format!("{}Welcome, {} you are now logged in.\n>", banner, updated2.username));
                                                 }
                                             }
