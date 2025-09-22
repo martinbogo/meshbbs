@@ -204,6 +204,13 @@ impl BbsServer {
     pub async fn test_prune_idle(&mut self) { self.prune_idle_sessions().await; }
     pub fn last_banner(&self) -> Option<&String> { self.last_banner.as_ref() }
 
+        fn build_banner(&self) -> String {
+            let mut banner = format!("{}\n{}", self.config.bbs.welcome_message, self.config.bbs.description);
+            if banner.as_bytes().len() > 230 { let mut truncated = banner.into_bytes(); truncated.truncate(230); banner = String::from_utf8_lossy(&truncated).to_string(); }
+            if !banner.ends_with('\n') { banner.push('\n'); }
+            banner
+        }
+
     /// Ensure sysop user exists / synchronized with config (extracted for testability)
     pub async fn seed_sysop(&mut self) -> Result<()> {
         if let Some(hash) = &self.config.bbs.sysop_password_hash {
@@ -312,11 +319,19 @@ impl BbsServer {
                     } else {
                         trace!("Auto-applying pending public login '{}' to new DM session {}", username, node_key);
                         session.login(username.clone(), 1).await?;
-                        let mut banner = format!("{}\n{}", self.config.bbs.welcome_message, self.config.bbs.description);
-                        if banner.as_bytes().len() > 230 { let mut truncated = banner.into_bytes(); truncated.truncate(230); banner = String::from_utf8_lossy(&truncated).to_string(); }
-                        if !banner.ends_with('\n') { banner.push('\n'); }
-                        self.last_banner = Some(banner.clone());
-                        let _ = self.send_message(&node_key, &format!("{}>", banner)).await;
+                        if let Ok(Some(user_before)) = self.storage.get_user(&username).await {
+                            let prev_last = user_before.last_login;
+                            let unread = self.storage.count_messages_since(prev_last).await.unwrap_or(0);
+                            let _ = self.storage.record_user_login(&username).await; // update last_login
+                            let mut banner = self.build_banner();
+                            self.last_banner = Some(banner.clone());
+                            if unread > 0 { banner.push_str(&format!("{} new messages since your last login.\n", unread)); }
+                            let _ = self.send_message(&node_key, &format!("{}>", banner)).await;
+                        } else {
+                            let mut banner = self.build_banner();
+                            self.last_banner = Some(banner.clone());
+                            let _ = self.send_message(&node_key, &format!("{}>", banner)).await;
+                        }
                     }
                 } else {
                     let _ = self.send_message(&node_key, "Welcome to MeshBBS. Use REGISTER <name> <pass> to create an account or LOGIN <name> <pass>. Type HELP for basics.").await;
@@ -377,10 +392,12 @@ impl BbsServer {
                                                     let updated_user = self.storage.set_user_password(user, pass).await?;
                                                     let updated = if !node_bound { self.storage.bind_user_node(user, &node_key).await? } else { updated_user };
                                                     session.login(updated.username.clone(), updated.user_level).await?;
-                                                    let mut banner = format!("{}\n{}", self.config.bbs.welcome_message, self.config.bbs.description);
-                                                    if banner.as_bytes().len() > 230 { let mut truncated = banner.into_bytes(); truncated.truncate(230); banner = String::from_utf8_lossy(&truncated).to_string(); }
-                                                    if !banner.ends_with('\n') { banner.push('\n'); }
+                                                    // First-time password set; unread messages prior to this first authenticated login are based on prior last_login value.
+                                                    // set_user_password already bumped last_login, so computing unread would yield zero. This is acceptable; show none.
+                                                    let _ = self.storage.record_user_login(user).await; // ensure fresh timestamp after full login
+                                                    let mut banner = self.build_banner();
                                                     self.last_banner = Some(banner.clone());
+                                                    // No unread count expected here (legacy first login);
                                                     deferred_reply = Some(format!("Password set. {}Welcome, {} you are now logged in.\n>", banner, updated.username));
                                                 }
                                             } else {
@@ -396,11 +413,13 @@ impl BbsServer {
                                                 else {
                                                     let updated = if !node_bound { self.storage.bind_user_node(user, &node_key).await? } else { u };
                                                     session.login(updated.username.clone(), updated.user_level).await?;
-                                                    let mut banner = format!("{}\n{}", self.config.bbs.welcome_message, self.config.bbs.description);
-                                                    if banner.as_bytes().len() > 230 { let mut truncated = banner.into_bytes(); truncated.truncate(230); banner = String::from_utf8_lossy(&truncated).to_string(); }
-                                                    if !banner.ends_with('\n') { banner.push('\n'); }
+                                                    let prev_last = updated.last_login; // captured before we update last_login again
+                                                    let unread = self.storage.count_messages_since(prev_last).await.unwrap_or(0);
+                                                    let updated2 = self.storage.record_user_login(user).await.unwrap_or(updated);
+                                                    let mut banner = self.build_banner();
                                                     self.last_banner = Some(banner.clone());
-                                                    deferred_reply = Some(format!("{}Welcome, {} you are now logged in.\n>", banner, updated.username));
+                                                    if unread > 0 { banner.push_str(&format!("{} new messages since your last login.\n", unread)); }
+                                                    deferred_reply = Some(format!("{}Welcome, {} you are now logged in.\n>", banner, updated2.username));
                                                 }
                                             }
                                         }

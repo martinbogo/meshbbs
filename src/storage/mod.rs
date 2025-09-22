@@ -141,6 +141,7 @@ impl Storage {
     pub async fn register_user(&mut self, username: &str, password: &str, maybe_node: Option<&str>) -> Result<()> {
         // Basic username sanity
         if username.len() < 2 { return Err(anyhow!("Username too short")); }
+        if password.len() < 4 { return Err(anyhow!("Password too short (min 4)")); }
         if self.get_user(username).await?.is_some() { return Err(anyhow!("User already exists")); }
         let users_dir = Path::new(&self.data_dir).join("users");
         let user_file = users_dir.join(format!("{}.json", username));
@@ -185,6 +186,24 @@ impl Storage {
         let content = fs::read_to_string(&user_file).await?;
         let mut user: User = serde_json::from_str(&content)?;
         if user.node_id.is_none() { user.node_id = Some(node_id.to_string()); }
+        user.last_login = Utc::now();
+        let json_content = serde_json::to_string_pretty(&user)?;
+        fs::write(user_file, json_content).await?;
+        Ok(user)
+    }
+
+    /// Set password for an existing (possibly passwordless) user. Overwrites existing hash.
+    pub async fn set_user_password(&mut self, username: &str, password: &str) -> Result<User> {
+        if password.len() < 4 { return Err(anyhow!("Password too short (min 4)")); }
+        let users_dir = Path::new(&self.data_dir).join("users");
+        let user_file = users_dir.join(format!("{}.json", username));
+        if !user_file.exists() { return Err(anyhow!("User not found")); }
+        let content = fs::read_to_string(&user_file).await?;
+        let mut user: User = serde_json::from_str(&content)?;
+        let salt = password_hash::SaltString::generate(&mut rand::thread_rng());
+        let hash = self.argon2_configured().hash_password(password.as_bytes(), &salt)
+            .map_err(|e| anyhow!("Password hash failure: {e}"))?;
+        user.password_hash = Some(hash.to_string());
         user.last_login = Utc::now();
         let json_content = serde_json::to_string_pretty(&user)?;
         fs::write(user_file, json_content).await?;
@@ -257,6 +276,46 @@ impl Storage {
         fs::write(message_file, json_content).await?;
         
         Ok(message.id)
+    }
+
+    /// Count messages whose timestamp is strictly greater than the supplied instant.
+    /// This performs a linear scan of all message JSON files. For typical small BBS
+    /// deployments this is acceptable; if performance becomes an issue we can
+    /// introduce a lightweight global index or per-area cached high-water marks.
+    pub async fn count_messages_since(&self, since: DateTime<Utc>) -> Result<u32> {
+        let mut count: u32 = 0;
+        let messages_dir = Path::new(&self.data_dir).join("messages");
+        if !messages_dir.exists() { return Ok(0); }
+        let mut area_entries = fs::read_dir(&messages_dir).await?;
+        while let Some(area_entry) = area_entries.next_entry().await? {
+            if area_entry.file_type().await?.is_dir() {
+                let mut message_entries = fs::read_dir(area_entry.path()).await?;
+                while let Some(message_entry) = message_entries.next_entry().await? {
+                    if message_entry.path().extension().and_then(|s| s.to_str()) == Some("json") {
+                        // Read then parse timestamp only; if parsing fails, skip file.
+                        if let Ok(content) = fs::read_to_string(message_entry.path()).await {
+                            if let Ok(msg) = serde_json::from_str::<Message>(&content) {
+                                if msg.timestamp > since { count += 1; }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(count)
+    }
+
+    /// Record a successful user login (updating last_login) and return updated user.
+    pub async fn record_user_login(&self, username: &str) -> Result<User> {
+        let users_dir = Path::new(&self.data_dir).join("users");
+        let user_file = users_dir.join(format!("{}.json", username));
+        if !user_file.exists() { return Err(anyhow!("User not found")); }
+        let content = fs::read_to_string(&user_file).await?;
+        let mut user: User = serde_json::from_str(&content)?;
+        user.last_login = Utc::now();
+        let json_content = serde_json::to_string_pretty(&user)?;
+        fs::write(&user_file, json_content).await?;
+        Ok(user)
     }
 
     /// Delete a message by area and id
