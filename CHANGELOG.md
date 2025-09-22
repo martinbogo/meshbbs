@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced smoke test JSON summary (node count, config flags, binary detection, request id)
 - Automatic detection and resynchronization of misaligned or partial binary frames with recovery heuristics
 - Diagnostics and warnings when only ASCII/ANSI log output is seen (helps distinguish framing vs absence of data)
-- Public broadcast discovery model with minimal commands (`HELP`, `LOGIN <username>`) on the shared channel
+- Public broadcast discovery model with minimal commands (caret‑prefixed `^HELP`, `^LOGIN <username>`) on the shared channel
 - Pending login handshake recorded by node id and fulfilled upon first Direct Message (DM)
 - Direct Message session creation gated on prior public `LOGIN` (creates authenticated BBS session)
 - Rate limiting of public replies to reduce channel noise
@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Parser now classifies bare `login` without username as Invalid instead of Unknown
 - Build script now reliably generates `meshtastic.rs` when upstream protos are available (avoids placeholder mismatch)
 - Added re-export layer for `proto-silence` feature and replaced deprecated `PortNum::from_i32` with `TryFrom<i32>` usage
+- Public channel commands now require a leading caret (`^`) to address the BBS (reduces ambient channel noise and accidental triggers)
 
 ### Deprecated
 - Nothing yet

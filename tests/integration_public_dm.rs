@@ -18,7 +18,7 @@ async fn public_login_then_dm_session_inline_commands() {
 
     // Simulate a public LOGIN (would normally arrive via TextEvent)
     use meshbbs::meshtastic::TextEvent; // re-export not present, path adjust if needed
-    let public_event = TextEvent { source: 123, dest: None, is_direct: false, channel: None, content: "LOGIN alice".into() };
+    let public_event = TextEvent { source: 123, dest: None, is_direct: false, channel: None, content: "^LOGIN alice".into() };
     server.route_text_event(public_event).await.expect("public login");
 
     // Now simulate DM message to trigger session creation and finalize login

@@ -50,13 +50,13 @@ impl PublicCommandParser {
 
     pub fn parse(&self, raw: &str) -> PublicCommand {
         let trimmed = raw.trim();
-        if trimmed.eq_ignore_ascii_case("HELP") || trimmed == "?" { return PublicCommand::Help; }
-        // Accept both 'login <user>' and detect bare 'login' (with or without extra spaces) as Invalid
-        if trimmed.len() >= 5 && trimmed[..5].eq_ignore_ascii_case("LOGIN") {
-            // Either exactly 'login' or starts with 'login ' (case-insensitive)
-            if trimmed.len() == 5 { return PublicCommand::Invalid("Username required".into()); }
-            // Next character must be whitespace to be considered a login command
-            let after = &trimmed[5..];
+        // Require caret prefix for public commands to reduce accidental noise
+        if !trimmed.starts_with('^') { return PublicCommand::Unknown; }
+        let body = &trimmed[1..];
+        if body.eq_ignore_ascii_case("HELP") || body == "?" { return PublicCommand::Help; }
+        if body.len() >= 5 && body[..5].eq_ignore_ascii_case("LOGIN") {
+            if body.len() == 5 { return PublicCommand::Invalid("Username required".into()); }
+            let after = &body[5..];
             if after.chars().next().map(|c| c.is_whitespace()).unwrap_or(false) {
                 let user = after.trim();
                 if user.is_empty() { return PublicCommand::Invalid("Username required".into()); }

@@ -98,9 +98,9 @@ meshbbs -vv start
 MeshBBS uses a two-phase interaction model that keeps the shared mesh channel quiet while enabling richer private sessions.
 
 1. Public Broadcast (Discovery)
-	- Supported commands: `HELP`, `LOGIN <username>`
-	- `HELP` returns a short onboarding message.
-	- `LOGIN <username>` registers a pending login for the sender's node id (no session yet).
+	- Supported commands: `^HELP`, `^LOGIN <username>` (caret prefix REQUIRED to address the BBS)
+	- `^HELP` returns a short onboarding message.
+	- `^LOGIN <username>` registers a pending login for the sender's node id (no session yet).
 2. Direct Message (DM) Session
 	- After a public `LOGIN`, open a direct/private message to the BBS node.
 	- The pending login is consumed and a session starts under that username.
@@ -110,12 +110,12 @@ This design minimizes public spam, allows lightweight discovery, and reserves ba
 
 #### Example Flow
 
-Public channel:
+Public channel (note required caret prefix):
 ```
-> HELP
+> ^HELP
 < MeshBBS: Send LOGIN <name> then start a DM to begin.
 
-> LOGIN alice
+> ^LOGIN alice
 < MeshBBS: Pending login for 'alice'. Open a DM to start your session.
 ```
 
