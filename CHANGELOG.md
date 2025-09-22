@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+_No changes yet._
+
+## [0.8.0] - 2025-09-22
 - Security: Added configurable Argon2 password hashing parameters (memory_kib, time_cost, parallelism) under [security.argon2] in config.
 - Security: Introduced dedicated security log target duplication to optional `logging.security_file` with PROMOTE/DEMOTE and password related events.
 - Security: Enforced immutability of sysop access level (cannot demote or change via storage API).
@@ -13,10 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Moderation: Added LOCK <area> / UNLOCK <area> commands to control posting in specific areas.
 - Moderation: Added in-memory locked area tracking and storage enforcement preventing posts to locked areas.
 - Moderation: HELP text updated to advertise new moderator commands.
- - Moderation: Locked areas now persist across restarts via `locked_areas.json`.
- - Moderation: Deletion audit log with pagination (`DELLOG [page]`) for moderators (level >=5).
- - Access Control: Enforced per-area read/post levels from configuration (areas hidden if read_level unmet; posting denied if post_level unmet).
- - Access Control: Locked area state overrides post permissions (cannot post even if post_level satisfied).
+- Moderation: Locked areas now persist across restarts via `locked_areas.json`.
+- Moderation: Deletion audit log with pagination (`DELLOG [page]`) for moderators (level >=5).
+- Access Control: Enforced per-area read/post levels from configuration (areas hidden if read_level unmet; posting denied if post_level unmet).
+- Access Control: Locked area state overrides post permissions (cannot post even if post_level satisfied).
 
 ### Added
 - Initial project structure and skeleton

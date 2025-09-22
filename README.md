@@ -11,12 +11,15 @@ MeshBBS brings the classic BBS experience to modern mesh networks, allowing user
 - 📡 **Meshtastic Integration**: Direct communication with Meshtastic devices via serial or Bluetooth
 - 💬 **Message Boards**: Traditional BBS-style message areas and forums
 - (Planned) **File Transfer**: Deferred; transferring binary data over limited Meshtastic bandwidth is intentionally omitted in this iteration.
-- 👥 **User Management**: User accounts and permissions system
-- 🔐 **Security**: Message encryption and user authentication
+- 👥 **User Management**: User accounts, roles (User, Moderator, Sysop)
+- 🔐 **Security**: Argon2id password hashing, configurable parameters, sysop immutability
 - 📊 **Statistics**: Network and usage statistics
 - 🌐 **Web Interface**: Optional web-based administration panel
 - ⚡ **Async Design**: Built with Tokio for high performance
- - 🛎️ **Public Discovery + DM Sessions**: Low-noise public channel handshake (HELP / LOGIN) leading to authenticated Direct Message sessions
+- 🛎️ **Public Discovery + DM Sessions**: Low-noise public channel handshake (HELP / LOGIN) leading to authenticated Direct Message sessions
+- 🧷 **Persistent Area Locks**: Moderators can LOCK / UNLOCK areas; state survives restarts
+- 📜 **Deletion Audit Log**: `DELLOG [page]` paginates moderator deletion events for accountability
+- 🛂 **Per-Area Access Levels**: Config-driven read/post level gating (areas hidden if insufficient read level)
 
 ## Quick Start
 
@@ -125,6 +128,40 @@ Direct message:
 ```
 
 Legacy prototype `CMD:` prefixed message formats are deprecated in favor of this simpler discovery + DM approach.
+
+### Moderator & Sysop Commands (Direct Message)
+
+Moderators (level >=5):
+
+```
+DELETE <area> <id>    # Remove a message
+LOCK <area>           # Prevent new posts
+UNLOCK <area>         # Allow posts again
+DELLOG [page]         # View recent deletion audit entries (page size 10)
+```
+
+Sysop (level 10) also:
+```
+PROMOTE <user>
+DEMOTE <user>
+```
+
+Area permissions are defined in `config.toml` under `[message_areas]` entries with `read_level` and `post_level`. Users cannot see (LIST/AREAS) areas above their read level, nor post below the post level. Locked areas reject posts even if the user otherwise qualifies.
+
+Example config excerpt:
+```toml
+[message_areas.general]
+name = "General Discussion"
+description = "General chat"
+read_level = 0
+post_level = 0
+
+[message_areas.announcements]
+name = "Announcements"
+description = "Important updates (sysop only posts)"
+read_level = 0
+post_level = 10
+```
 
 ## Architecture
 
