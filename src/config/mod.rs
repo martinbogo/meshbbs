@@ -157,7 +157,7 @@ impl Default for Config {
             },
             storage: StorageConfig {
                 data_dir: "./data".to_string(),
-                max_message_size: 1024,
+                max_message_size: 230,
                 message_retention_days: 30,
                 max_messages_per_area: 1000,
             },

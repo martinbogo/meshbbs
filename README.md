@@ -70,7 +70,7 @@ node_id = "your_node_id"
 
 [storage]
 data_dir = "./data"
-max_message_size = 1024
+max_message_size = 230 # Protocol hard cap; values above 230 are clamped
 message_retention_days = 30
 
 [web]
@@ -162,6 +162,10 @@ description = "Important updates (sysop only posts)"
 read_level = 0
 post_level = 10
 ```
+
+### Message Size Limit
+
+Each message is limited to a maximum of **230 bytes** (not characters). This mirrors the practical Meshtastic text payload constraint. The `max_message_size` setting in `[storage]` is clamped to this ceiling even if a higher value is configured. Multi‑byte UTF‑8 characters reduce the number of visible glyphs you can send. Oversized posts are rejected with an error.
 
 ## Architecture
 

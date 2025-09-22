@@ -60,6 +60,8 @@ impl BbsServer {
         let mut level_map = std::collections::HashMap::new();
         for (k,v) in &config.message_areas { level_map.insert(k.clone(), (v.read_level, v.post_level)); }
         storage.set_area_levels(level_map);
+    // Apply max message size clamp (protocol cap 230 bytes)
+    storage.set_max_message_bytes(config.storage.max_message_size);
 
         Ok(BbsServer {
             config,

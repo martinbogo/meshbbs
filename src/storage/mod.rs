@@ -18,6 +18,7 @@ pub struct Storage {
     locked_areas: HashSet<String>,
     #[allow(dead_code)]
     area_levels: std::collections::HashMap<String, (u8,u8)>, // area -> (read_level, post_level)
+    max_message_bytes: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -87,6 +88,7 @@ impl Storage {
             argon2: Argon2::default(),
             locked_areas: locked,
             area_levels: HashMap::new(),
+            max_message_bytes: 230,
         })
     }
 
@@ -102,11 +104,12 @@ impl Storage {
         fs::create_dir_all(&files_dir).await?;
         let argon2 = if let Some(p) = params { Argon2::new(Algorithm::Argon2id, Version::V0x13, p) } else { Argon2::default() };
         let locked = Self::load_locked_areas(data_dir).await?;
-        Ok(Storage { data_dir: data_dir.to_string(), argon2, locked_areas: locked, area_levels: HashMap::new() })
+        Ok(Storage { data_dir: data_dir.to_string(), argon2, locked_areas: locked, area_levels: HashMap::new(), max_message_bytes: 230 })
     }
 
     pub fn set_area_levels(&mut self, map: std::collections::HashMap<String,(u8,u8)>) { self.area_levels = map; }
     pub fn get_area_levels(&self, area: &str) -> Option<(u8,u8)> { self.area_levels.get(area).copied() }
+    pub fn set_max_message_bytes(&mut self, max: usize) { self.max_message_bytes = max.min(230); }
 
     async fn load_locked_areas(data_dir: &str) -> Result<HashSet<String>> {
         let path = Path::new(data_dir).join("locked_areas.json");
@@ -234,6 +237,8 @@ impl Storage {
             let author_level = if let Some(user) = self.get_user(author).await? { user.user_level } else { 0 };
             if author_level < post_level { return Err(anyhow!("Insufficient level to post")); }
         }
+            let bytes_len = content.as_bytes().len();
+            if bytes_len > self.max_message_bytes { return Err(anyhow!(format!("Message exceeds {} byte limit (got {} bytes)", self.max_message_bytes, bytes_len))); }
         let message = Message {
             id: Uuid::new_v4().to_string(),
             area: area.to_string(),

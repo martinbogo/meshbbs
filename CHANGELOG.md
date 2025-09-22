@@ -6,7 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-_No changes yet._
+### Changed
+- Default `storage.max_message_size` reduced to 230 bytes (Meshtastic practical payload limit).
+### Added
+- Hard enforcement: messages larger than 230 bytes are rejected (config values above 230 are clamped).
 
 ## [0.8.0] - 2025-09-22
 - Security: Added configurable Argon2 password hashing parameters (memory_kib, time_cost, parallelism) under [security.argon2] in config.
