@@ -7,6 +7,7 @@ use std::path::Path;
 use tokio::fs;
 use uuid::Uuid;
 use password_hash::{PasswordHasher, PasswordVerifier};
+use argon2::{Argon2, Params};
 
 /// Main storage interface
 pub struct Storage {
@@ -74,6 +75,11 @@ impl Storage {
     /// Return the base data directory path used by this storage instance
     pub fn base_dir(&self) -> &str { &self.data_dir }
 
+    fn argon2_configured() -> Argon2<'static> {
+        // For now use Argon2id defaults; placeholder for future dynamic configuration injection.
+        Argon2::default()
+    }
+
     /// Register a new user with password; fails if user exists.
     pub async fn register_user(&mut self, username: &str, password: &str, maybe_node: Option<&str>) -> Result<()> {
         // Basic username sanity
@@ -83,7 +89,7 @@ impl Storage {
         let user_file = users_dir.join(format!("{}.json", username));
         let now = Utc::now();
         let salt = password_hash::SaltString::generate(&mut rand::thread_rng());
-        let argon = argon2::Argon2::default();
+        let argon = Self::argon2_configured();
         let hash = argon.hash_password(password.as_bytes(), &salt)
             .map_err(|e| anyhow!("Password hash failure: {e}"))?;
         let user = User {
@@ -139,7 +145,7 @@ impl Storage {
         let content = fs::read_to_string(&user_file).await?;
         let mut user: User = serde_json::from_str(&content)?;
         let salt = password_hash::SaltString::generate(&mut rand::thread_rng());
-        let argon = argon2::Argon2::default();
+        let argon = Self::argon2_configured();
         let hash = argon.hash_password(new_password.as_bytes(), &salt)
             .map_err(|e| anyhow!("Password hash failure: {e}"))?;
         user.password_hash = Some(hash.to_string());
@@ -147,6 +153,21 @@ impl Storage {
         let json_content = serde_json::to_string_pretty(&user)?;
         fs::write(user_file, json_content).await?;
         Ok(())
+    }
+
+    /// Update a user's access level (e.g., promote/demote). Returns updated user.
+    pub async fn update_user_level(&mut self, username: &str, new_level: u8) -> Result<User> {
+        if new_level == 0 { return Err(anyhow!("Invalid level")); }
+        let users_dir = Path::new(&self.data_dir).join("users");
+        let user_file = users_dir.join(format!("{}.json", username));
+        if !user_file.exists() { return Err(anyhow!("User not found")); }
+        let content = fs::read_to_string(&user_file).await?;
+        let mut user: User = serde_json::from_str(&content)?;
+        user.user_level = new_level;
+        user.last_login = Utc::now(); // treat promotion as activity
+        let json_content = serde_json::to_string_pretty(&user)?;
+        fs::write(&user_file, json_content).await?;
+        Ok(user)
     }
 
     /// Store a new message

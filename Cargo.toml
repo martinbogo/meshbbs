@@ -69,6 +69,7 @@ api-reexports = [] # Export internal types (Session, CommandProcessor, PublicSta
 [dev-dependencies]
 # Testing utilities
 tokio-test = "0.4"
+tempfile = "3.10"
 
 [[bin]]
 name = "meshbbs"

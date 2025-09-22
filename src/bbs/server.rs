@@ -12,6 +12,14 @@ use crate::meshtastic::TextEvent;
 use crate::storage::Storage;
 use super::session::Session;
 use super::public::{PublicState, PublicCommandParser, PublicCommand};
+use super::roles::{LEVEL_SYSOP, LEVEL_MODERATOR, LEVEL_USER, role_name};
+use log::info as log_info; // existing alias
+
+macro_rules! sec_log {
+    ($($arg:tt)*) => { log::warn!(target: "security", $($arg)*); };
+}
+#[allow(unused_imports)]
+pub(crate) use sec_log;
 
 /// Main BBS server that coordinates all operations
 pub struct BbsServer {
@@ -64,45 +72,7 @@ impl BbsServer {
     /// Start the BBS server main loop
     pub async fn run(&mut self) -> Result<()> {
         info!("BBS '{}' started by {}", self.config.bbs.name, self.config.bbs.sysop);
-        // Ensure sysop user exists with elevated level (e.g., 10) and bound password hash if configured
-    if let Some(hash) = &self.config.bbs.sysop_password_hash {
-            // Load or create user file with high level and provided hash (do not overwrite existing higher level)
-            let sysop_name = self.config.bbs.sysop.clone();
-            match self.storage.get_user(&sysop_name).await? {
-                Some(mut u) => {
-                    let mut needs_write = false;
-                    if u.user_level < 10 { u.user_level = 10; needs_write = true; }
-                    if u.password_hash.as_deref() != Some(hash.as_str()) { u.password_hash = Some(hash.clone()); needs_write = true; }
-                    if needs_write {
-                        // Re-write user JSON
-                        let users_dir = std::path::Path::new(self.storage.base_dir()).join("users");
-                        let user_file = users_dir.join(format!("{}.json", sysop_name));
-                        let json_content = serde_json::to_string_pretty(&u)?;
-                        tokio::fs::write(user_file, json_content).await?;
-                        info!("Sysop user '{}' synchronized from config.", sysop_name);
-                    }
-                }
-                None => {
-                    // Create user record
-                    let now = chrono::Utc::now();
-                    let user = crate::storage::User {
-                        username: sysop_name.clone(),
-                        node_id: None,
-                        user_level: 10,
-                        password_hash: Some(hash.clone()),
-                        first_login: now,
-                        last_login: now,
-                        total_messages: 0,
-                    };
-                    let users_dir = std::path::Path::new(self.storage.base_dir()).join("users");
-                    tokio::fs::create_dir_all(&users_dir).await?;
-                    let user_file = users_dir.join(format!("{}.json", sysop_name));
-                    let json_content = serde_json::to_string_pretty(&user)?;
-                    tokio::fs::write(user_file, json_content).await?;
-                    info!("Sysop user '{}' created from config.", sysop_name);
-                }
-            }
-        }
+        self.seed_sysop().await?;
         
         let (tx, mut rx) = mpsc::unbounded_channel();
         self.message_tx = Some(tx);
@@ -177,6 +147,51 @@ impl BbsServer {
         
         self.shutdown().await?;
         Ok(())
+    }
+
+    /// Ensure sysop user exists / synchronized with config (extracted for testability)
+    pub async fn seed_sysop(&mut self) -> Result<()> {
+        if let Some(hash) = &self.config.bbs.sysop_password_hash {
+            let sysop_name = self.config.bbs.sysop.clone();
+            match self.storage.get_user(&sysop_name).await? {
+                Some(mut u) => {
+                    let mut needs_write = false;
+                    if u.user_level < 10 { u.user_level = 10; needs_write = true; }
+                    if u.password_hash.as_deref() != Some(hash.as_str()) { u.password_hash = Some(hash.clone()); needs_write = true; }
+                    if needs_write {
+                        let users_dir = std::path::Path::new(self.storage.base_dir()).join("users");
+                        let user_file = users_dir.join(format!("{}.json", sysop_name));
+                        let json_content = serde_json::to_string_pretty(&u)?;
+                        tokio::fs::write(user_file, json_content).await?;
+                        info!("Sysop user '{}' synchronized from config.", sysop_name);
+                    }
+                }
+                None => {
+                    let now = chrono::Utc::now();
+                    let user = crate::storage::User {
+                        username: sysop_name.clone(),
+                        node_id: None,
+                        user_level: 10,
+                        password_hash: Some(hash.clone()),
+                        first_login: now,
+                        last_login: now,
+                        total_messages: 0,
+                    };
+                    let users_dir = std::path::Path::new(self.storage.base_dir()).join("users");
+                    tokio::fs::create_dir_all(&users_dir).await?;
+                    let user_file = users_dir.join(format!("{}.json", sysop_name));
+                    let json_content = serde_json::to_string_pretty(&user)?;
+                    tokio::fs::write(user_file, json_content).await?;
+                    info!("Sysop user '{}' created from config.", sysop_name);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Test/helper accessor: fetch user record
+    pub async fn get_user(&self, username: &str) -> Result<Option<crate::storage::User>> {
+        self.storage.get_user(username).await
     }
 
     /// Receive a message from the Meshtastic device
@@ -347,6 +362,50 @@ impl BbsServer {
                             } else { deferred_reply = Some("Not logged in.\n>".to_string()); }
                         }
                     } else { deferred_reply = Some("Not logged in.\n>".to_string()); }
+                    }
+                } else if upper.starts_with("PROMOTE ") {
+                    // PROMOTE <user> - sysop only, sets level to moderator (5) unless already higher
+                    if session.username.as_deref() != Some(&self.config.bbs.sysop) { deferred_reply = Some("Permission denied.\n>".to_string()); }
+                    else {
+                        let parts: Vec<&str> = content.split_whitespace().collect();
+                        if parts.len() < 2 { deferred_reply = Some("Usage: PROMOTE <user>\n>".to_string()); }
+                        else {
+                            let target = parts[1];
+                            match self.storage.get_user(target).await? {
+                                None => deferred_reply = Some("User not found.\n>".to_string()),
+                                Some(u) => {
+                                    if u.username == self.config.bbs.sysop { deferred_reply = Some("Cannot modify sysop.\n>".to_string()); }
+                                    else if u.user_level >= LEVEL_MODERATOR { deferred_reply = Some("Already moderator or higher.\n>".to_string()); }
+                                    else {
+                                        let updated = self.storage.update_user_level(&u.username, LEVEL_MODERATOR).await?;
+                                        sec_log!("PROMOTE by sysop: {} to level {}", updated.username, updated.user_level);
+                                        deferred_reply = Some(format!("{} promoted to {}.\n>", updated.username, role_name(updated.user_level)));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else if upper.starts_with("DEMOTE ") {
+                    // DEMOTE <user> - sysop only, sets level to standard user (1)
+                    if session.username.as_deref() != Some(&self.config.bbs.sysop) { deferred_reply = Some("Permission denied.\n>".to_string()); }
+                    else {
+                        let parts: Vec<&str> = content.split_whitespace().collect();
+                        if parts.len() < 2 { deferred_reply = Some("Usage: DEMOTE <user>\n>".to_string()); }
+                        else {
+                            let target = parts[1];
+                            match self.storage.get_user(target).await? {
+                                None => deferred_reply = Some("User not found.\n>".to_string()),
+                                Some(u) => {
+                                    if u.username == self.config.bbs.sysop { deferred_reply = Some("Cannot modify sysop.\n>".to_string()); }
+                                    else if u.user_level <= LEVEL_USER { deferred_reply = Some("Already at base level.\n>".to_string()); }
+                                    else {
+                                        let updated = self.storage.update_user_level(&u.username, LEVEL_USER).await?;
+                                        sec_log!("DEMOTE by sysop: {} to level {}", updated.username, updated.user_level);
+                                        deferred_reply = Some(format!("{} demoted to {}.\n>", updated.username, role_name(updated.user_level)));
+                                    }
+                                }
+                            }
+                        }
                     }
                 } else if upper == "LOGOUT" {
                     if session.is_logged_in() {

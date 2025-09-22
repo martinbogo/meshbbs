@@ -14,6 +14,8 @@ pub struct Config {
     pub message_areas: HashMap<String, MessageAreaConfig>,
     pub web: WebConfig,
     pub logging: LoggingConfig,
+    #[serde(default)]
+    pub security: SecurityConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -66,6 +68,22 @@ pub struct WebConfig {
 pub struct LoggingConfig {
     pub level: String,
     pub file: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct Argon2Config {
+    #[serde(default)]
+    pub memory_kib: Option<u32>,
+    #[serde(default)]
+    pub time_cost: Option<u32>,
+    #[serde(default)]
+    pub parallelism: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct SecurityConfig {
+    #[serde(default)]
+    pub argon2: Option<Argon2Config>,
 }
 
 impl Config {
@@ -153,6 +171,7 @@ impl Default for Config {
                 level: "info".to_string(),
                 file: Some("meshbbs.log".to_string()),
             },
+            security: SecurityConfig::default(),
         }
     }
 }

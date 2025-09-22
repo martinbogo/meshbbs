@@ -1063,6 +1063,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serialport",
+ "tempfile",
  "thiserror 1.0.69",
  "tokio",
  "tokio-test",

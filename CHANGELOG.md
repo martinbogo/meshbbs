@@ -31,9 +31,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `proto-silence` feature flag to suppress unused warnings from generated Meshtastic protobuf surface
 - Password management commands: `SETPASS <new>` (if no password set) and `CHPASS <old> <new>` to change existing password
 - Sysop password management via out-of-band CLI subcommand `sysop-passwd` (argon2 hashed, stored in config, seeded at server startup)
+- Moderator role (level 5) and role constants; Sysop retains level 10
+- `PROMOTE <user>` / `DEMOTE <user>` commands (Sysop only) to manage moderator status
+- Config section `[security.argon2]` (placeholders) for future tunable hashing parameters
+- Structured security log target for role change events (logged with target `security`)
 
 ### Security
 - Redacts sensitive password material from logs (no plaintext for REGISTER/LOGIN/SETPASS/CHPASS)
+- Security-targeted logs for privilege changes (promotion/demotion) to aid audit trails
 
 ### Changed
 - Nothing yet
