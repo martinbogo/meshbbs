@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Security: Added configurable Argon2 password hashing parameters (memory_kib, time_cost, parallelism) under [security.argon2] in config.
 - Security: Introduced dedicated security log target duplication to optional `logging.security_file` with PROMOTE/DEMOTE and password related events.
 - Security: Enforced immutability of sysop access level (cannot demote or change via storage API).
+- Moderation: Added DELETE <area> <id> command for moderators (level >=5) to remove messages.
+- Moderation: Added LOCK <area> / UNLOCK <area> commands to control posting in specific areas.
+- Moderation: Added in-memory locked area tracking and storage enforcement preventing posts to locked areas.
+- Moderation: HELP text updated to advertise new moderator commands.
 
 ### Added
 - Initial project structure and skeleton

@@ -4,6 +4,7 @@ use anyhow::{Result, anyhow};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
+use std::collections::HashSet;
 use tokio::fs;
 use uuid::Uuid;
 use password_hash::{PasswordHasher, PasswordVerifier};
@@ -13,6 +14,7 @@ use argon2::{Argon2, Params, Algorithm, Version};
 pub struct Storage {
     data_dir: String,
     argon2: Argon2<'static>,
+    locked_areas: HashSet<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -71,6 +73,7 @@ impl Storage {
         Ok(Storage {
             data_dir: data_dir.to_string(),
             argon2: Argon2::default(),
+            locked_areas: HashSet::new(),
         })
     }
 
@@ -85,7 +88,7 @@ impl Storage {
         fs::create_dir_all(&users_dir).await?;
         fs::create_dir_all(&files_dir).await?;
         let argon2 = if let Some(p) = params { Argon2::new(Algorithm::Argon2id, Version::V0x13, p) } else { Argon2::default() };
-        Ok(Storage { data_dir: data_dir.to_string(), argon2 })
+        Ok(Storage { data_dir: data_dir.to_string(), argon2, locked_areas: HashSet::new() })
     }
 
     /// Return the base data directory path used by this storage instance
@@ -124,7 +127,7 @@ impl Storage {
             if let Some(stored) = &user.password_hash {
                 let parsed = password_hash::PasswordHash::new(stored)
                     .map_err(|e| anyhow!("Corrupt password hash: {e}"))?;
-                let ok = argon2::Argon2::default()
+                let ok = self.argon2_configured()
                     .verify_password(password.as_bytes(), &parsed).is_ok();
                 return Ok((Some(user), ok));
             }
@@ -187,6 +190,7 @@ impl Storage {
 
     /// Store a new message
     pub async fn store_message(&mut self, area: &str, author: &str, content: &str) -> Result<String> {
+        if self.locked_areas.contains(area) { return Err(anyhow!("Area locked")); }
         let message = Message {
             id: Uuid::new_v4().to_string(),
             area: area.to_string(),
@@ -206,6 +210,20 @@ impl Storage {
         
         Ok(message.id)
     }
+
+    /// Delete a message by area and id
+    pub async fn delete_message(&mut self, area: &str, id: &str) -> Result<bool> {
+        let message_file = Path::new(&self.data_dir).join("messages").join(area).join(format!("{}.json", id));
+        if message_file.exists() { fs::remove_file(message_file).await?; return Ok(true); }
+        Ok(false)
+    }
+
+    /// Lock a message area (prevent posting)
+    pub fn lock_area(&mut self, area: &str) { self.locked_areas.insert(area.to_string()); }
+    /// Unlock a message area
+    pub fn unlock_area(&mut self, area: &str) { self.locked_areas.remove(area); }
+    /// Check if area locked
+    pub fn is_area_locked(&self, area: &str) -> bool { self.locked_areas.contains(area) }
 
     /// Get recent messages from an area
     pub async fn get_messages(&self, area: &str, limit: usize) -> Result<Vec<Message>> {

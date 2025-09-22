@@ -110,7 +110,10 @@ impl CommandProcessor {
                     // We cannot easily know if password set without storage here, so give both hints minimalistically.
                     lines.push("SETPASS <new> - Set password (if none)");
                     lines.push("CHPASS <old> <new> - Change password");
-                    if session.user_level >= 5 { lines.push("Moderator: elevated content tools (future)"); }
+                    if session.user_level >= 5 {
+                        lines.push("DELETE <area> <id> - Delete a message");
+                        lines.push("LOCK <area> / UNLOCK <area> - Control posting");
+                    }
                     if session.user_level >= 10 { lines.push("PROMOTE <user> | DEMOTE <user> - Manage roles"); }
                 }
                 lines.push("[M]essages - Read/post messages");

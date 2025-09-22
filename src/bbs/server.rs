@@ -12,8 +12,7 @@ use crate::meshtastic::TextEvent;
 use crate::storage::Storage;
 use super::session::Session;
 use super::public::{PublicState, PublicCommandParser, PublicCommand};
-use super::roles::{LEVEL_SYSOP, LEVEL_MODERATOR, LEVEL_USER, role_name};
-use log::info as log_info; // existing alias
+use super::roles::{LEVEL_MODERATOR, LEVEL_USER, role_name};
 
 macro_rules! sec_log {
     ($($arg:tt)*) => { log::warn!(target: "security", $($arg)*); };
@@ -212,16 +211,31 @@ impl BbsServer {
         self.storage.get_user(username).await
     }
 
-    #[doc(hidden)]
-    pub async fn test_register(&mut self, username: &str, pass: &str) -> Result<()> {
-        self.storage.register_user(username, pass, None).await
+    // Test & moderation helpers (public so integration tests can invoke)
+    #[allow(dead_code)]
+    pub async fn test_register(&mut self, username: &str, pass: &str) -> Result<()> { self.storage.register_user(username, pass, None).await }
+    #[allow(dead_code)]
+    pub async fn test_update_level(&mut self, username: &str, lvl: u8) -> Result<()> { if username == self.config.bbs.sysop { return Err(anyhow::anyhow!("Cannot modify sysop level")); } self.storage.update_user_level(username, lvl).await.map(|_| ()) }
+    #[allow(dead_code)]
+    pub async fn test_store_message(&mut self, area: &str, author: &str, content: &str) -> Result<String> { self.storage.store_message(area, author, content).await }
+    #[allow(dead_code)]
+    pub async fn test_get_messages(&self, area: &str, limit: usize) -> Result<Vec<crate::storage::Message>> { self.storage.get_messages(area, limit).await }
+
+    // Moderator / sysop internal helpers
+    pub async fn moderator_delete_message(&mut self, area: &str, id: &str, actor: &str) -> Result<bool> {
+        let deleted = self.storage.delete_message(area, id).await?;
+        if deleted { sec_log!("DELETE by {}: {}/{}", actor, area, id); }
+        Ok(deleted)
     }
-    #[doc(hidden)]
-    pub async fn test_update_level(&mut self, username: &str, lvl: u8) -> Result<()> {
-        // Prevent modifying sysop in tests to mirror production command restrictions
-        if username == self.config.bbs.sysop { return Err(anyhow::anyhow!("Cannot modify sysop level")); }
-        self.storage.update_user_level(username, lvl).await.map(|_| ())
+    pub fn moderator_lock_area(&mut self, area: &str, actor: &str) {
+        self.storage.lock_area(area);
+        sec_log!("LOCK by {}: {}", actor, area);
     }
+    pub fn moderator_unlock_area(&mut self, area: &str, actor: &str) {
+        self.storage.unlock_area(area);
+        sec_log!("UNLOCK by {}: {}", actor, area);
+    }
+
 
     /// Receive a message from the Meshtastic device
     async fn receive_message(&mut self) -> Result<Option<String>> {
@@ -257,7 +271,10 @@ impl BbsServer {
                 }
                 self.sessions.insert(node_key.clone(), session);
             }
-            if let Some(session) = self.sessions.get_mut(&node_key) {
+                // We'll track any moderator action requiring &mut self after session borrow
+                enum PostAction { None, Delete{area:String,id:String,actor:String}, Lock{area:String,actor:String}, Unlock{area:String,actor:String} }
+                let mut post_action = PostAction::None;
+                if let Some(session) = self.sessions.get_mut(&node_key) {
                 #[cfg(feature = "meshtastic-proto")]
                 if let (Some(dev), Ok(idnum)) = (&self.device, node_key.parse::<u32>()) {
                     let (short, long) = dev.format_node_combined(idnum);
@@ -436,6 +453,43 @@ impl BbsServer {
                             }
                         }
                     }
+                } else if upper.starts_with("DELETE ") {
+                    // DELETE <area> <id>
+                    if session.user_level < LEVEL_MODERATOR { deferred_reply = Some("Permission denied.\n>".into()); }
+                    else {
+                        let parts: Vec<&str> = content.split_whitespace().collect();
+                        if parts.len() < 3 { deferred_reply = Some("Usage: DELETE <area> <id>\n>".into()); }
+                        else {
+                            let area = parts[1].to_lowercase();
+                            let id = parts[2];
+                            let actor = session.username.clone().unwrap_or("?".into());
+                            post_action = PostAction::Delete{area:area.clone(), id:id.to_string(), actor};
+                        }
+                    }
+                } else if upper.starts_with("LOCK ") {
+                    if session.user_level < LEVEL_MODERATOR { deferred_reply = Some("Permission denied.\n>".into()); }
+                    else {
+                        let parts: Vec<&str> = content.split_whitespace().collect();
+                        if parts.len() < 2 { deferred_reply = Some("Usage: LOCK <area>\n>".into()); }
+                        else {
+                            let area = parts[1].to_lowercase();
+                            let actor = session.username.clone().unwrap_or("?".into());
+                            post_action = PostAction::Lock{area:area.clone(), actor};
+                            deferred_reply = Some(format!("Area {} locked.\n>", area));
+                        }
+                    }
+                } else if upper.starts_with("UNLOCK ") {
+                    if session.user_level < LEVEL_MODERATOR { deferred_reply = Some("Permission denied.\n>".into()); }
+                    else {
+                        let parts: Vec<&str> = content.split_whitespace().collect();
+                        if parts.len() < 2 { deferred_reply = Some("Usage: UNLOCK <area>\n>".into()); }
+                        else {
+                            let area = parts[1].to_lowercase();
+                            let actor = session.username.clone().unwrap_or("?".into());
+                            post_action = PostAction::Unlock{area:area.clone(), actor};
+                            deferred_reply = Some(format!("Area {} unlocked.\n>", area));
+                        }
+                    }
                 } else if upper == "LOGOUT" {
                     if session.is_logged_in() {
                         let name = session.display_name();
@@ -453,6 +507,19 @@ impl BbsServer {
                 }
                 // End of session mutable borrow scope; now send any deferred reply
                 let _ = session; // release mutable borrow explicitly
+                // Apply any post action now that session borrow is released
+                match post_action {
+                    PostAction::None => {},
+                    PostAction::Delete{area,id,actor} => {
+                        match self.moderator_delete_message(&area, &id, &actor).await {
+                            Ok(true) => { if deferred_reply.is_none() { deferred_reply = Some(format!("Deleted message {} in {}.\n>", id, area)); } },
+                            Ok(false) => { if deferred_reply.is_none() { deferred_reply = Some("Not found.\n>".into()); } },
+                            Err(e) => { deferred_reply = Some(format!("Delete failed: {}\n>", e)); }
+                        }
+                    }
+                    PostAction::Lock{area,actor} => { self.moderator_lock_area(&area, &actor); }
+                    PostAction::Unlock{area,actor} => { self.moderator_unlock_area(&area, &actor); }
+                }
                 if let Some(msg) = deferred_reply { self.send_message(&node_key, &msg).await?; }
             }
         } else {
