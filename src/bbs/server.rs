@@ -182,6 +182,9 @@ impl BbsServer {
         Ok(())
     }
 
+    #[allow(dead_code)]
+    pub fn test_get_session(&self, node: &str) -> Option<&Session> { self.sessions.get(node) }
+
     fn logged_in_session_count(&self) -> usize {
         self.sessions.values().filter(|s| s.is_logged_in()).count()
     }
@@ -287,6 +290,7 @@ impl BbsServer {
     pub fn test_is_locked(&self, area: &str) -> bool { self.storage.is_area_locked(area) }
     #[allow(dead_code)]
     pub async fn test_deletion_page(&self, page: usize, size: usize) -> Result<Vec<crate::storage::DeletionAuditEntry>> { self.storage.get_deletion_audit_page(page, size).await }
+    // (duplicate definition removed; consolidated above)
 
     // Moderator / sysop internal helpers
     pub async fn moderator_delete_message(&mut self, area: &str, id: &str, actor: &str) -> Result<bool> {
@@ -334,9 +338,8 @@ impl BbsServer {
             if !self.sessions.contains_key(&node_key) {
                 trace!("Creating new session for direct node {}", node_key);
                 let mut session = Session::new(node_key.clone(), node_key.clone());
-                // If there was a pending login, apply username now
+                // Pending public login auto-apply path
                 if let Some(username) = self.public_state.take_pending(&node_key) {
-                    // Enforce capacity before auto-login from public channel
                     let current = self.logged_in_session_count();
                     if (current as u32) >= self.config.bbs.max_users {
                         let _ = self.send_message(&node_key, "All available sessions are in use, please wait and try again later.").await;
@@ -355,10 +358,14 @@ impl BbsServer {
                         }
                     }
                 } else {
-                    // Show full banner even before authentication to ensure consistent experience
-                    let banner = self.prepare_login_banner(0);
-                    let guidance = "Use REGISTER <name> <pass> to create an account or LOGIN <name> <pass>. Type HELP for basics.";
-                    let _ = self.send_message(&node_key, &format!("{}{}\n>", banner, guidance)).await;
+                    // For non-auth first messages, show banner immediately. If message is auth command it will be processed below and produce its own reply.
+                    let first = ev.content.trim();
+                    let upper_first = first.to_uppercase();
+                    if !(upper_first.starts_with("LOGIN ") || upper_first.starts_with("REGISTER ")) {
+                        let banner = self.prepare_login_banner(0);
+                        let guidance = "Use REGISTER <name> <pass> to create an account or LOGIN <name> <pass>. Type HELP for basics.";
+                        let _ = self.send_message(&node_key, &format!("{}{}\n>", banner, guidance)).await;
+                    }
                 }
                 self.sessions.insert(node_key.clone(), session);
             }
