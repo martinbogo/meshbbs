@@ -33,7 +33,9 @@ pub struct BbsServer {
     weather_cache: Option<(Instant, String)>, // (fetched_at, value)
     #[cfg(feature = "meshtastic-proto")]
     pending_direct: Vec<(u32, String)>, // queue of (dest_node_id, message) awaiting our node id
-    pub(crate) test_messages: Vec<(String,String)>, // (to, message) - always enabled for observability
+    #[allow(dead_code)]
+    #[doc(hidden)]
+    pub(crate) test_messages: Vec<(String,String)>, // collected outbound messages (testing)
     // Track the last login banner for test assertions only.
     #[cfg(any(test, feature = "meshtastic-proto"))]
     last_banner: Option<String>,
@@ -210,6 +212,8 @@ impl BbsServer {
     #[cfg(any(test, feature = "meshtastic-proto"))]
     #[allow(dead_code)]
     pub fn last_banner(&self) -> Option<&String> { self.last_banner.as_ref() }
+    #[allow(dead_code)]
+    #[doc(hidden)]
     pub fn test_messages(&self) -> &Vec<(String,String)> { &self.test_messages }
 
         fn build_banner(&self) -> String {
