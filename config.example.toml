@@ -5,6 +5,7 @@
 name = "MeshBBS Station"
 sysop = "Your Name"
 location = "Your Location"
+zipcode = "97210"
 description = "A bulletin board system for mesh networks"
 max_users = 100
 welcome_message = "Welcome to MeshBBS! Type HELP for commands."

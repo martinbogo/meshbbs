@@ -54,7 +54,14 @@ impl PublicCommandParser {
         // Require caret prefix for public commands to reduce accidental noise
         if !trimmed.starts_with('^') { return PublicCommand::Unknown; }
         let body = &trimmed[1..];
-        if body.eq_ignore_ascii_case("HELP") || body == "?" { trace!("Parsed HELP from '{}" , raw); return PublicCommand::Help; }
+    if body.eq_ignore_ascii_case("HELP") || body == "?" { trace!("Parsed HELP from '{}'" , raw); return PublicCommand::Help; }
+    // WEATHER command: accept optional trailing arguments (ignored for now)
+    if body.len() >= 7 && body[..7].eq_ignore_ascii_case("WEATHER") {
+        if body.len() == 7 || body.chars().nth(7).map(|c| c.is_whitespace()).unwrap_or(false) {
+            trace!("Parsed WEATHER from '{}' (args ignored)", raw);
+            return PublicCommand::Weather;
+        }
+    }
         if body.len() >= 5 && body[..5].eq_ignore_ascii_case("LOGIN") {
             if body.len() == 5 { return PublicCommand::Invalid("Username required".into()); }
             let after = &body[5..];
@@ -73,6 +80,7 @@ impl PublicCommandParser {
 pub enum PublicCommand {
     Help,
     Login(String),
+    Weather,
     Unknown,
     Invalid(String),
 }

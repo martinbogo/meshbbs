@@ -30,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Integration test simulating public `LOGIN` then DM session with inline commands
 - `proto-silence` feature flag to suppress unused warnings from generated Meshtastic protobuf surface
 - Password management commands: `SETPASS <new>` (if no password set) and `CHPASS <old> <new>` to change existing password
+- Sysop password management via out-of-band CLI subcommand `sysop-passwd` (argon2 hashed, stored in config, seeded at server startup)
+
+### Security
+- Redacts sensitive password material from logs (no plaintext for REGISTER/LOGIN/SETPASS/CHPASS)
 
 ### Changed
 - Nothing yet

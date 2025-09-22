@@ -64,6 +64,45 @@ impl BbsServer {
     /// Start the BBS server main loop
     pub async fn run(&mut self) -> Result<()> {
         info!("BBS '{}' started by {}", self.config.bbs.name, self.config.bbs.sysop);
+        // Ensure sysop user exists with elevated level (e.g., 10) and bound password hash if configured
+    if let Some(hash) = &self.config.bbs.sysop_password_hash {
+            // Load or create user file with high level and provided hash (do not overwrite existing higher level)
+            let sysop_name = self.config.bbs.sysop.clone();
+            match self.storage.get_user(&sysop_name).await? {
+                Some(mut u) => {
+                    let mut needs_write = false;
+                    if u.user_level < 10 { u.user_level = 10; needs_write = true; }
+                    if u.password_hash.as_deref() != Some(hash.as_str()) { u.password_hash = Some(hash.clone()); needs_write = true; }
+                    if needs_write {
+                        // Re-write user JSON
+                        let users_dir = std::path::Path::new(self.storage.base_dir()).join("users");
+                        let user_file = users_dir.join(format!("{}.json", sysop_name));
+                        let json_content = serde_json::to_string_pretty(&u)?;
+                        tokio::fs::write(user_file, json_content).await?;
+                        info!("Sysop user '{}' synchronized from config.", sysop_name);
+                    }
+                }
+                None => {
+                    // Create user record
+                    let now = chrono::Utc::now();
+                    let user = crate::storage::User {
+                        username: sysop_name.clone(),
+                        node_id: None,
+                        user_level: 10,
+                        password_hash: Some(hash.clone()),
+                        first_login: now,
+                        last_login: now,
+                        total_messages: 0,
+                    };
+                    let users_dir = std::path::Path::new(self.storage.base_dir()).join("users");
+                    tokio::fs::create_dir_all(&users_dir).await?;
+                    let user_file = users_dir.join(format!("{}.json", sysop_name));
+                    let json_content = serde_json::to_string_pretty(&user)?;
+                    tokio::fs::write(user_file, json_content).await?;
+                    info!("Sysop user '{}' created from config.", sysop_name);
+                }
+            }
+        }
         
         let (tx, mut rx) = mpsc::unbounded_channel();
         self.message_tx = Some(tx);
@@ -201,7 +240,15 @@ impl BbsServer {
                     }
                 } else if upper.starts_with("LOGIN ") {
                     // LOGIN <username> [password]
-                    trace!("Direct LOGIN attempt from node {} raw='{}'", node_key, content);
+                    // Redact password portion if present for logging
+                    if let Some(space_idx) = content.find(' ') { // after LOGIN
+                        let mut parts = content.split_whitespace();
+                        let _login_kw = parts.next();
+                        let user_part = parts.next().unwrap_or("");
+                        trace!("Direct LOGIN attempt from node {} user='{}'", node_key, user_part);
+                    } else {
+                        trace!("Direct LOGIN attempt (short form) from node {}", node_key);
+                    }
                     if session.is_logged_in() { deferred_reply = Some(format!("Already logged in as {}.\n>", session.display_name())); }
                     else {
                         let parts: Vec<&str> = content.split_whitespace().collect();
@@ -239,6 +286,9 @@ impl BbsServer {
                         }
                     }
                 } else if upper.starts_with("CHPASS ") {
+                    if session.username.as_deref() == Some(&self.config.bbs.sysop) {
+                        deferred_reply = Some("Sysop password managed externally. Use sysop-passwd CLI.\n>".to_string());
+                    } else {
                     // Change existing password: CHPASS <old> <new>
                     // Do not trace raw command to avoid leaking secrets
                     if session.is_logged_in() {
@@ -270,7 +320,11 @@ impl BbsServer {
                             }
                         }
                     } else { deferred_reply = Some("Not logged in.\n>".to_string()); }
+                    }
                 } else if upper.starts_with("SETPASS ") {
+                    if session.username.as_deref() == Some(&self.config.bbs.sysop) {
+                        deferred_reply = Some("Sysop password managed externally. Use sysop-passwd CLI.\n>".to_string());
+                    } else {
                     // Set initial password when none exists: SETPASS <new>
                     if session.is_logged_in() {
                         let parts: Vec<&str> = content.split_whitespace().collect();
@@ -293,6 +347,7 @@ impl BbsServer {
                             } else { deferred_reply = Some("Not logged in.\n>".to_string()); }
                         }
                     } else { deferred_reply = Some("Not logged in.\n>".to_string()); }
+                    }
                 } else if upper == "LOGOUT" {
                     if session.is_logged_in() {
                         let name = session.display_name();
@@ -301,12 +356,15 @@ impl BbsServer {
                     } else { deferred_reply = Some("Not logged in.\n>".to_string()); }
                 } else {
                     // Process all content (including potential inline commands) through command processor
-                    trace!("Processing direct command/session input from {} => '{}'", node_key, content);
+                    // Sanitize sensitive commands before logging
+                    let redact = ["SETPASS", "CHPASS", "REGISTER", "LOGIN"]; // REGISTER/LOGIN may include password
+                    let log_snippet = if redact.iter().any(|p| upper.starts_with(p)) { "<redacted>" } else { content };
+                    trace!("Processing direct command/session input from {} => {}", node_key, log_snippet);
                     let response = session.process_command(content, &mut self.storage).await?;
                     if !response.is_empty() { deferred_reply = Some(response); }
                 }
                 // End of session mutable borrow scope; now send any deferred reply
-                drop(session);
+                let _ = session; // release mutable borrow explicitly
                 if let Some(msg) = deferred_reply { self.send_message(&node_key, &msg).await?; }
             }
         } else {

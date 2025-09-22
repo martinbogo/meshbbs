@@ -3,7 +3,7 @@
 //! This module handles communication with Meshtastic devices via serial port.
 
 use anyhow::{Result, anyhow};
-use log::{info, debug, error};
+use log::{info, debug, error, trace};
 use tokio::time::{sleep, Duration};
 use std::collections::VecDeque;
 
@@ -21,23 +21,21 @@ fn hex_snippet(data: &[u8], max: usize) -> String {
 }
 
 #[cfg(feature = "meshtastic-proto")]
-pub mod framer; // expose framer submodule
-#[cfg(feature = "meshtastic-proto")]
-pub mod slip;
+pub mod slip; // restore SLIP decoder (Meshtastic uses SLIP over some transports)
 
 #[cfg(feature = "serial")]
 use serialport::SerialPort;
 
 /// Represents a connection to a Meshtastic device
 pub struct MeshtasticDevice {
+    #[allow(dead_code)]
     port_name: String,
+    #[allow(dead_code)]
     baud_rate: u32,
     #[cfg(feature = "serial")]
     port: Option<Box<dyn SerialPort>>,
     #[cfg(feature = "meshtastic-proto")]
-    framer: Option<crate::meshtastic::framer::ProtoFramer>, // retained for potential BLE use
-    #[cfg(feature = "meshtastic-proto")]
-    slip: Option<crate::meshtastic::slip::SlipDecoder>,
+    slip: slip::SlipDecoder,
     #[cfg(feature = "meshtastic-proto")]
     config_request_id: Option<u32>,
     #[cfg(feature = "meshtastic-proto")]
@@ -74,6 +72,38 @@ pub struct TextEvent {
 }
 
 impl MeshtasticDevice {
+    #[cfg(feature = "meshtastic-proto")]
+    pub fn format_node_label(&self, id: u32) -> String {
+        if let Some(info) = self.nodes.get(&id) {
+            if let Some(user) = &info.user {
+                let ln = user.long_name.trim();
+                if !ln.is_empty() { return ln.to_string(); }
+            }
+        }
+        // Fallback to short uppercase hex (similar to Meshtastic short name style but simplified)
+        format!("0x{:06X}", id & 0xFFFFFF)
+    }
+
+    #[cfg(feature = "meshtastic-proto")]
+    pub fn format_node_short_label(&self, id: u32) -> String {
+        if let Some(info) = self.nodes.get(&id) {
+            if let Some(user) = &info.user {
+                let sn = user.short_name.trim();
+                if !sn.is_empty() { return sn.to_string(); }
+            }
+        }
+        format!("0x{:06X}", id & 0xFFFFFF)
+    }
+
+    #[cfg(feature = "meshtastic-proto")]
+    pub fn format_node_combined(&self, id: u32) -> (String, String) {
+        let short = self.format_node_short_label(id);
+        let long = self.format_node_label(id);
+        (short, long)
+    }
+
+    #[cfg(feature = "meshtastic-proto")]
+    pub fn our_node_id(&self) -> Option<u32> { self.our_node_id }
     // ---------- Public state accessors (read-only) ----------
     #[cfg(feature = "meshtastic-proto")]
     pub fn binary_detected(&self) -> bool { self.binary_frames_seen }
@@ -115,10 +145,8 @@ impl MeshtasticDevice {
                     port_name: port_name.to_string(),
                     baud_rate,
                     port: Some(port),
-                    #[cfg(feature = "meshtastic-proto")]
-                    framer: Some(crate::meshtastic::framer::ProtoFramer::new()),
             #[cfg(feature = "meshtastic-proto")]
-            slip: Some(crate::meshtastic::slip::SlipDecoder::new()),
+            slip: slip::SlipDecoder::new(),
             #[cfg(feature = "meshtastic-proto")]
             config_request_id: None,
             #[cfg(feature = "meshtastic-proto")]
@@ -151,9 +179,7 @@ impl MeshtasticDevice {
                 port_name: port_name.to_string(),
                 baud_rate,
                 #[cfg(feature = "meshtastic-proto")]
-                framer: Some(crate::meshtastic::framer::ProtoFramer::new()),
-                #[cfg(feature = "meshtastic-proto")]
-                slip: Some(crate::meshtastic::slip::SlipDecoder::new()),
+                slip: slip::SlipDecoder::new(),
                 #[cfg(feature = "meshtastic-proto")]
                 config_request_id: None,
                 #[cfg(feature = "meshtastic-proto")]
@@ -226,18 +252,16 @@ impl MeshtasticDevice {
                                 }
                             }
                         }
+                        // SLIP framing path: some firmwares emit SLIP encoded protobuf frames
                         #[cfg(feature = "meshtastic-proto")]
                         {
-                            if let Some(ref mut slip) = self.slip {
-                                let frames = slip.push(raw_slice);
-                                if !frames.is_empty() { self.binary_frames_seen = true; }
-                                for frame in frames {
-                                    debug!("SLIP frame {} bytes", frame.len());
-                                    if let Some(summary) = self.try_parse_protobuf_frame(&frame) {
-                                        // update internal state
-                                        self.update_state_from_summary(&summary);
-                                        return Ok(Some(summary));
-                                    }
+                            let frames = self.slip.push(raw_slice);
+                            if !frames.is_empty() { self.binary_frames_seen = true; }
+                            for frame in frames {
+                                debug!("SLIP frame {} bytes", frame.len());
+                                if let Some(summary) = self.try_parse_protobuf_frame(&frame) {
+                                    self.update_state_from_summary(&summary);
+                                    return Ok(Some(summary));
                                 }
                             }
                         }
@@ -258,6 +282,13 @@ impl MeshtasticDevice {
                         sleep(Duration::from_millis(10)).await;
                     }
                     Err(e) => {
+                        // Treat EINTR (Interrupted system call) gracefully: occurs during CTRL-C/shutdown signals.
+                        if e.kind() == std::io::ErrorKind::Interrupted {
+                            debug!("Serial read interrupted (EINTR), likely shutdown in progress");
+                            sleep(Duration::from_millis(5)).await;
+                            // Return None so outer logic can decide to continue loop without spamming errors
+                            return Ok(None);
+                        }
                         error!("Serial read error: {}", e);
                         return Err(anyhow!("Serial read error: {}", e));
                     }
@@ -276,8 +307,24 @@ impl MeshtasticDevice {
 
     /// Send a message to a specific node
     pub async fn send_message(&mut self, to_node: &str, message: &str) -> Result<()> {
+        // When protobuf support is enabled we send a proper MeshPacket so real
+        // Meshtastic nodes/app clients will display the reply. Fallback to the
+        // legacy ASCII stub otherwise.
+        #[cfg(feature = "meshtastic-proto")]
+        {
+            if let Ok(numeric) = u32::from_str_radix(to_node.trim_start_matches("0x"), 16) {
+                // Treat to_node as hex node id; channel 0 (primary) for now.
+                self.send_text_packet(Some(numeric), 0, message)?;
+                return Ok(());
+            } else if let Ok(numeric_dec) = to_node.parse::<u32>() {
+                self.send_text_packet(Some(numeric_dec), 0, message)?;
+                return Ok(());
+            }
+            // If parsing fails, fall back to legacy path below.
+        }
+
         let formatted_message = format!("TO:{} MSG:{}\n", to_node, message);
-        
+
         #[cfg(feature = "serial")]
         {
             if let Some(ref mut port) = self.port {
@@ -285,16 +332,16 @@ impl MeshtasticDevice {
                     .map_err(|e| anyhow!("Failed to write to serial port: {}", e))?;
                 port.flush()
                     .map_err(|e| anyhow!("Failed to flush serial port: {}", e))?;
-                
-                debug!("Sent to {}: {}", to_node, message);
+
+                debug!("(legacy) Sent to {}: {}", to_node, message);
             }
         }
-        
+
         #[cfg(not(feature = "serial"))]
         {
-            debug!("Mock send to {}: {}", to_node, message);
+            debug!("(legacy mock) send to {}: {}", to_node, message);
         }
-        
+
         Ok(())
     }
 
@@ -324,7 +371,7 @@ impl MeshtasticDevice {
         use proto::{FromRadio, PortNum};
         use proto::from_radio::PayloadVariant as FRPayload;
         use proto::mesh_packet::PayloadVariant as MPPayload;
-        let mut bytes = BytesMut::from(data);
+    let bytes = BytesMut::from(data);
         if let Ok(msg) = FromRadio::decode(&mut bytes.freeze()) {
             match msg.payload_variant.as_ref()? {
                 FRPayload::ConfigCompleteId(id) => { return Some(format!("CONFIG_COMPLETE:{id}")); }
@@ -344,8 +391,21 @@ impl MeshtasticDevice {
                                 }
                             }
                             PortNum::TextMessageCompressedApp => {
-                                let hex = data_msg.payload.iter().map(|b| format!("{:02x}", b)).collect::<String>();
-                                return Some(format!("CTEXT:{}:{}", pkt.from, hex)); }
+                                // Attempt naive decompression: if payload seems ASCII printable treat directly; else hex summarize.
+                                let maybe_text = if data_msg.payload.iter().all(|b| b.is_ascii() && !b.is_ascii_control()) {
+                                    Some(String::from_utf8_lossy(&data_msg.payload).to_string())
+                                } else { None };
+                                if let Some(text) = maybe_text {
+                                    let dest = if pkt.to != 0 { Some(pkt.to) } else { None };
+                                    let is_direct = match (dest, self.our_node_id) { (Some(d), Some(our)) if d == our => true, _ => false };
+                                    let channel = Some(pkt.channel as u32);
+                                    self.text_events.push_back(TextEvent { source: pkt.from, dest, is_direct, channel, content: text.clone() });
+                                    return Some(format!("TEXT:{}:{}", pkt.from, text));
+                                } else {
+                                    let hex = data_msg.payload.iter().map(|b| format!("{:02x}", b)).collect::<String>();
+                                    return Some(format!("CTEXT:{}:{}", pkt.from, hex));
+                                }
+                            }
                             _ => return Some(format!("PKT:{}:port={:?}:len={}", pkt.from, port, data_msg.payload.len())),
                         }
                     }
@@ -391,18 +451,70 @@ impl MeshtasticDevice {
         Ok(())
     }
 
-    /// Get device information (placeholder)
-    pub async fn get_device_info(&mut self) -> Result<DeviceInfo> {
-        Ok(DeviceInfo { node_id: "SIMULATED".into(), hardware: "T-Beam".into(), firmware_version: "2.2.0".into(), channel: 0 })
-    }
 }
 
 #[cfg(feature = "meshtastic-proto")]
 impl MeshtasticDevice {
     /// Retrieve next structured text event if available
     pub fn next_text_event(&mut self) -> Option<TextEvent> { self.text_events.pop_front() }
-    /// Get our node id if known
-    pub fn our_node_id(&self) -> Option<u32> { self.our_node_id }
+    /// Build and send a text message MeshPacket via ToRadio (feature gated).
+    /// to: Some(node_id) for direct, None for broadcast
+    /// channel: channel index (0 primary)
+    #[cfg(feature = "meshtastic-proto")]
+    pub fn send_text_packet(&mut self, to: Option<u32>, channel: u32, text: &str) -> Result<()> {
+        use proto::{ToRadio, MeshPacket, Data, PortNum};
+        use proto::to_radio::PayloadVariant as TRPayload;
+        use proto::mesh_packet::PayloadVariant as MPPayload;
+        use prost::Message;
+        // Determine destination: broadcast if None
+        let dest = to.unwrap_or(0xffffffff);
+        // Populate Data payload
+        let data_msg = Data {
+            portnum: PortNum::TextMessageApp as i32,
+            payload: text.as_bytes().to_vec().into(),
+            want_response: false,
+            dest: 0, // filled by firmware
+            source: 0,
+            request_id: 0,
+            reply_id: 0,
+            emoji: 0,
+            bitfield: None,
+            ..Default::default()
+        };
+        let pkt = MeshPacket {
+            from: self.our_node_id.unwrap_or(0),
+            to: dest,
+            channel,
+            payload_variant: Some(MPPayload::Decoded(data_msg)),
+            id: 0, // non-reliable (no ack)
+            rx_time: 0,
+            rx_snr: 0.0,
+            hop_limit: 0,
+            want_ack: false,
+            priority: 0, // DEFAULT internal
+            ..Default::default()
+        };
+        let toradio = ToRadio { payload_variant: Some(TRPayload::Packet(pkt)) };
+        // Encode and send using existing framing helper
+        #[cfg(feature = "serial")]
+        if let Some(ref mut port) = self.port {
+            let mut payload = Vec::with_capacity(128);
+            toradio.encode(&mut payload)?;
+            let mut hdr = [0u8;4]; hdr[0]=0x94; hdr[1]=0xC3; hdr[2]=((payload.len()>>8)&0xFF) as u8; hdr[3]=(payload.len()&0xFF) as u8;
+            port.write_all(&hdr)?; port.write_all(&payload)?; port.flush()?;
+            debug!("Sent TextPacket to 0x{:08x} ({} bytes payload) text='{}'", dest, payload.len(), text);
+            if log::log_enabled!(log::Level::Trace) {
+                let mut hex = String::with_capacity(payload.len()*2);
+                for b in &payload { use std::fmt::Write; let _=write!(&mut hex, "{:02x}", b); }
+                trace!("ToRadio payload hex:{}", hex);
+            }
+        }
+        #[cfg(not(feature = "serial"))]
+        {
+            debug!("(mock) Would send TextPacket to 0x{:08x}: '{}'", dest, text);
+        }
+        Ok(())
+    }
 }
 
 // (Public crate visibility no longer required; kept private above.)
@@ -411,7 +523,6 @@ impl MeshtasticDevice {
 impl MeshtasticDevice {
     /// Send a ToRadio.WantConfigId request to trigger the node database/config push.
     pub fn send_want_config(&mut self, request_id: u32) -> Result<()> {
-        use prost::Message;
         use proto::to_radio::PayloadVariant;
         let msg = proto::ToRadio { payload_variant: Some(PayloadVariant::WantConfigId(request_id)) };
         #[cfg(feature = "meshtastic-proto")]
@@ -421,7 +532,6 @@ impl MeshtasticDevice {
 
     /// Send a heartbeat frame (optional, can help keep link active)
     pub fn send_heartbeat(&mut self) -> Result<()> {
-        use prost::Message;
         use proto::{Heartbeat, ToRadio};
         use proto::to_radio::PayloadVariant;
         // nonce can be any incrementing value; for now just use a simple timestamp-based low bits
@@ -462,13 +572,4 @@ impl MeshtasticDevice {
         }}
         Ok(())
     }
-}
-
-/// Device information structure
-#[derive(Debug, Clone)]
-pub struct DeviceInfo {
-    pub node_id: String,
-    pub hardware: String,
-    pub firmware_version: String,
-    pub channel: u8,
 }

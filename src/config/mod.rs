@@ -21,9 +21,12 @@ pub struct BbsConfig {
     pub name: String,
     pub sysop: String,
     pub location: String,
+    pub zipcode: String,
     pub description: String,
     pub max_users: u32,
     pub welcome_message: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sysop_password_hash: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -120,9 +123,11 @@ impl Default for Config {
                 name: "MeshBBS Station".to_string(),
                 sysop: "Your Name".to_string(),
                 location: "Your Location".to_string(),
+                zipcode: "97210".to_string(),
                 description: "A bulletin board system for mesh networks".to_string(),
                 max_users: 100,
                 welcome_message: "Welcome to MeshBBS! Type HELP for commands.".to_string(),
+                sysop_password_hash: None,
             },
             meshtastic: MeshtasticConfig {
                 port: "/dev/ttyUSB0".to_string(),

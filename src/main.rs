@@ -1,5 +1,5 @@
 use anyhow::Result;
-use log::{info, warn, error};
+use log::{info, warn, error}; // error may be used in feature-gated SmokeTest; keep warn & info
 use clap::{Parser, Subcommand};
 
 mod bbs;
@@ -52,6 +52,8 @@ enum Commands {
         #[arg(short, long, default_value_t = 10)]
         timeout: u64,
     },
+    /// Set or update the sysop (primary administrator) password in the config file
+    SysopPasswd,
 }
 
 #[tokio::main]
@@ -72,13 +74,28 @@ async fn main() -> Result<()> {
     match cli.command {
         Commands::Start { port } => {
             let config = Config::load(&cli.config).await?;
+            // Capture configured port before moving config into server
+            let configured_port = config.meshtastic.port.clone();
             let mut bbs = BbsServer::new(config).await?;
-            
-            if let Some(port_path) = port {
-                info!("Connecting to Meshtastic device on {}", port_path);
-                bbs.connect_device(&port_path).await?;
+
+            // Determine which port to use: CLI overrides config; fallback to config when CLI absent
+            let chosen_port = match port {
+                Some(cli_port) => Some(cli_port),
+                None => if !configured_port.is_empty() { Some(configured_port) } else { None },
+            };
+
+            if let Some(port_path) = chosen_port {
+                match bbs.connect_device(&port_path).await {
+                    Ok(_) => info!("Connected to Meshtastic device on {}", port_path),
+                    Err(e) => {
+                        // Fail fast? For now we warn and continue so the BBS can still run (e.g., for web or offline ops)
+                        warn!("Failed to connect to device on {}: {} (BBS continuing without device)", port_path, e);
+                    }
+                }
+            } else {
+                info!("No --port specified and no configured device port set; starting without device.");
             }
-            
+
             info!("BBS server starting...");
             bbs.run().await?;
         }
@@ -91,6 +108,28 @@ async fn main() -> Result<()> {
             let config = Config::load(&cli.config).await?;
             let bbs = BbsServer::new(config).await?;
             bbs.show_status().await?;
+        }
+        Commands::SysopPasswd => {
+            use password_hash::{PasswordHasher, SaltString};
+            use argon2::Argon2;
+            // Read existing config
+            let mut config = Config::load(&cli.config).await?;
+            println!("Setting sysop password for '{}'.", config.bbs.sysop);
+            // Prompt twice without echo
+            let pass1 = rpassword::prompt_password("New password: ")?;
+            if pass1.len() < 8 { println!("Error: password too short (min 8)." ); return Ok(()); }
+            if pass1.len() > 128 { println!("Error: password too long." ); return Ok(()); }
+            let pass2 = rpassword::prompt_password("Confirm password: ")?;
+            if pass1 != pass2 { println!("Error: passwords do not match." ); return Ok(()); }
+            // Hash
+            let salt = SaltString::generate(&mut rand::thread_rng());
+            let argon = Argon2::default();
+            let hash = match argon.hash_password(pass1.as_bytes(), &salt) { Ok(h) => h.to_string(), Err(e) => { println!("Hash error: {e}" ); return Ok(()); } };
+            config.bbs.sysop_password_hash = Some(hash);
+            // Persist updated config (overwrite file)
+            let serialized = toml::to_string_pretty(&config)?;
+            tokio::fs::write(&cli.config, serialized).await?;
+            println!("Sysop password updated successfully.");
         }
     Commands::SmokeTest { port, baud, timeout } => {
             #[cfg(not(all(feature = "serial", feature = "meshtastic-proto")))]

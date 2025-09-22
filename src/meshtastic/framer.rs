@@ -27,7 +27,7 @@ impl ProtoFramer {
         let mut len: usize = 0;
         let mut shift = 0u32;
         let mut varint_len = 0usize;
-        for (i, b) in self.buf.iter().enumerate() {
+    for (_i, b) in self.buf.iter().enumerate() {
             varint_len += 1;
             let val = (b & 0x7F) as usize;
             len |= val << shift;

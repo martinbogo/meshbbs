@@ -24,6 +24,7 @@ toml = "0.8"
 rand = { version = "0.8", default-features = true }
 argon2 = { version = "0.5", default-features = false, features = ["std"] }
 password-hash = "0.5"
+rpassword = "7.3"
 
 # Logging
 log = "0.4"

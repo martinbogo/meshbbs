@@ -4,13 +4,13 @@ A modern Bulletin Board System (BBS) designed for Meshtastic mesh networks, writ
 
 ## Overview
 
-MeshBBS brings the classic BBS experience to modern mesh networks, allowing users to exchange messages, share files, and communicate over long-range, low-power radio networks using Meshtastic devices. This project aims to create resilient communication systems that work without traditional internet infrastructure.
+MeshBBS brings the classic BBS experience to modern mesh networks, allowing users to exchange messages and communicate over long-range, low-power radio networks using Meshtastic devices. This project aims to create resilient communication systems that work without traditional internet infrastructure.
 
 ## Features
 
 - 📡 **Meshtastic Integration**: Direct communication with Meshtastic devices via serial or Bluetooth
 - 💬 **Message Boards**: Traditional BBS-style message areas and forums
-- 📁 **File Sharing**: Exchange files over the mesh network
+- (Planned) **File Transfer**: Deferred; transferring binary data over limited Meshtastic bandwidth is intentionally omitted in this iteration.
 - 👥 **User Management**: User accounts and permissions system
 - 🔐 **Security**: Message encryption and user authentication
 - 📊 **Statistics**: Network and usage statistics

@@ -29,3 +29,21 @@ fn test_missing_caret_prefix() {
     let parser = PublicCommandParser::new();
     match parser.parse("LOGIN Bob") { PublicCommand::Unknown => {}, other => panic!("Expected Unknown (no caret), got {:?}", other) }
 }
+
+#[test]
+fn test_weather_command() {
+    let parser = PublicCommandParser::new();
+    match parser.parse("^WEATHER") { PublicCommand::Weather => {}, other => panic!("Expected Weather, got {:?}", other) }
+}
+
+#[test]
+fn test_weather_with_args() {
+    let parser = PublicCommandParser::new();
+    match parser.parse("^WEATHER Portland OR") { PublicCommand::Weather => {}, other => panic!("Expected Weather with args accepted, got {:?}", other) }
+}
+
+#[test]
+fn test_weather_suffix_not_match() {
+    let parser = PublicCommandParser::new();
+    match parser.parse("^WEATHERS") { PublicCommand::Unknown => {}, other => panic!("Expected Unknown for suffix variant, got {:?}", other) }
+}

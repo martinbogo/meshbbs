@@ -71,6 +71,9 @@ impl Storage {
         })
     }
 
+    /// Return the base data directory path used by this storage instance
+    pub fn base_dir(&self) -> &str { &self.data_dir }
+
     /// Register a new user with password; fails if user exists.
     pub async fn register_user(&mut self, username: &str, password: &str, maybe_node: Option<&str>) -> Result<()> {
         // Basic username sanity

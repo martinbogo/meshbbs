@@ -1,5 +1,5 @@
 use anyhow::Result;
-use log::{info, debug};
+use log::debug;
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
 
@@ -11,6 +11,8 @@ use super::commands::CommandProcessor;
 pub struct Session {
     pub id: String,
     pub node_id: String,
+    pub short_label: Option<String>,
+    pub long_label: Option<String>,
     pub username: Option<String>,
     pub user_level: u8,
     pub current_area: Option<String>,
@@ -27,7 +29,6 @@ pub enum SessionState {
     MessageAreas,
     ReadingMessages,
     PostingMessage,
-    FileAreas,
     UserMenu,
     Disconnected,
 }
@@ -40,6 +41,8 @@ impl Session {
         Session {
             id,
             node_id,
+            short_label: None,
+            long_label: None,
             username: None,
             user_level: 0,
             current_area: None,
@@ -68,8 +71,7 @@ impl Session {
 
     /// Log in a user
     pub async fn login(&mut self, username: String, user_level: u8) -> Result<()> {
-        info!("User {} logged in from node {}", username, self.node_id);
-        
+        // Logging handled in server (needs node database context)
         self.username = Some(username);
         self.user_level = user_level;
         self.state = SessionState::MainMenu;
@@ -79,10 +81,7 @@ impl Session {
 
     /// Log out the user
     pub async fn logout(&mut self) -> Result<()> {
-        if let Some(ref username) = self.username {
-            info!("User {} logged out from node {}", username, self.node_id);
-        }
-        
+        // Logging handled in server
         self.username = None;
         self.user_level = 0;
         self.current_area = None;
@@ -99,6 +98,21 @@ impl Session {
     /// Get the username, or "Guest" if not logged in
     pub fn display_name(&self) -> String {
         self.username.clone().unwrap_or_else(|| "Guest".to_string())
+    }
+
+    pub fn display_node_short(&self) -> String {
+        self.short_label.clone().unwrap_or_else(|| {
+            if let Ok(n) = self.node_id.parse::<u32>() { format!("0x{:06X}", n & 0xFFFFFF) } else { self.node_id.clone() }
+        })
+    }
+
+    pub fn display_node_long(&self) -> String {
+        self.long_label.clone().unwrap_or_else(|| self.display_node_short())
+    }
+
+    pub fn update_labels(&mut self, short: Option<String>, long: Option<String>) {
+        if let Some(s) = short { if !s.is_empty() { self.short_label = Some(s); } }
+        if let Some(l) = long { if !l.is_empty() { self.long_label = Some(l); } }
     }
 
     /// Check if the user has sufficient access level

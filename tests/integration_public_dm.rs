@@ -1,3 +1,4 @@
+#![cfg(feature = "meshtastic-proto")]
 use meshbbs::bbs::{BbsServer};
 use meshbbs::config::Config;
 use meshbbs::storage::Storage; // for type references (ensuring feature compile)
