@@ -23,7 +23,9 @@ channel = 0
 # Directory to store BBS data
 data_dir = "./data"
 # Maximum size for a single message (bytes)
-max_message_size = 1024
+# Maximum payload allowed by Meshtastic practical text frame size is 230 bytes.
+# Values above 230 will be clamped internally.
+max_message_size = 230
 # How long to keep messages (days)
 message_retention_days = 30
 # Maximum number of messages per area
