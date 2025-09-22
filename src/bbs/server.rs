@@ -35,7 +35,8 @@ pub struct BbsServer {
     pending_direct: Vec<(u32, String)>, // queue of (dest_node_id, message) awaiting our node id
     #[cfg(test)]
     pub(crate) test_messages: Vec<(String,String)>, // (to, message)
-    // Track the last login banner sent so integration tests (without cfg(test)) can assert content.
+    // Track the last login banner for test assertions only.
+    #[cfg(any(test, feature = "meshtastic-proto"))]
     last_banner: Option<String>,
 }
 
@@ -86,6 +87,7 @@ impl BbsServer {
             pending_direct: Vec::new(),
             #[cfg(test)]
             test_messages: Vec::new(),
+            #[cfg(any(test, feature = "meshtastic-proto"))]
             last_banner: None,
         })
     }
@@ -204,6 +206,7 @@ impl BbsServer {
     pub fn test_logged_in_count(&self) -> usize { self.logged_in_session_count() }
     #[allow(dead_code)]
     pub async fn test_prune_idle(&mut self) { self.prune_idle_sessions().await; }
+    #[cfg(any(test, feature = "meshtastic-proto"))]
     pub fn last_banner(&self) -> Option<&String> { self.last_banner.as_ref() }
 
         fn build_banner(&self) -> String {
@@ -218,7 +221,8 @@ impl BbsServer {
         fn prepare_login_banner(&mut self, unread: u32) -> String {
             let mut banner = self.build_banner();
             // Store the base banner before mutation so tests can assert core content
-            self.last_banner = Some(banner.clone());
+            #[cfg(any(test, feature = "meshtastic-proto"))]
+            { self.last_banner = Some(banner.clone()); }
             if unread > 0 { banner.push_str(&format!("{} new messages since your last login.\n", unread)); }
             banner
         }
