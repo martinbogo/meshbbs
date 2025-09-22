@@ -1,3 +1,4 @@
+use log::trace;
 use std::collections::HashMap;
 use std::time::{Instant, Duration};
 
@@ -53,13 +54,14 @@ impl PublicCommandParser {
         // Require caret prefix for public commands to reduce accidental noise
         if !trimmed.starts_with('^') { return PublicCommand::Unknown; }
         let body = &trimmed[1..];
-        if body.eq_ignore_ascii_case("HELP") || body == "?" { return PublicCommand::Help; }
+        if body.eq_ignore_ascii_case("HELP") || body == "?" { trace!("Parsed HELP from '{}" , raw); return PublicCommand::Help; }
         if body.len() >= 5 && body[..5].eq_ignore_ascii_case("LOGIN") {
             if body.len() == 5 { return PublicCommand::Invalid("Username required".into()); }
             let after = &body[5..];
             if after.chars().next().map(|c| c.is_whitespace()).unwrap_or(false) {
                 let user = after.trim();
                 if user.is_empty() { return PublicCommand::Invalid("Username required".into()); }
+                trace!("Parsed LOGIN '{}' from '{}'", user, raw);
                 return PublicCommand::Login(user.to_string());
             }
         }

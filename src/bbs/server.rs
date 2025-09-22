@@ -1,5 +1,5 @@
 use anyhow::Result;
-use log::{info, warn, debug};
+use log::{info, warn, debug, trace};
 use tokio::time::sleep; // for short polling delay
 use tokio::sync::mpsc;
 use std::collections::HashMap;
@@ -134,6 +134,8 @@ impl BbsServer {
 
     #[cfg_attr(test, allow(dead_code))]
     pub async fn route_text_event(&mut self, ev: TextEvent) -> Result<()> {
+        // Trace-log every text event for debugging purposes
+        trace!("TextEvent src={} direct={} channel={:?} content='{}'", ev.source, ev.is_direct, ev.channel, ev.content);
         // Source node id string form
         let node_key = ev.source.to_string();
         if ev.is_direct {
@@ -164,6 +166,7 @@ impl BbsServer {
             // Public channel event: parse lightweight commands
             self.public_state.prune_expired();
             let cmd = self.public_parser.parse(&ev.content);
+            trace!("Public command parse result for node {} => {:?}", node_key, cmd);
             match cmd {
                 PublicCommand::Help => {
                     if self.public_state.should_reply(&node_key) {
