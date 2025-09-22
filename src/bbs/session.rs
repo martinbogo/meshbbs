@@ -100,12 +100,14 @@ impl Session {
         self.username.clone().unwrap_or_else(|| "Guest".to_string())
     }
 
+    #[allow(dead_code)]
     pub fn display_node_short(&self) -> String {
         self.short_label.clone().unwrap_or_else(|| {
             if let Ok(n) = self.node_id.parse::<u32>() { format!("0x{:06X}", n & 0xFFFFFF) } else { self.node_id.clone() }
         })
     }
 
+    #[allow(dead_code)]
     pub fn display_node_long(&self) -> String {
         self.long_label.clone().unwrap_or_else(|| self.display_node_short())
     }
@@ -116,6 +118,7 @@ impl Session {
     }
 
     /// Check if the user has sufficient access level
+    #[allow(dead_code)]
     pub fn has_access(&self, required_level: u8) -> bool {
         self.user_level >= required_level
     }

@@ -1,6 +1,8 @@
 #![cfg(feature = "meshtastic-proto")]
 
-use meshbbs::meshtastic::MeshtasticDevice; // assuming crate name meshbbs
+// Only import device when serial feature is disabled so we actually use it in the test below.
+#[cfg(all(feature = "meshtastic-proto", not(feature = "serial")))]
+use meshbbs::meshtastic::MeshtasticDevice;
 
 // Helper: construct a device without serial (if serial feature off test still compiles but skipped)
 // Only build this test when meshtastic-proto is on and serial is off so we can construct a mock device.

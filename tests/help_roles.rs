@@ -1,5 +1,4 @@
 use meshbbs::config::Config;
-use meshbbs::bbs::BbsServer;
 use meshbbs::storage::Storage;
 
 // These tests focus on the CommandProcessor HELP output based on session.user_level & login state.
@@ -7,8 +6,7 @@ use meshbbs::storage::Storage;
 
 #[tokio::test]
 async fn help_guest_vs_user() {
-    let cfg = Config::default();
-    let mut server = BbsServer::new(cfg.clone()).await.unwrap();
+    let cfg = Config::default(); // config only used for data_dir path
     // Create a session manually (simulate DM) & process HELP while not logged in.
     let mut session = meshbbs::bbs::session::Session::new("s1".into(), "node1".into());
     let mut storage = Storage::new(&cfg.storage.data_dir).await.unwrap();
@@ -26,7 +24,6 @@ async fn help_guest_vs_user() {
 #[tokio::test]
 async fn help_moderator_and_sysop() {
     let cfg = Config::default();
-    let mut server = BbsServer::new(cfg.clone()).await.unwrap();
     let mut storage = Storage::new(&cfg.storage.data_dir).await.unwrap();
 
     // Moderator session

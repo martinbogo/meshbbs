@@ -200,7 +200,9 @@ impl BbsServer {
         }
     }
 
+    #[allow(dead_code)]
     pub fn test_logged_in_count(&self) -> usize { self.logged_in_session_count() }
+    #[allow(dead_code)]
     pub async fn test_prune_idle(&mut self) { self.prune_idle_sessions().await; }
     pub fn last_banner(&self) -> Option<&String> { self.last_banner.as_ref() }
 
@@ -262,16 +264,23 @@ impl BbsServer {
     }
 
     /// Test/helper accessor: fetch user record
+    #[allow(dead_code)]
     pub async fn get_user(&self, username: &str) -> Result<Option<crate::storage::User>> {
         self.storage.get_user(username).await
     }
 
     // Test & moderation helpers (public so integration tests can invoke)
+    #[allow(dead_code)]
     pub async fn test_register(&mut self, username: &str, pass: &str) -> Result<()> { self.storage.register_user(username, pass, None).await }
+    #[allow(dead_code)]
     pub async fn test_update_level(&mut self, username: &str, lvl: u8) -> Result<()> { if username == self.config.bbs.sysop { return Err(anyhow::anyhow!("Cannot modify sysop level")); } self.storage.update_user_level(username, lvl).await.map(|_| ()) }
+    #[allow(dead_code)]
     pub async fn test_store_message(&mut self, area: &str, author: &str, content: &str) -> Result<String> { self.storage.store_message(area, author, content).await }
+    #[allow(dead_code)]
     pub async fn test_get_messages(&self, area: &str, limit: usize) -> Result<Vec<crate::storage::Message>> { self.storage.get_messages(area, limit).await }
+    #[allow(dead_code)]
     pub fn test_is_locked(&self, area: &str) -> bool { self.storage.is_area_locked(area) }
+    #[allow(dead_code)]
     pub async fn test_deletion_page(&self, page: usize, size: usize) -> Result<Vec<crate::storage::DeletionAuditEntry>> { self.storage.get_deletion_audit_page(page, size).await }
 
     // Moderator / sysop internal helpers
