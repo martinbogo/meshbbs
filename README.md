@@ -169,18 +169,63 @@ MESHTASTIC_PROTO_DIR=third_party/meshtastic-protobufs/src proto \
 By default MeshBBS uses a simplified text parsing heuristic for incoming frames. For richer
 packet handling (positions, node info, channels, telemetry, etc.) enable the `meshtastic-proto` feature.
 
-Steps to use real Meshtastic protobuf definitions:
-1. Clone upstream protos:
-```bash
-git clone https://github.com/meshtastic/protobufs.git third_party/meshtastic-protobufs
-```
-2. Build with feature and custom proto directory:
-```bash
-MESHTASTIC_PROTO_DIR=third_party/meshtastic-protobufs/src proto cargo build --features meshtastic-proto
-```
-3. Future work: Map decoded packet types to BBS events (messages, user presence, etc.)
+The upstream Meshtastic protobuf definitions are included as a **git submodule** at:
+`third_party/meshtastic-protobufs`
 
-Current status: A placeholder proto is used if no real .proto files are found so that the build succeeds.
+#### Cloning with the Submodule
+
+Fresh clone (preferred):
+```bash
+git clone --recurse-submodules https://github.com/martinbogo/meshbbs.git
+cd meshbbs
+```
+
+If you already cloned without submodules:
+```bash
+git submodule update --init --recursive
+```
+
+#### Building With Protobuf Support
+
+```bash
+cargo build --features meshtastic-proto
+```
+
+If you want to point at a different proto directory (e.g. experimenting with a fork), override:
+```bash
+MESHTASTIC_PROTO_DIR=path/to/your/protos/src cargo build --features meshtastic-proto
+```
+
+#### Updating the Submodule
+
+To pull latest upstream protobuf changes:
+```bash
+git submodule update --remote third_party/meshtastic-protobufs
+```
+(Optionally add `--merge` if you keep a local branch.) Then commit the updated gitlink:
+```bash
+git add third_party/meshtastic-protobufs
+git commit -m "chore(deps): bump meshtastic protobufs"
+```
+
+#### Pinning a Specific Version
+
+For reproducible builds you can pin a commit:
+```bash
+cd third_party/meshtastic-protobufs
+git checkout <commit-sha>
+cd ../..
+git add third_party/meshtastic-protobufs
+git commit -m "chore(deps): pin meshtastic protobufs to <commit-sha>"
+```
+
+#### Fallback Behavior
+
+If the submodule is absent or not initialized, a placeholder proto is used so the build still succeeds, but rich packet decoding will be limited.
+
+#### Roadmap
+
+Future work: Map decoded packet types to BBS events (messages, user presence, telemetry ingestion, channel config synchronization, etc.)
 
 ### Project Structure
 
