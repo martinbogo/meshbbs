@@ -3,8 +3,9 @@
 //! This module handles communication with Meshtastic devices via serial port.
 
 use anyhow::{Result, anyhow};
-use log::{info, debug, warn, error};
+use log::{info, debug, error};
 use tokio::time::{sleep, Duration};
+use std::collections::VecDeque;
 
 #[cfg(feature = "meshtastic-proto")]
 use bytes::BytesMut;
@@ -55,6 +56,21 @@ pub struct MeshtasticDevice {
     last_want_config_sent: Option<std::time::Instant>,
     #[cfg(feature = "meshtastic-proto")]
     rx_buf: Vec<u8>, // accumulation buffer for length-prefixed frames (0x94 0xC3 hdr)
+    #[cfg(feature = "meshtastic-proto")]
+    text_events: VecDeque<TextEvent>,
+    #[cfg(feature = "meshtastic-proto")]
+    our_node_id: Option<u32>,
+}
+
+/// Structured text event extracted from protobuf packets
+#[cfg(feature = "meshtastic-proto")]
+#[derive(Debug, Clone)]
+pub struct TextEvent {
+    pub source: u32,
+    pub dest: Option<u32>,
+    pub is_direct: bool,
+    pub channel: Option<u32>,
+    pub content: String,
 }
 
 impl MeshtasticDevice {
@@ -121,6 +137,10 @@ impl MeshtasticDevice {
             last_want_config_sent: None,
             #[cfg(feature = "meshtastic-proto")]
             rx_buf: Vec::new(),
+            #[cfg(feature = "meshtastic-proto")]
+            text_events: VecDeque::new(),
+            #[cfg(feature = "meshtastic-proto")]
+            our_node_id: None,
                 })
         }
         
@@ -152,6 +172,10 @@ impl MeshtasticDevice {
                 last_want_config_sent: None,
                 #[cfg(feature = "meshtastic-proto")]
                 rx_buf: Vec::new(),
+                #[cfg(feature = "meshtastic-proto")]
+                text_events: VecDeque::new(),
+                #[cfg(feature = "meshtastic-proto")]
+                our_node_id: None,
             })
         }
     }
@@ -296,7 +320,7 @@ impl MeshtasticDevice {
     }
 
     #[cfg(feature = "meshtastic-proto")]
-    fn try_parse_protobuf_frame(&self, data: &[u8]) -> Option<String> {
+    fn try_parse_protobuf_frame(&mut self, data: &[u8]) -> Option<String> {
         use proto::{FromRadio, PortNum};
         use proto::from_radio::PayloadVariant as FRPayload;
         use proto::mesh_packet::PayloadVariant as MPPayload;
@@ -309,7 +333,15 @@ impl MeshtasticDevice {
                         let port = PortNum::from_i32(data_msg.portnum).unwrap_or(PortNum::UnknownApp);
                         match port {
                             PortNum::TextMessageApp => {
-                                if let Ok(text) = std::str::from_utf8(&data_msg.payload) { return Some(format!("TEXT:{}:{}", pkt.from, text)); }
+                                if let Ok(text) = std::str::from_utf8(&data_msg.payload) {
+                                    let dest = if pkt.to != 0 { Some(pkt.to) } else { None };
+                                    // is_direct if destination equals our node id (when known) and not broadcast
+                                    let is_direct = match (dest, self.our_node_id) { (Some(d), Some(our)) if d == our => true, _ => false };
+                                    // In current Meshtastic proto, channel is a u32 field (0 = primary). Treat 0 as Some(0) for uniformity.
+                                    let channel = Some(pkt.channel as u32);
+                                    self.text_events.push_back(TextEvent { source: pkt.from, dest, is_direct, channel, content: text.to_string() });
+                                    return Some(format!("TEXT:{}:{}", pkt.from, text));
+                                }
                             }
                             PortNum::TextMessageCompressedApp => {
                                 let hex = data_msg.payload.iter().map(|b| format!("{:02x}", b)).collect::<String>();
@@ -344,6 +376,9 @@ impl MeshtasticDevice {
         else if summary.starts_with("CONFIG_COMPLETE:") {
             if let Some(id_str) = summary.split(':').nth(1) { if let Ok(id_val) = id_str.parse::<u32>() { if self.config_request_id == Some(id_val) { self.config_complete = true; }}}
         }
+        if summary.starts_with("MYINFO:") {
+            if let Some(id_str) = summary.split(':').nth(1) { if let Ok(id_val) = id_str.parse::<u32>() { self.our_node_id = Some(id_val); }}
+        }
     }
 
     #[cfg(feature = "meshtastic-proto")]
@@ -360,6 +395,14 @@ impl MeshtasticDevice {
     pub async fn get_device_info(&mut self) -> Result<DeviceInfo> {
         Ok(DeviceInfo { node_id: "SIMULATED".into(), hardware: "T-Beam".into(), firmware_version: "2.2.0".into(), channel: 0 })
     }
+}
+
+#[cfg(feature = "meshtastic-proto")]
+impl MeshtasticDevice {
+    /// Retrieve next structured text event if available
+    pub fn next_text_event(&mut self) -> Option<TextEvent> { self.text_events.pop_front() }
+    /// Get our node id if known
+    pub fn our_node_id(&self) -> Option<u32> { self.our_node_id }
 }
 
 // (Public crate visibility no longer required; kept private above.)

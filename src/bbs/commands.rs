@@ -1,5 +1,5 @@
 use anyhow::Result;
-use log::{debug, warn};
+// use log::{debug}; // retained for future detailed command tracing
 
 use crate::storage::Storage;
 use super::session::{Session, SessionState};
@@ -29,7 +29,7 @@ impl CommandProcessor {
         }
     }
 
-    async fn handle_initial_connection(&self, session: &mut Session, cmd: &str, _storage: &mut Storage) -> Result<String> {
+    async fn handle_initial_connection(&self, session: &mut Session, _cmd: &str, _storage: &mut Storage) -> Result<String> {
         session.state = SessionState::MainMenu;
         
         Ok(format!(

@@ -20,11 +20,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced smoke test JSON summary (node count, config flags, binary detection, request id)
 - Automatic detection and resynchronization of misaligned or partial binary frames with recovery heuristics
 - Diagnostics and warnings when only ASCII/ANSI log output is seen (helps distinguish framing vs absence of data)
+- Public broadcast discovery model with minimal commands (`HELP`, `LOGIN <username>`) on the shared channel
+- Pending login handshake recorded by node id and fulfilled upon first Direct Message (DM)
+- Direct Message session creation gated on prior public `LOGIN` (creates authenticated BBS session)
+- Rate limiting of public replies to reduce channel noise
+- Structured `TextEvent` extraction layer decoupling frame parsing from session routing
+- Unit tests for `PublicCommandParser` covering help, login, invalid login, and unknown inputs
 
 ### Changed
 - Nothing yet
 - Default outbound Meshtastic requests now use length-prefixed framing on wired serial links
 - Improved internal logging clarity and reduced noisy hex dumps unless in debug level
+- Refactored async server loop to drain parsed text events prior to awaiting new IO to satisfy borrow checker
+- Parser now classifies bare `login` without username as Invalid instead of Unknown
+- Build script now reliably generates `meshtastic.rs` when upstream protos are available (avoids placeholder mismatch)
 
 ### Deprecated
 - Nothing yet
@@ -35,6 +44,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Nothing yet
 - Resolved inability to parse protobuf frames due to incorrect assumption of SLIP framing on wired serial
+- Missing `meshtastic.rs` generation caused by incorrect placeholder proto package name
+- Borrow checker violations (E0499/E0500) in server loop due to simultaneous mutable borrows
+- Channel handling bug in text message parsing (invalid `.map` on integer replaced with cast)
 
 ### Security
 - Nothing yet

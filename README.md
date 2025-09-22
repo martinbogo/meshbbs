@@ -16,6 +16,7 @@ MeshBBS brings the classic BBS experience to modern mesh networks, allowing user
 - 📊 **Statistics**: Network and usage statistics
 - 🌐 **Web Interface**: Optional web-based administration panel
 - ⚡ **Async Design**: Built with Tokio for high performance
+ - 🛎️ **Public Discovery + DM Sessions**: Low-noise public channel handshake (HELP / LOGIN) leading to authenticated Direct Message sessions
 
 ## Quick Start
 
@@ -94,24 +95,36 @@ meshbbs -vv start
 
 ### Connecting via Meshtastic
 
-Once the BBS is running, users can connect by sending messages to your Meshtastic node. The BBS will respond with a menu system allowing users to:
+MeshBBS uses a two-phase interaction model that keeps the shared mesh channel quiet while enabling richer private sessions.
 
-- Read and post messages
-- Browse message areas
-- Download/upload files
-- View user statistics
-- Send private messages
+1. Public Broadcast (Discovery)
+	- Supported commands: `HELP`, `LOGIN <username>`
+	- `HELP` returns a short onboarding message.
+	- `LOGIN <username>` registers a pending login for the sender's node id (no session yet).
+2. Direct Message (DM) Session
+	- After a public `LOGIN`, open a direct/private message to the BBS node.
+	- The pending login is consumed and a session starts under that username.
+	- Further interactive commands occur privately (syntax is evolving; early forms may be simple verbs like `READ general`).
 
-### Message Format
+This design minimizes public spam, allows lightweight discovery, and reserves bandwidth for substantive interactions in DMs.
 
-The BBS communicates using structured text messages optimized for LoRa transmission:
+#### Example Flow
 
+Public channel:
 ```
-CMD:LOGIN user:johndoe
-CMD:READ area:general
-CMD:POST area:general msg:Hello mesh world!
-CMD:LIST files
+> HELP
+< MeshBBS: Send LOGIN <name> then start a DM to begin.
+
+> LOGIN alice
+< MeshBBS: Pending login for 'alice'. Open a DM to start your session.
 ```
+
+Direct message:
+```
+< Welcome alice! Type ? for help.
+```
+
+Legacy prototype `CMD:` prefixed message formats are deprecated in favor of this simpler discovery + DM approach.
 
 ## Architecture
 
@@ -119,6 +132,7 @@ MeshBBS is built with a modular architecture:
 
 - **`bbs/`**: Core BBS functionality and user interface
 - **`meshtastic/`**: Meshtastic device communication layer
+	- Parses protobuf frames (when `meshtastic-proto` is enabled) and emits structured `TextEvent` items consumed by the BBS routing logic (public vs DM).
 - **`storage/`**: Message and file storage subsystem
 - **`config/`**: Configuration management
 - **`web/`** (optional): Web administration interface
