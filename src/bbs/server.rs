@@ -319,7 +319,7 @@ impl BbsServer {
                         let _ = self.send_message(&node_key, &format!("{}>", banner)).await;
                     }
                 } else {
-                    let _ = self.send_message(&node_key, "Welcome to MeshBBS (private). Use REGISTER <name> <pass> to create an account or LOGIN <name> [pass]. Type HELP for basics.").await;
+                    let _ = self.send_message(&node_key, "Welcome to MeshBBS. Use REGISTER <name> <pass> to create an account or LOGIN <name> <pass>. Type HELP for basics.").await;
                 }
                 self.sessions.insert(node_key.clone(), session);
             }
@@ -344,9 +344,12 @@ impl BbsServer {
                         if parts.len() < 3 { deferred_reply = Some("Usage: REGISTER <username> <password>\n>".into()); }
                         else {
                             let user = parts[1]; let pass = parts[2];
-                            match self.storage.register_user(user, pass, Some(&node_key)).await {
-                                Ok(_) => { session.login(user.to_string(), 1).await?; deferred_reply = Some(format!("Registered and logged in as {}.\n>", user)); }
-                                Err(e) => { deferred_reply = Some(format!("Register failed: {}\n>", e)); }
+                            if pass.len() < 4 { deferred_reply = Some("Password too short (min 4).\n>".into()); }
+                            else {
+                                match self.storage.register_user(user, pass, Some(&node_key)).await {
+                                    Ok(_) => { session.login(user.to_string(), 1).await?; deferred_reply = Some(format!("Registered and logged in as {}.\nWelcome, {} you are now logged in.\n>", user, user)); }
+                                    Err(e) => { deferred_reply = Some(format!("Register failed: {}\n>", e)); }
+                                }
                             }
                         }
                     } else if upper.starts_with("LOGIN ") {
@@ -364,9 +367,27 @@ impl BbsServer {
                                 match self.storage.get_user(user).await? {
                                     None => deferred_reply = Some("No such user. Use REGISTER <u> <p>.\n>".into()),
                                     Some(u) => {
-                                        let needs_password = u.password_hash.is_some();
+                                        let has_password = u.password_hash.is_some();
                                         let node_bound = u.node_id.as_deref() == Some(&node_key);
-                                        if needs_password && !node_bound {
+                                        if !has_password {
+                                            // User must set a password on first login attempt
+                                            if let Some(pass) = password_opt {
+                                                if pass.len() < 4 { deferred_reply = Some("Password too short (min 4).\n>".into()); }
+                                                else {
+                                                    let updated_user = self.storage.set_user_password(user, pass).await?;
+                                                    let updated = if !node_bound { self.storage.bind_user_node(user, &node_key).await? } else { updated_user };
+                                                    session.login(updated.username.clone(), updated.user_level).await?;
+                                                    let mut banner = format!("{}\n{}", self.config.bbs.welcome_message, self.config.bbs.description);
+                                                    if banner.as_bytes().len() > 230 { let mut truncated = banner.into_bytes(); truncated.truncate(230); banner = String::from_utf8_lossy(&truncated).to_string(); }
+                                                    if !banner.ends_with('\n') { banner.push('\n'); }
+                                                    self.last_banner = Some(banner.clone());
+                                                    deferred_reply = Some(format!("Password set. {}Welcome, {} you are now logged in.\n>", banner, updated.username));
+                                                }
+                                            } else {
+                                                deferred_reply = Some("Password not set. LOGIN <user> <newpass> to set your password.\n>".into());
+                                            }
+                                        } else {
+                                            // Has password: require it if not bound or if password provided
                                             if password_opt.is_none() { deferred_reply = Some("Password required: LOGIN <user> <pass>\n>".into()); }
                                             else {
                                                 let pass = password_opt.unwrap();
@@ -379,17 +400,9 @@ impl BbsServer {
                                                     if banner.as_bytes().len() > 230 { let mut truncated = banner.into_bytes(); truncated.truncate(230); banner = String::from_utf8_lossy(&truncated).to_string(); }
                                                     if !banner.ends_with('\n') { banner.push('\n'); }
                                                     self.last_banner = Some(banner.clone());
-                                                    deferred_reply = Some(format!("{}>", banner));
+                                                    deferred_reply = Some(format!("{}Welcome, {} you are now logged in.\n>", banner, updated.username));
                                                 }
                                             }
-                                        } else {
-                                            let updated = if !node_bound { self.storage.bind_user_node(user, &node_key).await? } else { u };
-                                            session.login(updated.username.clone(), updated.user_level).await?;
-                                            let mut banner = format!("{}\n{}", self.config.bbs.welcome_message, self.config.bbs.description);
-                                            if banner.as_bytes().len() > 230 { let mut truncated = banner.into_bytes(); truncated.truncate(230); banner = String::from_utf8_lossy(&truncated).to_string(); }
-                                            if !banner.ends_with('\n') { banner.push('\n'); }
-                                            self.last_banner = Some(banner.clone());
-                                            deferred_reply = Some(format!("{}>", banner));
                                         }
                                     }
                                 }
@@ -563,9 +576,18 @@ impl BbsServer {
                 PublicCommand::Help => {
                     if self.public_state.should_reply(&node_key) {
                         // Compose public notice and detailed DM help
-                        // Prefer a friendly node label (long name) if protobuf node catalog knows it
+                        // Prefer a friendly node label (short label) if the protobuf node catalog knows it.
+                        // Support node keys provided either as plain decimal or hex with 0x prefix.
                         #[cfg(feature = "meshtastic-proto")]
-                        let friendly = if let Some(dev) = &self.device { if let Ok(id) = node_key.parse::<u32>() { dev.format_node_short_label(id) } else { node_key.clone() } } else { node_key.clone() };
+                        let friendly = if let Some(dev) = &self.device {
+                            // Attempt to parse node id in decimal first, then hex (0x...)
+                            let id_opt = if let Ok(id_dec) = node_key.parse::<u32>() {
+                                Some(id_dec)
+                            } else if let Some(hex) = node_key.strip_prefix("0x").or_else(|| node_key.strip_prefix("0X")) {
+                                u32::from_str_radix(hex, 16).ok()
+                            } else { None };
+                            if let Some(id) = id_opt { dev.format_node_short_label(id) } else { node_key.clone() }
+                        } else { node_key.clone() };
                         #[cfg(not(feature = "meshtastic-proto"))]
                         let friendly = node_key.clone();
                         let public_notice = format!("[{}] - please check your DM's for {} help", friendly, self.config.bbs.name);
