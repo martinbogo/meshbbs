@@ -65,6 +65,7 @@ pub struct MeshtasticDevice {
 #[derive(Debug, Clone)]
 pub struct TextEvent {
     pub source: u32,
+    #[allow(dead_code)]
     pub dest: Option<u32>,
     pub is_direct: bool,
     pub channel: Option<u32>,
