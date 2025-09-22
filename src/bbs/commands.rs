@@ -112,28 +112,26 @@ impl CommandProcessor {
             }
             "Q" | "QUIT" | "GOODBYE" | "BYE" => { session.logout().await?; Ok("Goodbye! 73s".to_string()) }
             "HELP" | "?" => {
-                let mut lines = Vec::new();
-                if !session.is_logged_in() {
-                    lines.push("REGISTER <u> <p> - Create account");
-                    lines.push("LOGIN <u> [p] - Login");
-                } else {
-                    // Show password management depending on current account state
-                    // We cannot easily know if password set without storage here, so give both hints minimalistically.
-                    lines.push("SETPASS <new> - Set password (if none)");
-                    lines.push("CHPASS <old> <new> - Change password");
-                    if session.user_level >= 5 {
-                        lines.push("DELETE <area> <id> - Delete a message");
-                        lines.push("LOCK <area> / UNLOCK <area> - Control posting");
-                        lines.push("DELLOG [page] - View deletion audit log (page size 10)");
-                    }
-                    if session.user_level >= 10 { lines.push("PROMOTE <user> | DEMOTE <user> - Manage roles"); }
-                }
-                lines.push("[M]essages - Read/post messages");
-                lines.push("[U]ser - User settings");
-                lines.push("[Q]uit - Logout");
+                // Build contextual help: groups for Auth, Messaging, Moderation, Administration
                 let mut out = String::from("Commands:\n");
-                out.push_str(&lines.join("\n"));
-                out.push_str("\n>");
+                if !session.is_logged_in() {
+                    out.push_str("AUTH:\n  REGISTER <u> <p>  Create account (password min 4)\n  LOGIN <u> <p>    Login (legacy users set password)\n");
+                    out.push_str("Once logged in, type HELP again for more commands.\n>");
+                    return Ok(out);
+                }
+                // Auth / account management (shown when logged in)
+                out.push_str("ACCOUNT:\n  SETPASS <new>        Set password if none set\n  CHPASS <old> <new>   Change existing password\n  LOGOUT               Logout current session\n");
+                // Core navigation / messaging
+                out.push_str("MESSAGING:\n  [M]essages           Enter message areas menu\n  READ <area>          Read recent messages in area\n  POST <area> <text>   Post a message (area optional if current)\n  AREAS | LIST         List accessible areas\n");
+                // Moderator section
+                if session.user_level >= 5 {
+                    out.push_str("MODERATION (level 5+):\n  DELETE <area> <id>   Delete a message by id\n  LOCK <area>          Prevent new posts\n  UNLOCK <area>        Allow new posts\n  DELLOG [page]        View deletion audit log\n");
+                }
+                // Sysop-only
+                if session.user_level >= 10 {
+                    out.push_str("ADMIN (sysop):\n  PROMOTE <user>       Raise user to moderator\n  DEMOTE <user>        Lower moderator to user\n");
+                }
+                out.push_str("OTHER:\n  [U]ser               User info & stats menu\n  [Q]uit               Logout / end session\n>");
                 Ok(out)
             }
             _ => Ok("Unknown command. Type HELP for commands.\n>".to_string())
