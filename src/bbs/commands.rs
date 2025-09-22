@@ -112,26 +112,20 @@ impl CommandProcessor {
             }
             "Q" | "QUIT" | "GOODBYE" | "BYE" => { session.logout().await?; Ok("Goodbye! 73s".to_string()) }
             "H" | "HELP" | "?" => {
-                // Build contextual help: groups for Auth, Messaging, Moderation, Administration
-                let mut out = String::from("Commands:\n");
+                // Build compact contextual help to fit within 230 bytes
+                let mut out = String::new();
                 if !session.is_logged_in() {
-                    out.push_str("AUTH:\n  REGISTER <u> <p>  Create account (password min 4)\n  LOGIN <u> <p>    Login (legacy users set password)\n");
-                    out.push_str("Once logged in, type HELP again for more commands.\n>");
+                    out.push_str("AUTH: REGISTER <u> <p> | LOGIN <u> <p>\n>");
                     return Ok(out);
                 }
-                // Auth / account management (shown when logged in)
-                out.push_str("ACCOUNT:\n  SETPASS <new>        Set password if none set\n  CHPASS <old> <new>   Change existing password\n  LOGOUT               Logout current session\n");
-                // Core navigation / messaging
-                out.push_str("MESSAGING:\n  [M]essages           Enter message areas menu\n  READ <area>          Read recent messages in area\n  POST <area> <text>   Post a message (area optional if current)\n  AREAS | LIST         List accessible areas\n");
-                // Moderator section
-                if session.user_level >= 5 {
-                    out.push_str("MODERATION (level 5+):\n  DELETE <area> <id>   Delete a message by id\n  LOCK <area>          Prevent new posts\n  UNLOCK <area>        Allow new posts\n  DELLOG [page]        View deletion audit log\n");
-                }
-                // Sysop-only
-                if session.user_level >= 10 {
-                    out.push_str("ADMIN (sysop):\n  PROMOTE <user>       Raise user to moderator\n  DEMOTE <user>        Lower moderator to user\n");
-                }
-                out.push_str("OTHER:\n  [U]ser               User info & stats menu\n  [Q]uit               Logout / end session\n>");
+                out.push_str("ACCT: SETPASS <new> | CHPASS <old> <new> | LOGOUT\n");
+                out.push_str("MSG: M=menu READ <a> POST <a> <txt> AREAS/LIST\n");
+                if session.user_level >= 5 { out.push_str("MOD: DELETE <a> <id> LOCK/UNLOCK <a> DELLOG [p]\n"); }
+                if session.user_level >= 10 { out.push_str("ADM: PROMOTE <u> DEMOTE <u>\n"); }
+                out.push_str("OTHER: U=User Q=Quit\n>");
+                // Ensure length <=230 (should already be compact; final guard)
+                const MAX: usize = 230;
+                if out.as_bytes().len() > MAX { out.truncate(MAX); }
                 Ok(out)
             }
             _ => Ok("Unknown command. Type HELP for commands.\n>".to_string())
