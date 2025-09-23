@@ -5,7 +5,7 @@
   
   **A modern Bulletin Board System for Meshtastic mesh networks**
   
-  [![Version](https://img.shields.io/badge/version-0.9.30-blue.svg)](https://github.com/martinbogo/meshbbs/releases)
+  [![Version](https://img.shields.io/badge/version-0.9.50-blue.svg)](https://github.com/martinbogo/meshbbs/releases)
   [![License](https://img.shields.io/badge/license-CC--BY--NC--4.0-green.svg)](LICENSE)
   [![Language](https://img.shields.io/badge/language-Rust-orange.svg)](https://www.rust-lang.org/)
   [![Platform](https://img.shields.io/badge/platform-Meshtastic-purple.svg)](https://meshtastic.org/)
@@ -288,13 +288,16 @@ MeshBBS is built with a clean, modular architecture in Rust:
 graph TD
     A[Meshtastic Device] --> B[Serial/Bluetooth Interface]
     B --> C[Meshtastic Module]
-    C --> D[BBS Core]
-    D --> E[Session Manager]
-    D --> F[Command Processor]
-    D --> G[Storage Layer]
-    G --> H[Message Database]
-    G --> I[User Database]
-    D --> J[Configuration]
+    C --> D[BBS Server]
+    D --> E[Sessions HashMap]
+    E --> F[Session State]
+    F --> G[Command Processor]
+    D --> H[Storage Layer]
+    H --> I[Message Database]
+    H --> J[User Database]
+    D --> K[Configuration]
+    D --> L[Device Interface]
+    D --> M[Public State]
 ```
 
 ### 📁 Module Structure
@@ -404,31 +407,29 @@ meshbbs/
 ## 🗺️ Roadmap
 
 ### ✅ Recent Releases
+- **v0.9.50** (2025-09-23): Documentation accuracy improvements, streamlined roadmap, tested hardware clarity
+- **v0.9.30** (2025-09-23): Critical security fix for public login password bypass vulnerability
+- **v0.9.25** (2025-09-23): Documentation improvements, rustdoc fixes, ^WEATHER command addition
 - **v0.9.20** (2025-09-23): Version consistency and stability improvements
 - **v0.9.18** (2025-09-23): New user welcome system, enhanced security, sysop username support
 - **v0.9.0** (2025-09-22): Dynamic prompts, enhanced help system, proactive weather updates
 
 ### 🚀 Upcoming Features
-- [ ] **📁 File Transfer**: Binary data protocols optimized for mesh constraints
-- [ ] **🔐 Enhanced Encryption**: End-to-end message encryption beyond transport security  
-- [ ] **🌐 Web Interface**: Optional web-based administration and monitoring
-- [ ] **🔗 Federation**: Multi-node BBS networks with message routing
-- [ ] **📱 Mobile Clients**: Native mobile apps for easier mesh BBS access
+- [ ] **� Locally encrypted data storage**: Enhanced security for stored messages and user data
 
 ## 💻 Hardware Compatibility
 
-MeshBBS works with all Meshtastic-compatible devices:
+MeshBBS has been tested on the following Meshtastic devices:
 
-| Device Family | Models | Features |
-|---------------|--------|----------|
-| **T-Beam** | ESP32 + LoRa + GPS | ✅ Full support |
-| **Heltec** | LoRa 32 v1/v2/v3 | ✅ Full support |
-| **TTGO** | LoRa32 variants | ✅ Full support |
-| **LilyGO** | T-Echo, T-Deck, T3S3 | ✅ Full support |
-| **RAK WisBlock** | 4631 Core + LoRa | ✅ Full support |
-| **Seeed Studio** | WM1302, WM1110 | ✅ Full support |
+| Device | Status |
+|--------|--------|
+| **Heltec V3** | ✅ Tested |
+| **Heltec T114** | ✅ Tested |
+| **LilyGO T-Deck** | ✅ Tested |
+| **LilyGO T-Beam** | ✅ Tested |
+| **RAK WisBlock** | ✅ Tested |
 
-> All devices supporting Meshtastic firmware are compatible with MeshBBS
+> **Other Meshtastic devices**: MeshBBS should work with any Meshtastic-compatible device, but we'd love to hear about your experiences adapting the BBS to other hardware! Please share your results in the discussions or issues.
 
 ## 🤝 Contributing
 
@@ -451,6 +452,8 @@ We welcome contributions from the community! Here's how to get started:
 - Update documentation for user-facing changes
 - Run `cargo fmt` and `cargo clippy` before committing
 - Keep commits focused and atomic
+
+**Note**: All code contributions require appropriate unit tests.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 

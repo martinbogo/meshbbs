@@ -2,6 +2,8 @@
 
 Thank you for your interest in contributing to MeshBBS! This document provides guidelines for contributing to the project.
 
+**📋 Testing Requirement: All code contributions must include appropriate unit tests. Pull requests without test coverage will not be accepted.**
+
 ## Code of Conduct
 
 By participating in this project, you agree to maintain a respectful and inclusive environment for all contributors.
@@ -63,6 +65,7 @@ By participating in this project, you agree to maintain a respectful and inclusi
 - Ensure all existing tests pass
 - Test with actual Meshtastic hardware when possible
 - Document any new testing procedures
+- Include tests for error conditions and edge cases
 
 ## Types of Contributions
 
@@ -83,7 +86,18 @@ For new features:
 - Consider backwards compatibility
 - Discuss implementation approach
 
-### Code Contributions
+## Code Contributions Requirements
+
+### Testing Expectations
+
+All code contributions should include appropriate tests to ensure quality and prevent regressions:
+
+- **Unit Tests**: Test individual functions and methods in isolation
+- **Integration Tests**: Test component interactions and workflows  
+- **Security Tests**: Test authentication, authorization, and security boundaries (when applicable)
+- **Error Handling Tests**: Test failure scenarios and edge cases
+
+### Code Contribution Types
 
 1. **Small fixes**: Direct pull requests are welcome
 2. **New features**: Please open an issue first to discuss
@@ -92,7 +106,7 @@ For new features:
 ## Pull Request Process
 
 1. Update documentation as needed
-2. Add or update tests for your changes
+2. Add tests for your changes
 3. Ensure `cargo test` and `cargo clippy` pass
 4. Update CHANGELOG.md with your changes
 5. Submit pull request with clear description
@@ -114,12 +128,14 @@ Fixes #(issue number)
 - [ ] Documentation update
 
 ## Testing
-- [ ] Tests pass locally
-- [ ] New tests added (if applicable)
+- [ ] Tests pass locally (`cargo test`)
+- [ ] New tests added for changes
+- [ ] Integration tests added (if applicable)
 - [ ] Tested with hardware (if applicable)
 
 ## Checklist
-- [ ] Code follows project style
+- [ ] Code follows project style (`cargo fmt`)
+- [ ] Linting passes (`cargo clippy`)
 - [ ] Self-review completed
 - [ ] Documentation updated
 - [ ] CHANGELOG.md updated
