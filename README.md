@@ -10,7 +10,9 @@ MeshBBS brings the classic BBS experience to modern mesh networks, allowing user
 
 - 📡 **Meshtastic Integration**: Direct communication with Meshtastic devices via serial or Bluetooth
 - 💬 **Message Boards**: Traditional BBS-style message areas and forums
-- (Planned) **File Transfer**: Deferred; transferring binary data over limited Meshtastic bandwidth is intentionally omitted in this iteration.
+- 🎯 **Dynamic Contextual Prompts**: Smart prompts showing current state (`unauth>`, `user@area>`, `post@area>`)
+- 📚 **Enhanced Help System**: Compact `HELP` + verbose `HELP+` with detailed command reference
+- 🌤️ **Proactive Weather Updates**: Automatic 5-minute weather refresh for instant responses
 - 👥 **User Management**: User accounts, roles (User, Moderator, Sysop)
 - 🔐 **Security**: Argon2id password hashing, configurable parameters, sysop immutability
 - 📊 **Statistics**: Network and usage statistics
@@ -19,6 +21,7 @@ MeshBBS brings the classic BBS experience to modern mesh networks, allowing user
 - 🧷 **Persistent Area Locks**: Moderators can LOCK / UNLOCK areas; state survives restarts
 - 📜 **Deletion Audit Log**: `DELLOG [page]` paginates moderator deletion events for accountability
 - 🛂 **Per-Area Access Levels**: Config-driven read/post level gating (areas hidden if insufficient read level)
+- 💡 **Smart User Experience**: One-time shortcuts reminder, streamlined login flow, contextual guidance
 
 ## Quick Start
 
@@ -133,10 +136,47 @@ Public channel (note required caret prefix):
 < MeshBBS: Pending login for 'alice'. Open a DM to start your session.
 ```
 
-Direct message:
+Direct message session commands:
 ```
-< Welcome alice! Type ? for help.
+LOGIN <user> [pass]       # Authenticate (set password if first time)
+REGISTER <user> <pass>    # Create new account
+HELP / H / ?              # Show compact help (with shortcuts reminder on first use)
+HELP+ / HELP V            # Detailed verbose help with examples
+
+AREAS / LIST              # List available message areas
+READ <area>               # Read recent messages from area
+POST <area> <message>     # Post a message to area
+POST <area>               # Start multi-line post (end with '.' on new line)
+
+M                         # Quick navigation to message areas
+U                         # Quick navigation to user menu  
+Q                         # Quit/logout
+B                         # Back to previous menu
+
+CHPASS <old> <new>        # Change password
+SETPASS <new>             # Set initial password (passwordless accounts)
+LOGOUT                    # End session
 ```
+
+### Dynamic Prompts
+
+MeshBBS 0.9.0+ shows contextual prompts that reflect your current state:
+
+- `unauth>` - Not logged in
+- `alice (lvl1)>` - Logged in as alice, user level 1
+- `alice@general>` - Reading messages in 'general' area
+- `post@general>` - Posting a message to 'general' area
+
+Prompts automatically appear at the end of responses and adapt to very long area names (truncated with ellipsis).
+
+### Help System
+
+Two help modes are available:
+
+- **`HELP`** - Compact, role-aware help showing only commands you can use
+- **`HELP+`** or **`HELP V`** - Verbose help with detailed explanations and examples
+
+The first time you use `HELP` after login, you'll see a shortcuts reminder: "Shortcuts: M=areas U=user Q=quit".
 
 Legacy prototype `CMD:` prefixed message formats are deprecated in favor of this simpler discovery + DM approach.
 

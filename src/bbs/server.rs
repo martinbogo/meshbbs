@@ -31,6 +31,8 @@ pub struct BbsServer {
     public_parser: PublicCommandParser,
     #[cfg(feature = "weather")]
     weather_cache: Option<(Instant, String)>, // (fetched_at, value)
+    #[cfg(feature = "weather")]
+    weather_last_poll: Instant, // track when we last attempted proactive weather refresh
     #[cfg(feature = "meshtastic-proto")]
     pending_direct: Vec<(u32, String)>, // queue of (dest_node_id, message) awaiting our node id
     #[allow(dead_code)]
@@ -39,6 +41,33 @@ pub struct BbsServer {
     // Track the last login banner for test assertions only.
     #[cfg(any(test, feature = "meshtastic-proto"))]
     last_banner: Option<String>,
+}
+
+// Verbose HELP material & chunker (outside impl so usable without Self scoping issues during compilation ordering)
+const VERBOSE_HELP: &str = concat!(
+    "MeshBBS Extended Help\n",
+    "Authentication:\n  REGISTER <name> <pass>  Create account\n  LOGIN <name> <pass>     Log in\n  SETPASS <new>           Set first password\n  CHPASS <old> <new>      Change password\n  LOGOUT                  End session\n\n",
+    "Messages & Areas:\n  AREAS / LIST            List areas\n  READ <area>             Read recent messages\n  POST <area> <text>      Post inline\n  POST then multiline '.' End with '.' line\n  DELETE <area> <id>      (mod) Delete message\n  LOCK/UNLOCK <area>      (mod) Lock area\n\n",
+    "Navigation Shortcuts:\n  M   Message areas menu\n  U   User menu\n  Q   Quit\n  B   Back to previous menu\n\n",
+    "User Info / Admin:\n  PROMOTE <user>          (sysop) Raise to moderator\n  DEMOTE <user>           (sysop) Lower to base user\n  DELLOG [page]           (mod) Deletion log\n\n",
+    "Misc:\n  HELP        Compact help\n  HELP+ / HELP V  Verbose help (this)\n  Weather (public)  Send WEATHER on public channel\n\n",
+    "Limits:\n  Max frame ~230 bytes; verbose help auto-splits.\n"
+);
+
+fn chunk_verbose_help() -> Vec<String> {
+    const MAX: usize = 230;
+    let mut chunks = Vec::new();
+    let mut current = String::new();
+    for line in VERBOSE_HELP.lines() {
+        let candidate_len = current.as_bytes().len() + line.as_bytes().len() + 1;
+        if candidate_len > MAX && !current.is_empty() {
+            chunks.push(current);
+            current = String::new();
+        }
+        current.push_str(line); current.push('\n');
+    }
+    if !current.is_empty() { chunks.push(current); }
+    chunks
 }
 
 impl BbsServer {
@@ -84,6 +113,8 @@ impl BbsServer {
             public_parser: PublicCommandParser::new(),
             #[cfg(feature = "weather")]
             weather_cache: None,
+            #[cfg(feature = "weather")]
+            weather_last_poll: Instant::now() - Duration::from_secs(301), // trigger immediate initial refresh
             #[cfg(feature = "meshtastic-proto")]
             pending_direct: Vec::new(),
             test_messages: Vec::new(),
@@ -143,6 +174,13 @@ impl BbsServer {
                 }
                 for ev in drained_events { if let Err(e) = self.route_text_event(ev).await { warn!("route_text_event error: {e:?}"); } }
             }
+            
+            // Proactive weather refresh every 5 minutes
+            #[cfg(feature = "weather")]
+            if self.weather_last_poll.elapsed() >= Duration::from_secs(300) {
+                let _ = self.fetch_weather().await;
+                self.weather_last_poll = Instant::now();
+            }
 
             tokio::select! {
                 msg = self.receive_message() => {
@@ -177,6 +215,7 @@ impl BbsServer {
                 }
             }
         }
+
         
         self.shutdown().await?;
         Ok(())
@@ -215,6 +254,9 @@ impl BbsServer {
     #[allow(dead_code)]
     #[doc(hidden)]
     pub fn test_messages(&self) -> &Vec<(String,String)> { &self.test_messages }
+    #[allow(dead_code)]
+    #[doc(hidden)]
+    pub fn test_insert_session(&mut self, session: Session) { self.sessions.insert(session.node_id.clone(), session); }
 
         fn build_banner(&self) -> String {
             let mut banner = format!("{}\n{}", self.config.bbs.welcome_message, self.config.bbs.description);
@@ -365,11 +407,11 @@ impl BbsServer {
                             let unread = self.storage.count_messages_since(prev_last).await.unwrap_or(0);
                             let _ = self.storage.record_user_login(&username).await; // update last_login
                             let summary = Self::format_unread_line(unread);
-                            let _ = self.send_message(&node_key, &format!("Welcome, {} you are now logged in.\n{}>", username, summary)).await;
+                            let _ = self.send_session_message(&node_key, &format!("Welcome, {} you are now logged in.\n{}", username, summary), true).await;
                         } else {
                             // New user case shouldn't normally happen here, fallback to zero unread
                             let summary = Self::format_unread_line(0);
-                            let _ = self.send_message(&node_key, &format!("Welcome, {} you are now logged in.\n{}>", username, summary)).await;
+                            let _ = self.send_session_message(&node_key, &format!("Welcome, {} you are now logged in.\n{}", username, summary), true).await;
                         }
                     }
                 } else {
@@ -379,7 +421,7 @@ impl BbsServer {
                     if !(upper_first.starts_with("LOGIN ") || upper_first.starts_with("REGISTER ")) {
                         let banner = self.prepare_login_banner(0);
                         let guidance = "Use REGISTER <name> <pass> to create an account or LOGIN <name> <pass>. Type HELP for basics.";
-                        let _ = self.send_message(&node_key, &format!("{}{}\n>", banner, guidance)).await;
+                        let _ = self.send_message(&node_key, &format!("{}{}\n", banner, guidance)).await;
                     }
                 }
                 self.sessions.insert(node_key.clone(), session);
@@ -400,40 +442,48 @@ impl BbsServer {
                         let (short,long) = dev.format_node_combined(idnum);
                         session.update_labels(Some(short), Some(long));
                     }
-                    if upper.starts_with("REGISTER ") {
+                    if upper == "HELP+" || upper == "HELP V" || upper == "HELP  V" || upper == "HELP  +" { // tolerate minor spacing variants
+                        let chunks = chunk_verbose_help();
+                        let total = chunks.len();
+                        for (i, chunk) in chunks.into_iter().enumerate() {
+                            let last = i + 1 == total;
+                            // For multi-part help, suppress prompt until final
+                            self.send_session_message(&node_key, &chunk, last).await?;
+                        }
+                    } else if upper.starts_with("REGISTER ") {
                         let parts: Vec<&str> = raw_content.split_whitespace().collect();
-                        if parts.len() < 3 { deferred_reply = Some("Usage: REGISTER <username> <password>\n>".into()); }
+                        if parts.len() < 3 { deferred_reply = Some("Usage: REGISTER <username> <password>\n".into()); }
                         else {
                             let user = parts[1]; let pass = parts[2];
-                            if pass.len() < 4 { deferred_reply = Some("Password too short (min 4).\n>".into()); }
+                            if pass.len() < 4 { deferred_reply = Some("Password too short (min 4).\n".into()); }
                             else {
                                 match self.storage.register_user(user, pass, Some(&node_key)).await {
-                                    Ok(_) => { session.login(user.to_string(), 1).await?; let summary = Self::format_unread_line(0); deferred_reply = Some(format!("Registered and logged in as {}.\nWelcome, {} you are now logged in.\n{}>", user, user, summary)); }
-                                    Err(e) => { deferred_reply = Some(format!("Register failed: {}\n>", e)); }
+                                    Ok(_) => { session.login(user.to_string(), 1).await?; let summary = Self::format_unread_line(0); deferred_reply = Some(format!("Registered and logged in as {}.\nWelcome, {} you are now logged in.\n{}", user, user, summary)); }
+                                    Err(e) => { deferred_reply = Some(format!("Register failed: {}\n", e)); }
                                 }
                             }
                         }
                     } else if upper.starts_with("LOGIN ") {
                         // Enforce max_users only if this session is not yet logged in
                         if !session.is_logged_in() && (logged_in_count as u32) >= self.config.bbs.max_users {
-                            deferred_reply = Some("All available sessions are in use, please wait and try again later.\n>".into());
+                            deferred_reply = Some("All available sessions are in use, please wait and try again later.\n".into());
                         } else if session.is_logged_in() {
-                            deferred_reply = Some(format!("Already logged in as {}.\n>", session.display_name()));
+                            deferred_reply = Some(format!("Already logged in as {}.\n", session.display_name()));
                         } else {
                             let parts: Vec<&str> = raw_content.split_whitespace().collect();
-                            if parts.len() < 2 { deferred_reply = Some("Usage: LOGIN <username> [password]\n>".into()); }
+                            if parts.len() < 2 { deferred_reply = Some("Usage: LOGIN <username> [password]\n".into()); }
                             else {
                                 let user = parts[1];
                                 let password_opt = if parts.len() >= 3 { Some(parts[2]) } else { None };
                                 match self.storage.get_user(user).await? {
-                                    None => deferred_reply = Some("No such user. Use REGISTER <u> <p>.\n>".into()),
+                                    None => deferred_reply = Some("No such user. Use REGISTER <u> <p>.\n".into()),
                                     Some(u) => {
                                         let has_password = u.password_hash.is_some();
                                         let node_bound = u.node_id.as_deref() == Some(&node_key);
                                         if !has_password {
                                             // User must set a password on first login attempt
                                             if let Some(pass) = password_opt {
-                                                if pass.len() < 4 { deferred_reply = Some("Password too short (min 4).\n>".into()); }
+                                                if pass.len() < 4 { deferred_reply = Some("Password too short (min 4).\n".into()); }
                                                 else {
                                                     let updated_user = self.storage.set_user_password(user, pass).await?;
                                                     let updated = if !node_bound { self.storage.bind_user_node(user, &node_key).await? } else { updated_user };
@@ -443,18 +493,18 @@ impl BbsServer {
                                                     let _ = self.storage.record_user_login(user).await; // ensure fresh timestamp after full login
                                                     // No unread count expected here (legacy first login)
                                                     let summary = Self::format_unread_line(0); // first login after setting password shows no unread
-                                                    deferred_reply = Some(format!("Password set. Welcome, {} you are now logged in.\n{}>", updated.username, summary));
+                                                    deferred_reply = Some(format!("Password set. Welcome, {} you are now logged in.\n{}", updated.username, summary));
                                                 }
                                             } else {
-                                                deferred_reply = Some("Password not set. LOGIN <user> <newpass> to set your password.\n>".into());
+                                                deferred_reply = Some("Password not set. LOGIN <user> <newpass> to set your password.\n".into());
                                             }
                                         } else {
                                             // Has password: require it if not bound or if password provided
-                                            if password_opt.is_none() { deferred_reply = Some("Password required: LOGIN <user> <pass>\n>".into()); }
+                                            if password_opt.is_none() { deferred_reply = Some("Password required: LOGIN <user> <pass>\n".into()); }
                                             else {
                                                 let pass = password_opt.unwrap();
                                                 let (_maybe, ok) = self.storage.verify_user_password(user, pass).await?;
-                                                if !ok { deferred_reply = Some("Invalid password.\n>".into()); }
+                                                if !ok { deferred_reply = Some("Invalid password.\n".into()); }
                                                 else {
                                                     let updated = if !node_bound { self.storage.bind_user_node(user, &node_key).await? } else { u };
                                                     session.login(updated.username.clone(), updated.user_level).await?;
@@ -462,7 +512,7 @@ impl BbsServer {
                                                     let unread = self.storage.count_messages_since(prev_last).await.unwrap_or(0);
                                                     let updated2 = self.storage.record_user_login(user).await.unwrap_or(updated);
                                                     let summary = Self::format_unread_line(unread);
-                                                    deferred_reply = Some(format!("Welcome, {} you are now logged in.\n{}>", updated2.username, summary));
+                                                    deferred_reply = Some(format!("Welcome, {} you are now logged in.\n{}", updated2.username, summary));
                                                 }
                                             }
                                         }
@@ -472,90 +522,90 @@ impl BbsServer {
                         }
                     } else if upper.starts_with("CHPASS ") {
                         if session.username.as_deref() == Some(&self.config.bbs.sysop) {
-                            deferred_reply = Some("Sysop password managed externally. Use sysop-passwd CLI.\n>".into());
+                            deferred_reply = Some("Sysop password managed externally. Use sysop-passwd CLI.\n".into());
                         } else if session.is_logged_in() {
                             let parts: Vec<&str> = raw_content.split_whitespace().collect();
-                            if parts.len() < 3 { deferred_reply = Some("Usage: CHPASS <old> <new>\n>".into()); }
+                            if parts.len() < 3 { deferred_reply = Some("Usage: CHPASS <old> <new>\n".into()); }
                             else {
                                 let old = parts[1]; let newp = parts[2];
-                                if newp.len() < 8 { deferred_reply = Some("New password too short (min 8).\n>".into()); }
-                                else if newp.len() > 128 { deferred_reply = Some("New password too long.\n>".into()); }
+                                if newp.len() < 8 { deferred_reply = Some("New password too short (min 8).\n".into()); }
+                                else if newp.len() > 128 { deferred_reply = Some("New password too long.\n".into()); }
                                 else if let Some(user_name) = &session.username {
                                     match self.storage.get_user(user_name).await? {
                                         Some(u) => {
-                                            if u.password_hash.is_none() { deferred_reply = Some("No existing password. Use SETPASS <new>.\n>".into()); }
+                                            if u.password_hash.is_none() { deferred_reply = Some("No existing password. Use SETPASS <new>.\n".into()); }
                                             else {
                                                 let (_u2, ok) = self.storage.verify_user_password(user_name, old).await?;
-                                                if !ok { deferred_reply = Some("Invalid password.\n>".into()); }
-                                                else if old == newp { deferred_reply = Some("New password must differ.\n>".into()); }
-                                                else { self.storage.update_user_password(user_name, newp).await?; deferred_reply = Some("Password changed.\n>".into()); }
+                                                if !ok { deferred_reply = Some("Invalid password.\n".into()); }
+                                                else if old == newp { deferred_reply = Some("New password must differ.\n".into()); }
+                                                else { self.storage.update_user_password(user_name, newp).await?; deferred_reply = Some("Password changed.\n".into()); }
                                             }
                                         }
-                                        None => deferred_reply = Some("Session user missing.\n>".into())
+                                        None => deferred_reply = Some("Session user missing.\n".into())
                                     }
-                                } else { deferred_reply = Some("Not logged in.\n>".into()); }
+                                } else { deferred_reply = Some("Not logged in.\n".into()); }
                             }
-                        } else { deferred_reply = Some("Not logged in.\n>".into()); }
+                        } else { deferred_reply = Some("Not logged in.\n".into()); }
                     } else if upper.starts_with("SETPASS ") {
                         if session.username.as_deref() == Some(&self.config.bbs.sysop) {
-                            deferred_reply = Some("Sysop password managed externally. Use sysop-passwd CLI.\n>".into());
+                            deferred_reply = Some("Sysop password managed externally. Use sysop-passwd CLI.\n".into());
                         } else if session.is_logged_in() {
                             let parts: Vec<&str> = raw_content.split_whitespace().collect();
-                            if parts.len() < 2 { deferred_reply = Some("Usage: SETPASS <new>\n>".into()); }
+                            if parts.len() < 2 { deferred_reply = Some("Usage: SETPASS <new>\n".into()); }
                             else {
                                 let newp = parts[1];
-                                if newp.len() < 8 { deferred_reply = Some("New password too short (min 8).\n>".into()); }
-                                else if newp.len() > 128 { deferred_reply = Some("New password too long.\n>".into()); }
+                                if newp.len() < 8 { deferred_reply = Some("New password too short (min 8).\n".into()); }
+                                else if newp.len() > 128 { deferred_reply = Some("New password too long.\n".into()); }
                                 else if let Some(user_name) = &session.username {
                                     match self.storage.get_user(user_name).await? {
                                         Some(u) => {
-                                            if u.password_hash.is_some() { deferred_reply = Some("Password already set. Use CHPASS <old> <new>.\n>".into()); }
-                                            else { self.storage.update_user_password(user_name, newp).await?; deferred_reply = Some("Password set.\n>".into()); }
+                                            if u.password_hash.is_some() { deferred_reply = Some("Password already set. Use CHPASS <old> <new>.\n".into()); }
+                                            else { self.storage.update_user_password(user_name, newp).await?; deferred_reply = Some("Password set.\n".into()); }
                                         }
-                                        None => deferred_reply = Some("Session user missing.\n>".into())
+                                        None => deferred_reply = Some("Session user missing.\n".into())
                                     }
-                                } else { deferred_reply = Some("Not logged in.\n>".into()); }
+                                } else { deferred_reply = Some("Not logged in.\n".into()); }
                             }
-                        } else { deferred_reply = Some("Not logged in.\n>".into()); }
+                        } else { deferred_reply = Some("Not logged in.\n".into()); }
                     } else if upper.starts_with("PROMOTE ") {
-                        if session.username.as_deref() != Some(&self.config.bbs.sysop) { deferred_reply = Some("Permission denied.\n>".into()); }
+                        if session.username.as_deref() != Some(&self.config.bbs.sysop) { deferred_reply = Some("Permission denied.\n".into()); }
                         else {
                             let parts: Vec<&str> = raw_content.split_whitespace().collect();
-                            if parts.len() < 2 { deferred_reply = Some("Usage: PROMOTE <user>\n>".into()); }
+                            if parts.len() < 2 { deferred_reply = Some("Usage: PROMOTE <user>\n".into()); }
                             else {
                                 let target = parts[1];
                                 match self.storage.get_user(target).await? {
-                                    None => deferred_reply = Some("User not found.\n>".into()),
+                                    None => deferred_reply = Some("User not found.\n".into()),
                                     Some(u) => {
-                                        if u.username == self.config.bbs.sysop { deferred_reply = Some("Cannot modify sysop.\n>".into()); }
-                                        else if u.user_level >= LEVEL_MODERATOR { deferred_reply = Some("Already moderator or higher.\n>".into()); }
-                                        else { self.storage.update_user_level(&u.username, LEVEL_MODERATOR).await?; deferred_reply = Some(format!("{} promoted to {}.\n>", u.username, role_name(LEVEL_MODERATOR))); }
+                                        if u.username == self.config.bbs.sysop { deferred_reply = Some("Cannot modify sysop.\n".into()); }
+                                        else if u.user_level >= LEVEL_MODERATOR { deferred_reply = Some("Already moderator or higher.\n".into()); }
+                                        else { self.storage.update_user_level(&u.username, LEVEL_MODERATOR).await?; deferred_reply = Some(format!("{} promoted to {}.\n", u.username, role_name(LEVEL_MODERATOR))); }
                                     }
                                 }
                             }
                         }
                     } else if upper.starts_with("DEMOTE ") {
-                        if session.username.as_deref() != Some(&self.config.bbs.sysop) { deferred_reply = Some("Permission denied.\n>".into()); }
+                        if session.username.as_deref() != Some(&self.config.bbs.sysop) { deferred_reply = Some("Permission denied.\n".into()); }
                         else {
                             let parts: Vec<&str> = raw_content.split_whitespace().collect();
-                            if parts.len() < 2 { deferred_reply = Some("Usage: DEMOTE <user>\n>".into()); }
+                            if parts.len() < 2 { deferred_reply = Some("Usage: DEMOTE <user>\n".into()); }
                             else {
                                 let target = parts[1];
                                 match self.storage.get_user(target).await? {
-                                    None => deferred_reply = Some("User not found.\n>".into()),
+                                    None => deferred_reply = Some("User not found.\n".into()),
                                     Some(u) => {
-                                        if u.username == self.config.bbs.sysop { deferred_reply = Some("Cannot modify sysop.\n>".into()); }
-                                        else if u.user_level <= LEVEL_USER { deferred_reply = Some("Already at base level.\n>".into()); }
-                                        else { self.storage.update_user_level(&u.username, LEVEL_USER).await?; deferred_reply = Some(format!("{} demoted to {}.\n>", u.username, role_name(LEVEL_USER))); }
+                                        if u.username == self.config.bbs.sysop { deferred_reply = Some("Cannot modify sysop.\n".into()); }
+                                        else if u.user_level <= LEVEL_USER { deferred_reply = Some("Already at base level.\n".into()); }
+                                        else { self.storage.update_user_level(&u.username, LEVEL_USER).await?; deferred_reply = Some(format!("{} demoted to {}.\n", u.username, role_name(LEVEL_USER))); }
                                     }
                                 }
                             }
                         }
                     } else if upper.starts_with("DELETE ") {
-                        if session.user_level < LEVEL_MODERATOR { deferred_reply = Some("Permission denied.\n>".into()); }
+                        if session.user_level < LEVEL_MODERATOR { deferred_reply = Some("Permission denied.\n".into()); }
                         else {
                             let parts: Vec<&str> = raw_content.split_whitespace().collect();
-                            if parts.len() < 3 { deferred_reply = Some("Usage: DELETE <area> <id>\n>".into()); }
+                            if parts.len() < 3 { deferred_reply = Some("Usage: DELETE <area> <id>\n".into()); }
                             else {
                                 let area = parts[1].to_lowercase();
                                 let id = parts[2].to_string();
@@ -564,45 +614,53 @@ impl BbsServer {
                             }
                         }
                     } else if upper.starts_with("LOCK ") {
-                        if session.user_level < LEVEL_MODERATOR { deferred_reply = Some("Permission denied.\n>".into()); }
+                        if session.user_level < LEVEL_MODERATOR { deferred_reply = Some("Permission denied.\n".into()); }
                         else {
                             let parts: Vec<&str> = raw_content.split_whitespace().collect();
-                            if parts.len() < 2 { deferred_reply = Some("Usage: LOCK <area>\n>".into()); }
+                            if parts.len() < 2 { deferred_reply = Some("Usage: LOCK <area>\n".into()); }
                             else {
                                 let area = parts[1].to_lowercase();
                                 let actor = session.username.clone().unwrap_or("?".into());
                                 post_action = PostAction::Lock{area:area.clone(), actor};
-                                deferred_reply = Some(format!("Area {} locked.\n>", area));
+                                deferred_reply = Some(format!("Area {} locked.\n", area));
                             }
                         }
                     } else if upper.starts_with("UNLOCK ") {
-                        if session.user_level < LEVEL_MODERATOR { deferred_reply = Some("Permission denied.\n>".into()); }
+                        if session.user_level < LEVEL_MODERATOR { deferred_reply = Some("Permission denied.\n".into()); }
                         else {
                             let parts: Vec<&str> = raw_content.split_whitespace().collect();
-                            if parts.len() < 2 { deferred_reply = Some("Usage: UNLOCK <area>\n>".into()); }
+                            if parts.len() < 2 { deferred_reply = Some("Usage: UNLOCK <area>\n".into()); }
                             else {
                                 let area = parts[1].to_lowercase();
                                 let actor = session.username.clone().unwrap_or("?".into());
                                 post_action = PostAction::Unlock{area:area.clone(), actor};
-                                deferred_reply = Some(format!("Area {} unlocked.\n>", area));
+                                deferred_reply = Some(format!("Area {} unlocked.\n", area));
                             }
                         }
                     } else if upper.starts_with("DELLOG") {
-                        if session.user_level < LEVEL_MODERATOR { deferred_reply = Some("Permission denied.\n>".into()); }
+                        if session.user_level < LEVEL_MODERATOR { deferred_reply = Some("Permission denied.\n".into()); }
                         else {
                             let parts: Vec<&str> = raw_content.split_whitespace().collect();
                             let page = if parts.len() >= 2 { parts[1].parse::<usize>().unwrap_or(1) } else { 1 };
                             match self.storage.get_deletion_audit_page(page, 10).await {
                                 Ok(entries) => {
-                                    if entries.is_empty() { deferred_reply = Some("No entries.\n>".into()); }
-                                    else { let mut out = String::from("Deletion Log:\n"); for e in entries { out.push_str(&format!("{} {} {} {}\n", e.timestamp, e.actor, e.area, e.id)); } out.push('>'); deferred_reply = Some(out); }
+                                    if entries.is_empty() { deferred_reply = Some("No entries.\n".into()); }
+                                    else { let mut out = String::from("Deletion Log:\n"); for e in entries { out.push_str(&format!("{} {} {} {}\n", e.timestamp, e.actor, e.area, e.id)); } deferred_reply = Some(out); }
                                 }
-                                Err(e) => deferred_reply = Some(format!("Failed: {}\n>", e)),
+                                Err(e) => deferred_reply = Some(format!("Failed: {}\n", e)),
                             }
                         }
                     } else if upper == "LOGOUT" {
-                        if session.is_logged_in() { let name = session.display_name(); session.logout().await?; deferred_reply = Some(format!("User {} logged out.\n>", name)); }
-                        else { deferred_reply = Some("Not logged in.\n>".into()); }
+                        if session.is_logged_in() { let name = session.display_name(); session.logout().await?; deferred_reply = Some(format!("User {} logged out.\n", name)); }
+                        else { deferred_reply = Some("Not logged in.\n".into()); }
+                    } else if upper == "HELP" || upper == "?" || upper == "H" {
+                        // Use existing abbreviated help via command processor (ensures consistent text) and include shortcuts line first time
+                        let mut help_text = session.process_command("HELP", &mut self.storage).await?;
+                        if !session.help_seen {
+                            session.help_seen = true;
+                            help_text.push_str("Shortcuts: M=areas U=user Q=quit\n");
+                        }
+                        self.send_session_message(&node_key, &help_text, true).await?;
                     } else {
                         let redact = ["REGISTER ", "LOGIN ", "SETPASS ", "CHPASS "];
                         let log_snippet = if redact.iter().any(|p| upper.starts_with(p)) { "<redacted>" } else { raw_content.as_str() };
@@ -615,19 +673,19 @@ impl BbsServer {
                     PostAction::None => {}
                     PostAction::Delete{area,id,actor} => {
                         match self.moderator_delete_message(&area, &id, &actor).await {
-                            Ok(true) => { deferred_reply.get_or_insert(format!("Deleted message {} in {}.\n>", id, area)); },
-                            Ok(false) => { deferred_reply.get_or_insert("Not found.\n>".into()); },
-                            Err(e) => { deferred_reply.get_or_insert(format!("Delete failed: {}\n>", e)); }
+                            Ok(true) => { deferred_reply.get_or_insert(format!("Deleted message {} in {}.\n", id, area)); },
+                            Ok(false) => { deferred_reply.get_or_insert("Not found.\n".into()); },
+                            Err(e) => { deferred_reply.get_or_insert(format!("Delete failed: {}\n", e)); }
                         }
                     }
                     PostAction::Lock{area,actor} => {
-                        if let Err(e) = self.moderator_lock_area(&area, &actor).await { deferred_reply.get_or_insert(format!("Lock failed: {}\n>", e)); }
+                        if let Err(e) = self.moderator_lock_area(&area, &actor).await { deferred_reply.get_or_insert(format!("Lock failed: {}\n", e)); }
                     }
                     PostAction::Unlock{area,actor} => {
-                        if let Err(e) = self.moderator_unlock_area(&area, &actor).await { deferred_reply.get_or_insert(format!("Unlock failed: {}\n>", e)); }
+                        if let Err(e) = self.moderator_unlock_area(&area, &actor).await { deferred_reply.get_or_insert(format!("Unlock failed: {}\n", e)); }
                     }
                 }
-                if let Some(msg) = deferred_reply { self.send_message(&node_key, &msg).await?; }
+                if let Some(msg) = deferred_reply { self.send_session_message(&node_key, &msg, true).await?; }
             // end direct path handling (removed extra closing brace)
         } else {
             // Public channel event: parse lightweight commands
@@ -747,11 +805,67 @@ impl BbsServer {
         Ok(())
     }
 
+    /// Send a session-scoped reply, automatically appending a dynamic prompt unless suppressed.
+    /// If chunked is true and not last_chunk, no prompt is appended (used for future multi-part HELP+).
+    async fn send_session_message(&mut self, node_key: &str, body: &str, last_chunk: bool) -> Result<()> {
+        // Retrieve session (if missing, just send body)
+        let msg = if let Some(session) = self.sessions.get(node_key) {
+            if last_chunk {
+                let prompt = session.build_prompt();
+                if body.ends_with('\n') { format!("{}{}", body, prompt) } else { format!("{}\n{}", body, prompt) }
+            } else {
+                body.to_string()
+            }
+        } else { body.to_string() };
+        self.send_message(node_key, &msg).await
+    }
+
+    /// Lightweight direct-message routing helper for tests (no meshtastic-proto TextEvent needed)
+    #[allow(dead_code)]
+    pub async fn route_test_text_direct(&mut self, node_key: &str, content: &str) -> Result<()> {
+        // Minimal emulation of direct path portion of route_text_event without meshtastic-proto TextEvent struct
+        if !self.sessions.contains_key(node_key) {
+            let session = Session::new(node_key.to_string(), node_key.to_string());
+            self.sessions.insert(node_key.to_string(), session);
+        }
+    // Inline simplified logic: replicate relevant subset from route_text_event for test
+    let raw_content = content.trim().to_string();
+        let upper = raw_content.to_uppercase();
+        let logged_in_count = self.sessions.values().filter(|s| s.is_logged_in()).count();
+        let mut deferred_reply: Option<String> = None;
+        if let Some(session) = self.sessions.get_mut(node_key) {
+            session.update_activity();
+            if upper == "HELP+" || upper == "HELP V" || upper == "HELP  V" || upper == "HELP  +" {
+                let chunks = chunk_verbose_help();
+                let total = chunks.len();
+                for (i, chunk) in chunks.into_iter().enumerate() { let last = i + 1 == total; self.send_session_message(node_key, &chunk, last).await?; }
+                return Ok(());
+            } else if upper == "HELP" || upper == "?" || upper == "H" {
+                let mut help_text = session.process_command("HELP", &mut self.storage).await?;
+                if !session.help_seen { session.help_seen = true; help_text.push_str("Shortcuts: M=areas U=user Q=quit\n"); }
+                self.send_session_message(node_key, &help_text, true).await?;
+                return Ok(());
+            } else if upper.starts_with("LOGIN ") {
+                if !session.is_logged_in() && (logged_in_count as u32) >= self.config.bbs.max_users { deferred_reply = Some("All available sessions are in use, please wait and try again later.\n".into()); }
+                else if session.is_logged_in() { deferred_reply = Some(format!("Already logged in as {}.\n", session.display_name())); }
+                else {
+                    let parts: Vec<&str> = raw_content.split_whitespace().collect();
+                    if parts.len() >= 2 { let user = parts[1]; session.login(user.to_string(), 1).await?; deferred_reply = Some(format!("Welcome, {} you are now logged in.\n{}", user, Self::format_unread_line(0))); }
+                }
+            } else {
+                let response = session.process_command(&raw_content, &mut self.storage).await?;
+                if !response.is_empty() { deferred_reply = Some(response); }
+            }
+        }
+        if let Some(msg) = deferred_reply { self.send_session_message(node_key, &msg, true).await?; }
+        Ok(())
+    }
+
     #[allow(unused)]
     #[cfg(feature = "weather")]
     async fn fetch_weather(&mut self) -> Option<String> {
         use tokio::time::timeout;
-        const TTL: Duration = Duration::from_secs(15 * 60); // 15 minutes
+        const TTL: Duration = Duration::from_secs(5 * 60); // 5 minutes
         // If we have a fresh cached value, return it immediately
         if let Some((ts, val)) = &self.weather_cache {
             if ts.elapsed() < TTL { return Some(val.clone()); }

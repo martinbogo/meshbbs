@@ -16,6 +16,8 @@ pub struct Session {
     pub username: Option<String>,
     pub user_level: u8,
     pub current_area: Option<String>,
+    /// Whether the abbreviated HELP has already been shown this session (used to append shortcuts line once)
+    pub help_seen: bool,
     pub login_time: DateTime<Utc>,
     pub last_activity: DateTime<Utc>,
     pub state: SessionState,
@@ -46,6 +48,7 @@ impl Session {
             username: None,
             user_level: 0,
             current_area: None,
+            help_seen: false,
             login_time: now,
             last_activity: now,
             state: SessionState::Connected,
@@ -133,5 +136,37 @@ impl Session {
         let now = Utc::now();
         let timeout = chrono::Duration::minutes(timeout_minutes);
         now - self.last_activity > timeout
+    }
+
+    /// Build a dynamic prompt string based on session state.
+    /// Formats (all end with '>'):
+    ///  unauthenticated: "unauth>"
+    ///  main/menu (logged in): "<user> (lvl<level>)>"
+    ///  reading messages / in area: "<user>@<area>>" (area truncated to 20 chars)
+    ///  posting: "post@<area>>" (falls back to just "post>" if no area)
+    pub fn build_prompt(&self) -> String {
+        // Unauthenticated
+        if !self.is_logged_in() {
+            return "unauth>".to_string();
+        }
+
+        let level = self.user_level;
+        match self.state {
+            SessionState::PostingMessage => {
+                if let Some(area) = &self.current_area { format!("post@{}>", Self::truncate_area(area)) } else { "post>".into() }
+            }
+            SessionState::ReadingMessages | SessionState::MessageAreas => {
+                if let Some(area) = &self.current_area { format!("{}@{}>", self.display_name(), Self::truncate_area(area)) } else { format!("{} (lvl{})>", self.display_name(), level) }
+            }
+            SessionState::MainMenu | SessionState::UserMenu | SessionState::LoggingIn | SessionState::Connected => {
+                format!("{} (lvl{})>", self.display_name(), level)
+            }
+            SessionState::Disconnected => "".to_string(), // no prompt after disconnect
+        }
+    }
+
+    fn truncate_area(area: &str) -> String {
+        const MAX: usize = 20;
+        if area.len() <= MAX { area.to_string() } else { format!("{}…", &area[..MAX-1]) }
     }
 }

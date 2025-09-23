@@ -6,10 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-### Changed
-- Default `storage.max_message_size` reduced to 230 bytes (Meshtastic practical payload limit).
+
+## [0.9.0] - 2025-09-22
 ### Added
-- Hard enforcement: messages larger than 230 bytes are rejected (config values above 230 are clamped).
+- **Dynamic contextual prompts**: Prompts now show current state and context instead of static '>'.
+  - Unauthenticated: `unauth>`
+  - Logged in: `<user> (lvl<level>)>`
+  - Reading messages: `<user>@<area>>`
+  - Posting messages: `post@<area>>`
+- **Verbose help system**: `HELP+` or `HELP V` provides detailed multi-part help with all commands and examples.
+- **One-time shortcuts reminder**: First `HELP` after login shows "Shortcuts: M=areas U=user Q=quit".
+- **Proactive weather updates**: Weather now fetches automatically every 5 minutes (reduced from 15-minute on-demand cache).
+
+### Changed
+- Weather cache TTL reduced from 15 minutes to 5 minutes for fresher data.
+- Unknown command response updated to "Unknown command. Type HELP" for better guidance.
+- Login output streamlined to show only welcome message and unread count (removed redundant prompts).
+- Centralized message sending with automatic prompt appending (internal architecture improvement).
+
+### Removed
+- Static '>' prompt characters embedded in message responses.
+- Legacy banner text on first authenticated direct message.
+
+### Fixed
+- HELP command reliability improved with size-aware chunking (prevents delivery failures).
+- Prompt consistency across all session states and command flows.
 
 ## [0.8.11] - 2025-09-22
 ### Added

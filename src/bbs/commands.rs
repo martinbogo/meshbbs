@@ -43,7 +43,7 @@ impl CommandProcessor {
         if upper.starts_with("READ") {
             let area = raw.split_whitespace().nth(1).unwrap_or("general").to_lowercase();
             // Permission check
-            if !self_area_can_read(session.user_level, &area, storage) { return Ok(Some("Permission denied.\n>".into())); }
+            if !self_area_can_read(session.user_level, &area, storage) { return Ok(Some("Permission denied.\n".into())); }
             session.current_area = Some(area.clone());
             let messages = storage.get_messages(&area, 10).await?;
             let mut response = format!("Messages in {}:\n", area);
@@ -56,11 +56,11 @@ impl CommandProcessor {
             let second = parts.next();
             let (area, text) = if let Some(s) = second { if let Some(rest) = parts.next() { (s.to_lowercase(), rest) } else { (session.current_area.clone().unwrap_or("general".into()), s) } } else { (session.current_area.clone().unwrap_or("general".into()), "") };
             if text.is_empty() { return Ok(Some("Usage: POST [area] <message>".into())); }
-            if storage.is_area_locked(&area) { return Ok(Some("Area locked.\n>".into())); }
-            if !self_area_can_post(session.user_level, &area, storage) { return Ok(Some("Permission denied.\n>".into())); }
+            if storage.is_area_locked(&area) { return Ok(Some("Area locked.\n".into())); }
+            if !self_area_can_post(session.user_level, &area, storage) { return Ok(Some("Permission denied.\n".into())); }
             let author = session.display_name();
             storage.store_message(&area, &author, text).await?;
-            return Ok(Some(format!("Posted to {}.\n>", area)));
+            return Ok(Some(format!("Posted to {}.\n", area)));
         }
         if upper == "AREAS" || upper == "LIST" {
             let areas = storage.list_message_areas().await?;
@@ -75,7 +75,7 @@ impl CommandProcessor {
     async fn handle_initial_connection(&self, session: &mut Session, _cmd: &str, _storage: &mut Storage) -> Result<String> {
         session.state = SessionState::MainMenu;
         Ok(format!(
-            "Welcome to MeshBBS!\nNode: {}\nAuth: REGISTER <user> <pass> or LOGIN <user> [pass]\nType HELP for commands\nMain Menu:\n[M]essages [U]ser [Q]uit\n>",
+            "Welcome to MeshBBS!\nNode: {}\nAuth: REGISTER <user> <pass> or LOGIN <user> [pass]\nType HELP for commands\nMain Menu:\n[M]essages [U]ser [Q]uit\n",
             session.node_id
         ))
     }
@@ -85,9 +85,9 @@ impl CommandProcessor {
             let username = cmd.strip_prefix("LOGIN ").unwrap_or("Guest").to_string();
             session.login(username.clone(), 1).await?;
             storage.create_or_update_user(&username, &session.node_id).await?;
-            Ok(format!("Welcome {}!\nMain Menu:\n[M]essages [U]ser [Q]uit\n>", username))
+            Ok(format!("Welcome {}!\nMain Menu:\n[M]essages [U]ser [Q]uit\n", username))
         } else {
-            Ok("Please enter: LOGIN <username>\n>".to_string())
+            Ok("Please enter: LOGIN <username>\n".to_string())
         }
     }
 
@@ -98,13 +98,13 @@ impl CommandProcessor {
                 let areas = storage.list_message_areas().await?;
                 let mut response = "Message Areas:\n".to_string();
                 for (i, area) in areas.iter().enumerate() { response.push_str(&format!("{}. {}\n", i + 1, area)); }
-                response.push_str("[R]ead [P]ost [L]ist [B]ack\n>");
+                response.push_str("[R]ead [P]ost [L]ist [B]ack\n");
                 Ok(response)
             }
             "U" | "USER" => {
                 session.state = SessionState::UserMenu;
                 Ok(format!(
-                    "User Menu:\nUsername: {}\nLevel: {}\nLogin time: {}\n[I]nfo [S]tats [B]ack\n>",
+                    "User Menu:\nUsername: {}\nLevel: {}\nLogin time: {}\n[I]nfo [S]tats [B]ack\n",
                     session.display_name(),
                     session.user_level,
                     session.login_time.format("%Y-%m-%d %H:%M UTC")
@@ -115,20 +115,20 @@ impl CommandProcessor {
                 // Build compact contextual help to fit within 230 bytes
                 let mut out = String::new();
                 if !session.is_logged_in() {
-                    out.push_str("AUTH: REGISTER <u> <p> | LOGIN <u> <p>\n>");
+                    out.push_str("AUTH: REGISTER <u> <p> | LOGIN <u> <p>\n");
                     return Ok(out);
                 }
                 out.push_str("ACCT: SETPASS <new> | CHPASS <old> <new> | LOGOUT\n");
                 out.push_str("MSG: M=menu READ <a> POST <a> <txt> AREAS/LIST\n");
                 if session.user_level >= 5 { out.push_str("MOD: DELETE <a> <id> LOCK/UNLOCK <a> DELLOG [p]\n"); }
                 if session.user_level >= 10 { out.push_str("ADM: PROMOTE <u> DEMOTE <u>\n"); }
-                out.push_str("OTHER: U=User Q=Quit\n>");
+                out.push_str("OTHER: U=User Q=Quit\n");
                 // Ensure length <=230 (should already be compact; final guard)
                 const MAX: usize = 230;
                 if out.as_bytes().len() > MAX { out.truncate(MAX); }
                 Ok(out)
             }
-            _ => Ok("Unknown command. Type HELP for commands.\n>".to_string())
+            _ => Ok("Unknown command. Type HELP\n".to_string())
         }
     }
 
@@ -140,57 +140,57 @@ impl CommandProcessor {
                 let messages = storage.get_messages("general", 10).await?;
                 let mut response = "Recent messages in General:\n".to_string();
                 for msg in messages { response.push_str(&format!("From: {} | {}\n{}\n---\n", msg.author, msg.timestamp.format("%m/%d %H:%M"), msg.content)); }
-                response.push_str("[N]ext [P]rev [R]eply [B]ack\n>");
+                response.push_str("[N]ext [P]rev [R]eply [B]ack\n");
                 Ok(response)
             }
-            "P" | "POST" => { session.state = SessionState::PostingMessage; Ok("Enter your message (end with . on a line):\n>".to_string()) }
+            "P" | "POST" => { session.state = SessionState::PostingMessage; Ok("Enter your message (end with . on a line):\n".to_string()) }
             "L" | "LIST" => {
                 let areas = storage.list_message_areas().await?;
                 let mut response = "Available areas:\n".to_string();
                 for area in areas { response.push_str(&format!("- {}\n", area)); }
-                response.push_str("\n>");
+                response.push_str("\n");
                 Ok(response)
             }
-            "B" | "BACK" => { session.state = SessionState::MainMenu; Ok("Main Menu:\n[M]essages [U]ser [Q]uit\n>".to_string()) }
-            _ => Ok("Commands: [R]ead [P]ost [L]ist [B]ack\n>".to_string())
+            "B" | "BACK" => { session.state = SessionState::MainMenu; Ok("Main Menu:\n[M]essages [U]ser [Q]uit\n".to_string()) }
+            _ => Ok("Commands: [R]ead [P]ost [L]ist [B]ack\n".to_string())
         }
     }
 
     async fn handle_reading_messages(&self, session: &mut Session, cmd: &str, _storage: &mut Storage) -> Result<String> {
         match &cmd[..] {
-            "B" | "BACK" => { session.state = SessionState::MessageAreas; Ok("Message Areas:\n[R]ead [P]ost [L]ist [B]ack\n>".to_string()) }
-            _ => Ok("Commands: [N]ext [P]rev [R]eply [B]ack\n>".to_string())
+            "B" | "BACK" => { session.state = SessionState::MessageAreas; Ok("Message Areas:\n[R]ead [P]ost [L]ist [B]ack\n".to_string()) }
+            _ => Ok("Commands: [N]ext [P]rev [R]eply [B]ack\n".to_string())
         }
     }
 
     async fn handle_posting_message(&self, session: &mut Session, cmd: &str, storage: &mut Storage) -> Result<String> {
         if cmd == "." {
             session.state = SessionState::MessageAreas;
-            Ok("Message posted!\nMessage Areas:\n[R]ead [P]ost [L]ist [B]ack\n>".to_string())
+            Ok("Message posted!\nMessage Areas:\n[R]ead [P]ost [L]ist [B]ack\n".to_string())
         } else {
             let area = session.current_area.as_ref().unwrap_or(&"general".to_string()).clone();
             let author = session.display_name();
             storage.store_message(&area, &author, cmd).await?;
             session.state = SessionState::MessageAreas;
-            Ok("Message posted!\nMessage Areas:\n[R]ead [P]ost [L]ist [B]ack\n>".to_string())
+            Ok("Message posted!\nMessage Areas:\n[R]ead [P]ost [L]ist [B]ack\n".to_string())
         }
     }
 
     async fn handle_user_menu(&self, session: &mut Session, cmd: &str, storage: &mut Storage) -> Result<String> {
         match &cmd[..] {
             "I" | "INFO" => Ok(format!(
-                "User Information:\nUsername: {}\nNode ID: {}\nAccess Level: {}\nSession Duration: {} minutes\n>",
+                "User Information:\nUsername: {}\nNode ID: {}\nAccess Level: {}\nSession Duration: {} minutes\n",
                 session.display_name(), session.node_id, session.user_level, session.session_duration().num_minutes()
             )),
             "S" | "STATS" => {
                 let stats = storage.get_statistics().await?;
                 Ok(format!(
-                    "BBS Statistics:\nTotal Messages: {}\nTotal Users: {}\nUptime: Connected\n>",
+                    "BBS Statistics:\nTotal Messages: {}\nTotal Users: {}\nUptime: Connected\n",
                     stats.total_messages, stats.total_users
                 ))
             }
-            "B" | "BACK" => { session.state = SessionState::MainMenu; Ok("Main Menu:\n[M]essages [U]ser [Q]uit\n>".to_string()) }
-            _ => Ok("Commands: [I]nfo [S]tats [B]ack\n>".to_string())
+            "B" | "BACK" => { session.state = SessionState::MainMenu; Ok("Main Menu:\n[M]essages [U]ser [Q]uit\n".to_string()) }
+            _ => Ok("Commands: [I]nfo [S]tats [B]ack\n".to_string())
         }
     }
 }
