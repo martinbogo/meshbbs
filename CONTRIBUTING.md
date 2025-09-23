@@ -10,7 +10,7 @@ By participating in this project, you agree to maintain a respectful and inclusi
 
 ### Prerequisites
 
-- Rust 1.70 or higher
+- Rust 1.82 or higher
 - Git
 - A Meshtastic device for testing (optional but recommended)
 

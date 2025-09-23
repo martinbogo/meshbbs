@@ -27,7 +27,7 @@ MeshBBS brings the classic BBS experience to modern mesh networks, allowing user
 
 ### Prerequisites
 
-- Rust 1.70+ (install from [rustup.rs](https://rustup.rs/))
+- Rust 1.82+ (install from [rustup.rs](https://rustup.rs/))
 - A Meshtastic device (T-Beam, Heltec, etc.)
 - USB cable or Bluetooth connection to your Meshtastic device
 
@@ -105,6 +105,12 @@ meshbbs init
 
 # Show status and statistics
 meshbbs status
+
+# Run serial smoke test
+meshbbs smoke-test
+
+# Set/update sysop password
+meshbbs sysop-passwd
 
 # Enable verbose logging
 meshbbs -vv start
@@ -337,23 +343,26 @@ Future work: Map decoded packet types to BBS events (messages, user presence, te
 meshbbs/
 ├── src/
 │   ├── main.rs           # Application entry point
+│   ├── lib.rs            # Library exports
 │   ├── bbs/              # Core BBS functionality
 │   │   ├── mod.rs
 │   │   ├── server.rs     # BBS server implementation
 │   │   ├── session.rs    # User session management
-│   │   └── commands.rs   # BBS command processing
+│   │   ├── commands.rs   # BBS command processing
+│   │   ├── public.rs     # Public channel command parsing
+│   │   └── roles.rs      # User role definitions
 │   ├── meshtastic/       # Meshtastic integration
-│   │   ├── mod.rs
-│   │   ├── device.rs     # Device communication
-│   │   └── protocol.rs   # Message protocol
+│   │   └── mod.rs        # Device communication & protocol
 │   ├── storage/          # Data persistence
-│   │   ├── mod.rs
-│   │   ├── messages.rs   # Message storage
-│   │   └── users.rs      # User management
-│   └── config/           # Configuration
-│       ├── mod.rs
-│       └── settings.rs
-├── data/                 # BBS data directory
+│   │   └── mod.rs        # Message & user storage
+│   ├── config/           # Configuration
+│   │   └── mod.rs        # Settings management
+│   └── protobuf/         # Protobuf definitions
+│       └── mod.rs
+├── tests/                # Integration tests
+├── data/                 # BBS data directory (created at runtime)
+├── third_party/          # Git submodules
+│   └── meshtastic-protobufs/
 ├── config.toml           # Configuration file
 ├── Cargo.toml           # Rust dependencies
 └── README.md            # This file
@@ -374,12 +383,19 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 
 ## Roadmap
 
-- [ ] **v0.1.0**: Basic BBS functionality with message boards
-- [ ] **v0.2.0**: File sharing and transfer capabilities
-- [ ] **v0.3.0**: User management and permissions
-- [ ] **v0.4.0**: Web administration interface
-- [ ] **v0.5.0**: Message encryption and security features
-- [ ] **v1.0.0**: Production-ready release
+Recent releases have focused on user experience improvements and core functionality:
+
+- ✅ **v0.9.0** (2025-09-22): Dynamic prompts, enhanced help system, proactive weather updates
+- ✅ **v0.8.11** (2025-09-22): Unread message notifications, role-aware help
+- ✅ **v0.8.10** (2025-09-22): Session management, user limits, welcome banners
+- ✅ **v0.8.0** (2025-09-22): Security features, moderation tools, area access control
+
+Future development priorities:
+- [ ] **File transfer capabilities**: Binary data transfer protocols optimized for mesh constraints
+- [ ] **Enhanced encryption**: End-to-end message encryption beyond transport security
+- [ ] **Web interface**: Optional web-based administration and monitoring
+- [ ] **Federation**: Multi-node BBS networks with message routing
+- [ ] **Mobile clients**: Native mobile apps for easier mesh BBS access
 
 ## Hardware Compatibility
 
