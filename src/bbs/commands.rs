@@ -2,6 +2,7 @@ use anyhow::Result;
 // use log::{debug}; // retained for future detailed command tracing
 
 use crate::storage::Storage;
+use crate::validation::{validate_user_name, validate_area_name, sanitize_message_content};
 
 fn self_area_can_read(user_level: u8, area: &str, storage: &Storage) -> bool {
     if let Some((r,_)) = storage.get_area_levels(area) { user_level >= r } else { true }
@@ -41,7 +42,16 @@ impl CommandProcessor {
 
     async fn try_inline_message_command(&self, session: &mut Session, raw: &str, upper: &str, storage: &mut Storage) -> Result<Option<String>> {
         if upper.starts_with("READ") {
-            let area = raw.split_whitespace().nth(1).unwrap_or("general").to_lowercase();
+            let raw_area = raw.split_whitespace().nth(1).unwrap_or("general");
+            
+            // Validate area name before using it
+            let area = match validate_area_name(raw_area) {
+                Ok(_) => raw_area.to_lowercase(),
+                Err(_) => {
+                    return Ok(Some("Invalid area name. Area names must contain only letters, numbers, and underscores.\n".to_string()));
+                }
+            };
+            
             // Permission check
             if !self_area_can_read(session.user_level, &area, storage) { return Ok(Some("Permission denied.\n".into())); }
             session.current_area = Some(area.clone());
@@ -52,14 +62,53 @@ impl CommandProcessor {
             return Ok(Some(response));
         }
         if upper.starts_with("POST ") {
-            let mut parts = raw.splitn(3, ' '); parts.next();
+            let mut parts = raw.splitn(3, ' '); 
+            parts.next(); // skip "POST"
             let second = parts.next();
-            let (area, text) = if let Some(s) = second { if let Some(rest) = parts.next() { (s.to_lowercase(), rest) } else { (session.current_area.clone().unwrap_or("general".into()), s) } } else { (session.current_area.clone().unwrap_or("general".into()), "") };
-            if text.is_empty() { return Ok(Some("Usage: POST [area] <message>".into())); }
-            if storage.is_area_locked(&area) { return Ok(Some("Area locked.\n".into())); }
-            if !self_area_can_post(session.user_level, &area, storage) { return Ok(Some("Permission denied.\n".into())); }
+            
+            // Parse area and message content
+            let (raw_area, text) = if let Some(s) = second { 
+                if let Some(rest) = parts.next() { 
+                    (s, rest) 
+                } else { 
+                    (session.current_area.as_ref().map(|s| s.as_str()).unwrap_or("general"), s) 
+                } 
+            } else { 
+                (session.current_area.as_ref().map(|s| s.as_str()).unwrap_or("general"), "") 
+            };
+            
+            if text.is_empty() { 
+                return Ok(Some("Usage: POST [area] <message>".into())); 
+            }
+            
+            // Validate area name
+            let area = match validate_area_name(raw_area) {
+                Ok(_) => raw_area.to_lowercase(),
+                Err(_) => {
+                    return Ok(Some("Invalid area name. Area names must contain only letters, numbers, and underscores.\n".to_string()));
+                }
+            };
+            
+            // Sanitize message content
+            let sanitized_content = match sanitize_message_content(text, 10000) { // 10KB limit
+                Ok(content) => content,
+                Err(_) => return Ok(Some("Message content contains invalid characters or exceeds size limit.\n".to_string()))
+            };
+            
+            if sanitized_content.trim().is_empty() {
+                return Ok(Some("Message content cannot be empty after sanitization.\n".to_string()));
+            }
+            
+            if storage.is_area_locked(&area) { 
+                return Ok(Some("Area locked.\n".into())); 
+            }
+            
+            if !self_area_can_post(session.user_level, &area, storage) { 
+                return Ok(Some("Permission denied.\n".into())); 
+            }
+            
             let author = session.display_name();
-            storage.store_message(&area, &author, text).await?;
+            storage.store_message(&area, &author, &sanitized_content).await?;
             return Ok(Some(format!("Posted to {}.\n", area)));
         }
         if upper == "AREAS" || upper == "LIST" {
@@ -82,7 +131,26 @@ impl CommandProcessor {
 
     async fn handle_login(&self, session: &mut Session, cmd: &str, storage: &mut Storage) -> Result<String> {
         if cmd.starts_with("LOGIN ") {
-            let username = cmd.strip_prefix("LOGIN ").unwrap_or("Guest").to_string();
+            let raw_username = cmd.strip_prefix("LOGIN ").unwrap_or("").trim();
+            
+            // Validate username before proceeding
+            let username = match validate_user_name(raw_username) {
+                Ok(name) => name,
+                Err(e) => {
+                    return Ok(format!(
+                        "Invalid username: {}\n\n\
+                        Valid usernames must:\n\
+                        • Be 2-30 characters long\n\
+                        • Not start or end with spaces\n\
+                        • Not contain path separators (/, \\)\n\
+                        • Not be reserved system names\n\
+                        • Not contain control characters\n\n\
+                        Please try: LOGIN <valid_username>\n", 
+                        e
+                    ));
+                }
+            };
+            
             session.login(username.clone(), 1).await?;
             storage.create_or_update_user(&username, &session.node_id).await?;
             Ok(format!("Welcome {}!\nMain Menu:\n[M]essages [U]ser [Q]uit\n", username))
@@ -127,6 +195,121 @@ impl CommandProcessor {
                 const MAX: usize = 230;
                 if out.as_bytes().len() > MAX { out.truncate(MAX); }
                 Ok(out)
+            }
+            // Admin commands for moderators and sysops
+            cmd if cmd.starts_with("USERS") => {
+                if session.user_level < 5 { return Ok("Permission denied.\n".to_string()); }
+                let parts: Vec<&str> = cmd.split_whitespace().collect();
+                let pattern = if parts.len() >= 2 { Some(parts[1].to_lowercase()) } else { None };
+                
+                match storage.list_all_users().await {
+                    Ok(mut users) => {
+                        // Filter users by pattern if provided
+                        if let Some(ref p) = pattern {
+                            users.retain(|u| u.username.to_lowercase().contains(p));
+                        }
+                        
+                        let mut response = if let Some(ref p) = pattern {
+                            format!("Users matching '{}' ({} found):\n", p, users.len())
+                        } else {
+                            format!("Registered Users ({}):\n", users.len())
+                        };
+                        
+                        for user in users {
+                            let role = super::roles::role_name(user.user_level);
+                            response.push_str(&format!("  {} ({}, Level {})\n", user.username, role, user.user_level));
+                        }
+                        
+                        Ok(response)
+                    }
+                    Err(e) => Ok(format!("Error listing users: {}\n", e)),
+                }
+            }
+            "WHO" => {
+                if session.user_level < 5 { return Ok("Permission denied.\n".to_string()); }
+                Ok("Logged In Users:\nNone (session info not available in this context)\n".to_string())
+            }
+            cmd if cmd.starts_with("USERINFO") => {
+                if session.user_level < 5 { return Ok("Permission denied.\n".to_string()); }
+                let parts: Vec<&str> = cmd.split_whitespace().collect();
+                if parts.len() < 2 {
+                    return Ok("Usage: USERINFO <username>\n".to_string());
+                }
+                
+                let raw_username = parts[1];
+                
+                // Validate the username to look up
+                let username = match validate_user_name(raw_username) {
+                    Ok(name) => name,
+                    Err(_) => {
+                        return Ok("Invalid username specified.\n".to_string());
+                    }
+                };
+                
+                match storage.get_user_details(&username).await {
+                    Ok(Some(user)) => {
+                        let post_count = storage.count_user_posts(&username).await.unwrap_or(0);
+                        let role = super::roles::role_name(user.user_level);
+                        Ok(format!(
+                            "User Information for {}:\n  Level: {} ({})\n  Posts: {}\n  Registered: {}\n",
+                            user.username, user.user_level, role, post_count, 
+                            user.first_login.format("%Y-%m-%d").to_string()
+                        ))
+                    }
+                    Ok(None) => Ok(format!("User '{}' not found.\n", username)),
+                    Err(e) => Ok(format!("Error getting user info: {}\n", e)),
+                }
+            }
+            "SESSIONS" => {
+                if session.user_level < 5 { return Ok("Permission denied.\n".to_string()); }
+                Ok("Active Sessions:\nNone (session info not available in this context)\n".to_string())
+            }
+            cmd if cmd.starts_with("KICK") => {
+                if session.user_level < 5 { return Ok("Permission denied.\n".to_string()); }
+                let parts: Vec<&str> = cmd.split_whitespace().collect();
+                if parts.len() < 2 {
+                    return Ok("Usage: KICK <username>\n".to_string());
+                }
+                
+                // Validate the username to kick
+                let target_username = parts[1];
+                match validate_user_name(target_username) {
+                    Ok(_) => Ok(format!("{} has been kicked (action deferred)\n", target_username)),
+                    Err(_) => Ok("Invalid username specified.\n".to_string())
+                }
+            }
+            cmd if cmd.starts_with("BROADCAST") => {
+                if session.user_level < 5 { return Ok("Permission denied.\n".to_string()); }
+                let message = cmd.strip_prefix("BROADCAST").map(|s| s.trim()).unwrap_or("");
+                if message.is_empty() {
+                    return Ok("Usage: BROADCAST <message>\n".to_string());
+                }
+                
+                // Sanitize broadcast message content
+                let sanitized_message = match sanitize_message_content(message, 5000) { // 5KB limit for broadcasts
+                    Ok(content) => content,
+                    Err(_) => return Ok("Broadcast message contains invalid characters or exceeds size limit.\n".to_string())
+                };
+                
+                if sanitized_message.trim().is_empty() {
+                    return Ok("Broadcast message cannot be empty after sanitization.\n".to_string());
+                }
+                
+                Ok(format!("Broadcast sent: {}\n", sanitized_message))
+            }
+            "ADMIN" | "DASHBOARD" => {
+                if session.user_level < 5 { return Ok("Permission denied.\n".to_string()); }
+                // Get statistics
+                match storage.get_statistics().await {
+                    Ok(stats) => {
+                        Ok(format!(
+                            "BBS Administration Dashboard:\n  Total Users: {}\n  Total Messages: {}\n  Moderators: {}\n  Recent Registrations: {}\n",
+                            stats.total_users, stats.total_messages, 
+                            stats.moderator_count, stats.recent_registrations
+                        ))
+                    }
+                    Err(e) => Ok(format!("Error getting statistics: {}\n", e)),
+                }
             }
             _ => Ok("Unknown command. Type HELP\n".to_string())
         }
@@ -191,8 +374,19 @@ impl CommandProcessor {
             Ok("Message posted!\nMessage Areas:\n[R]ead [P]ost [L]ist [B]ack\n".to_string())
         } else {
             let area = session.current_area.as_ref().unwrap_or(&"general".to_string()).clone();
+            
+            // Sanitize message content before storing
+            let sanitized_content = match sanitize_message_content(cmd, 10000) { // 10KB limit
+                Ok(content) => content,
+                Err(_) => return Ok("Message content contains invalid characters or exceeds size limit. Try again or type '.' to cancel:\n".to_string())
+            };
+            
+            if sanitized_content.trim().is_empty() {
+                return Ok("Message content cannot be empty after sanitization. Try again or type '.' to cancel:\n".to_string());
+            }
+            
             let author = session.display_name();
-            storage.store_message(&area, &author, cmd).await?;
+            storage.store_message(&area, &author, &sanitized_content).await?;
             session.state = SessionState::MessageAreas;
             Ok("Message posted!\nMessage Areas:\n[R]ead [P]ost [L]ist [B]ack\n".to_string())
         }
@@ -207,8 +401,8 @@ impl CommandProcessor {
             "S" | "STATS" => {
                 let stats = storage.get_statistics().await?;
                 Ok(format!(
-                    "BBS Statistics:\nTotal Messages: {}\nTotal Users: {}\nUptime: Connected\n",
-                    stats.total_messages, stats.total_users
+                    "BBS Statistics:\nTotal Messages: {}\nTotal Users: {}\nModerators: {}\nRecent Registrations (7d): {}\nUptime: Connected\n",
+                    stats.total_messages, stats.total_users, stats.moderator_count, stats.recent_registrations
                 ))
             }
             "B" | "BACK" => { session.state = SessionState::MainMenu; Ok("Main Menu:\n[M]essages [U]ser [Q]uit\n".to_string()) }

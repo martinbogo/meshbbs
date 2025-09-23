@@ -493,6 +493,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "fs2"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9564fc758e15025b46aa6643b1b77d047d1a56a1aea6e01002ac0c7026876213"
+dependencies = [
+ "libc",
+ "winapi",
+]
+
+[[package]]
 name = "futures-channel"
 version = "0.3.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1043,7 +1053,7 @@ checksum = "32a282da65faaf38286cf3be983213fcf1d2e2a58700e808f83f4ea9a4804bc0"
 
 [[package]]
 name = "meshbbs"
-version = "0.8.11"
+version = "0.9.18"
 dependencies = [
  "anyhow",
  "argon2",
@@ -1052,8 +1062,10 @@ dependencies = [
  "chrono",
  "clap",
  "env_logger",
+ "fs2",
  "log",
  "password-hash",
+ "percent-encoding",
  "prost",
  "prost-build",
  "prost-types",

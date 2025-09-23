@@ -5,4 +5,5 @@ pub mod bbs;
 pub mod meshtastic;
 pub mod config;
 pub mod storage;
+pub mod validation;
 pub mod protobuf; // always declare; internal stubs handle feature gating

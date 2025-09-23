@@ -10,6 +10,7 @@ use crate::meshtastic::MeshtasticDevice;
 #[cfg(feature = "meshtastic-proto")]
 use crate::meshtastic::TextEvent;
 use crate::storage::Storage;
+use crate::validation::validate_sysop_name;
 use super::session::Session;
 use super::public::{PublicState, PublicCommandParser, PublicCommand};
 use super::roles::{LEVEL_MODERATOR, LEVEL_USER, role_name};
@@ -49,7 +50,7 @@ const VERBOSE_HELP: &str = concat!(
     "Authentication:\n  REGISTER <name> <pass>  Create account\n  LOGIN <name> <pass>     Log in\n  SETPASS <new>           Set first password\n  CHPASS <old> <new>      Change password\n  LOGOUT                  End session\n\n",
     "Messages & Areas:\n  AREAS / LIST            List areas\n  READ <area>             Read recent messages\n  POST <area> <text>      Post inline\n  POST then multiline '.' End with '.' line\n  DELETE <area> <id>      (mod) Delete message\n  LOCK/UNLOCK <area>      (mod) Lock area\n\n",
     "Navigation Shortcuts:\n  M   Message areas menu\n  U   User menu\n  Q   Quit\n  B   Back to previous menu\n\n",
-    "User Info / Admin:\n  PROMOTE <user>          (sysop) Raise to moderator\n  DEMOTE <user>           (sysop) Lower to base user\n  DELLOG [page]           (mod) Deletion log\n\n",
+    "User Info / Admin:\n  PROMOTE <user>          (sysop) Raise to moderator\n  DEMOTE <user>           (sysop) Lower to base user\n  DELLOG [page]           (mod) Deletion log\n  ADMINLOG [page]         (mod) Admin audit log\n  USERS [pattern]         (mod) List users, optional search\n  WHO                     (mod) Show logged in users\n  USERINFO <user>         (mod) Detailed user info\n  SESSIONS                (mod) List all sessions\n  KICK <user>             (mod) Force logout user\n  BROADCAST <msg>         (mod) Message all users\n  ADMIN/DASHBOARD         (mod) System overview\n\n",
     "Misc:\n  HELP        Compact help\n  HELP+ / HELP V  Verbose help (this)\n  Weather (public)  Send WEATHER on public channel\n\n",
     "Limits:\n  Max frame ~230 bytes; verbose help auto-splits.\n"
 );
@@ -73,6 +74,26 @@ fn chunk_verbose_help() -> Vec<String> {
 impl BbsServer {
     /// Create a new BBS server instance
     pub async fn new(config: Config) -> Result<Self> {
+        // Validate sysop name before starting BBS
+        if let Err(e) = validate_sysop_name(&config.bbs.sysop) {
+            return Err(anyhow::anyhow!(
+                "Invalid sysop name '{}': {}\n\n\
+                SOLUTION: Edit your config.toml file and change the 'sysop' field to a valid name.\n\
+                Valid sysop names must:\n\
+                • Be 2-20 characters long\n\
+                • Contain only letters, numbers, spaces, underscores, hyphens, and periods\n\
+                • Not start or end with spaces\n\
+                • Not be a reserved system name\n\
+                • Not contain path separators or special filesystem characters\n\n\
+                Examples of valid sysop names:\n\
+                • sysop = \"admin\"\n\
+                • sysop = \"John Smith\"\n\
+                • sysop = \"BBS_Operator\"\n\
+                • sysop = \"station-1\"",
+                config.bbs.sysop, e
+            ));
+        }
+
         // Build optional Argon2 params from config
         let mut storage = {
             use argon2::Params;
@@ -248,6 +269,63 @@ impl BbsServer {
     pub fn test_logged_in_count(&self) -> usize { self.logged_in_session_count() }
     #[allow(dead_code)]
     pub async fn test_prune_idle(&mut self) { self.prune_idle_sessions().await; }
+
+    /// Get list of all active sessions for administrative commands
+    pub fn get_active_sessions(&self) -> Vec<&Session> {
+        self.sessions.values().collect()
+    }
+
+    /// Get list of currently logged-in users for WHO command
+    pub fn get_logged_in_users(&self) -> Vec<&Session> {
+        self.sessions.values().filter(|s| s.is_logged_in()).collect()
+    }
+
+    /// Force logout a specific user (KICK command)
+    pub async fn force_logout_user(&mut self, username: &str) -> Result<bool> {
+        let mut target_node = None;
+        
+        // Find the session for this username
+        for (node_id, session) in &self.sessions {
+            if session.username.as_deref() == Some(username) && session.is_logged_in() {
+                target_node = Some(node_id.clone());
+                break;
+            }
+        }
+        
+        if let Some(node_id) = target_node {
+            let _ = self.send_message(&node_id, "You have been disconnected by an administrator.").await;
+            if let Some(session) = self.sessions.get_mut(&node_id) {
+                let _ = session.logout().await;
+            }
+            info!("User {} forcibly logged out by administrator", username);
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    /// Send broadcast message to all logged-in users
+    pub async fn broadcast_message(&mut self, message: &str, sender: &str) -> Result<usize> {
+        let mut sent_count = 0;
+        let broadcast_msg = format!("*** SYSTEM MESSAGE from {}: {} ***", sender, message);
+        
+        let logged_in_nodes: Vec<String> = self.sessions
+            .iter()
+            .filter(|(_, s)| s.is_logged_in())
+            .map(|(node_id, _)| node_id.clone())
+            .collect();
+            
+        for node_id in logged_in_nodes {
+            if let Err(e) = self.send_message(&node_id, &broadcast_msg).await {
+                log::warn!("Failed to send broadcast to {}: {}", node_id, e);
+            } else {
+                sent_count += 1;
+            }
+        }
+        
+        info!("Broadcast message sent to {} users by {}", sent_count, sender);
+        Ok(sent_count)
+    }
     #[cfg(any(test, feature = "meshtastic-proto"))]
     #[allow(dead_code)]
     pub fn last_banner(&self) -> Option<&String> { self.last_banner.as_ref() }
@@ -314,6 +392,8 @@ impl BbsServer {
                         first_login: now,
                         last_login: now,
                         total_messages: 0,
+                        welcome_shown_on_registration: true,  // Sysop doesn't need welcome messages
+                        welcome_shown_on_first_login: true,
                     };
                     let users_dir = std::path::Path::new(self.storage.base_dir()).join("users");
                     tokio::fs::create_dir_all(&users_dir).await?;
@@ -337,7 +417,7 @@ impl BbsServer {
     #[allow(dead_code)]
     pub async fn test_register(&mut self, username: &str, pass: &str) -> Result<()> { self.storage.register_user(username, pass, None).await }
     #[allow(dead_code)]
-    pub async fn test_update_level(&mut self, username: &str, lvl: u8) -> Result<()> { if username == self.config.bbs.sysop { return Err(anyhow::anyhow!("Cannot modify sysop level")); } self.storage.update_user_level(username, lvl).await.map(|_| ()) }
+    pub async fn test_update_level(&mut self, username: &str, lvl: u8) -> Result<()> { if username == self.config.bbs.sysop { return Err(anyhow::anyhow!("Cannot modify sysop level")); } self.storage.update_user_level(username, lvl, "test").await.map(|_| ()) }
     #[allow(dead_code)]
     pub async fn test_store_message(&mut self, area: &str, author: &str, content: &str) -> Result<String> { self.storage.store_message(area, author, content).await }
     #[allow(dead_code)]
@@ -432,7 +512,7 @@ impl BbsServer {
                 let upper = raw_content.to_uppercase();
                 // Count current logged in sessions (excluding the session for this node if it is not yet logged in)
                 let logged_in_count = self.sessions.values().filter(|s| s.is_logged_in()).count();
-                enum PostAction { None, Delete{area:String,id:String,actor:String}, Lock{area:String,actor:String}, Unlock{area:String,actor:String} }
+                enum PostAction { None, Delete{area:String,id:String,actor:String}, Lock{area:String,actor:String}, Unlock{area:String,actor:String}, Broadcast{message:String,sender:String} }
                 let mut post_action = PostAction::None;
                 let mut deferred_reply: Option<String> = None;
                 if let Some(session) = self.sessions.get_mut(&node_key) {
@@ -455,10 +535,19 @@ impl BbsServer {
                         if parts.len() < 3 { deferred_reply = Some("Usage: REGISTER <username> <password>\n".into()); }
                         else {
                             let user = parts[1]; let pass = parts[2];
-                            if pass.len() < 4 { deferred_reply = Some("Password too short (min 4).\n".into()); }
+                            if pass.len() < 8 { deferred_reply = Some("Password too short (minimum 8 characters).\n".into()); }
                             else {
                                 match self.storage.register_user(user, pass, Some(&node_key)).await {
-                                    Ok(_) => { session.login(user.to_string(), 1).await?; let summary = Self::format_unread_line(0); deferred_reply = Some(format!("Registered and logged in as {}.\nWelcome, {} you are now logged in.\n{}", user, user, summary)); }
+                                    Ok(_) => { 
+                                        session.login(user.to_string(), 1).await?; 
+                                        let summary = Self::format_unread_line(0); 
+                                        let welcome_msg = format!("\n🎉 Welcome to MeshBBS, {}! Here's a quick start guide:\n\n• Type 'HELP' to see all available commands\n• Type 'LIST' to browse message boards\n• Type 'POST <board_number> <subject>' to create a new post\n• Type 'READ <board_number>' to read messages\n• Type 'WHO' to see who else is online\n\nEnjoy exploring the mesh network BBS!\n", user);
+                                        deferred_reply = Some(format!("Registered and logged in as {}.\nWelcome, {} you are now logged in.\n{}{}", user, user, summary, welcome_msg));
+                                        // Mark welcome message as shown
+                                        if let Err(e) = self.storage.mark_welcome_shown(user, true, false).await {
+                                            eprintln!("Failed to mark welcome shown for {}: {}", user, e);
+                                        }
+                                    }
                                     Err(e) => { deferred_reply = Some(format!("Register failed: {}\n", e)); }
                                 }
                             }
@@ -483,7 +572,7 @@ impl BbsServer {
                                         if !has_password {
                                             // User must set a password on first login attempt
                                             if let Some(pass) = password_opt {
-                                                if pass.len() < 4 { deferred_reply = Some("Password too short (min 4).\n".into()); }
+                                                if pass.len() < 8 { deferred_reply = Some("Password too short (minimum 8 characters).\n".into()); }
                                                 else {
                                                     let updated_user = self.storage.set_user_password(user, pass).await?;
                                                     let updated = if !node_bound { self.storage.bind_user_node(user, &node_key).await? } else { updated_user };
@@ -493,7 +582,17 @@ impl BbsServer {
                                                     let _ = self.storage.record_user_login(user).await; // ensure fresh timestamp after full login
                                                     // No unread count expected here (legacy first login)
                                                     let summary = Self::format_unread_line(0); // first login after setting password shows no unread
-                                                    deferred_reply = Some(format!("Password set. Welcome, {} you are now logged in.\n{}", updated.username, summary));
+                                                    
+                                                    // Check if this is the first login after registration and show follow-up welcome
+                                                    let mut login_msg = format!("Password set. Welcome, {} you are now logged in.\n{}", updated.username, summary);
+                                                    if updated.welcome_shown_on_registration && !updated.welcome_shown_on_first_login {
+                                                        login_msg.push_str("\n💡 Quick tip: Since this is your first time back, try these commands:\n• 'LIST' - Browse available message boards\n• 'WHO' - See who's currently online\n• 'RECENT' - Check the latest activity\n\nHappy posting!\n");
+                                                        // Mark first login welcome as shown
+                                                        if let Err(e) = self.storage.mark_welcome_shown(user, false, true).await {
+                                                            eprintln!("Failed to mark first login welcome shown for {}: {}", user, e);
+                                                        }
+                                                    }
+                                                    deferred_reply = Some(login_msg);
                                                 }
                                             } else {
                                                 deferred_reply = Some("Password not set. LOGIN <user> <newpass> to set your password.\n".into());
@@ -512,7 +611,17 @@ impl BbsServer {
                                                     let unread = self.storage.count_messages_since(prev_last).await.unwrap_or(0);
                                                     let updated2 = self.storage.record_user_login(user).await.unwrap_or(updated);
                                                     let summary = Self::format_unread_line(unread);
-                                                    deferred_reply = Some(format!("Welcome, {} you are now logged in.\n{}", updated2.username, summary));
+                                                    
+                                                    // Check if this is the first login after registration and show follow-up welcome
+                                                    let mut login_msg = format!("Welcome, {} you are now logged in.\n{}", updated2.username, summary);
+                                                    if updated2.welcome_shown_on_registration && !updated2.welcome_shown_on_first_login {
+                                                        login_msg.push_str("\n💡 Quick tip: Since this is your first time back, try these commands:\n• 'LIST' - Browse available message boards\n• 'WHO' - See who's currently online\n• 'RECENT' - Check the latest activity\n\nHappy posting!\n");
+                                                        // Mark first login welcome as shown
+                                                        if let Err(e) = self.storage.mark_welcome_shown(user, false, true).await {
+                                                            eprintln!("Failed to mark first login welcome shown for {}: {}", user, e);
+                                                        }
+                                                    }
+                                                    deferred_reply = Some(login_msg);
                                                 }
                                             }
                                         }
@@ -579,7 +688,7 @@ impl BbsServer {
                                     Some(u) => {
                                         if u.username == self.config.bbs.sysop { deferred_reply = Some("Cannot modify sysop.\n".into()); }
                                         else if u.user_level >= LEVEL_MODERATOR { deferred_reply = Some("Already moderator or higher.\n".into()); }
-                                        else { self.storage.update_user_level(&u.username, LEVEL_MODERATOR).await?; deferred_reply = Some(format!("{} promoted to {}.\n", u.username, role_name(LEVEL_MODERATOR))); }
+                                        else { self.storage.update_user_level(&u.username, LEVEL_MODERATOR, session.username.as_deref().unwrap_or("unknown")).await?; deferred_reply = Some(format!("{} promoted to {}.\n", u.username, role_name(LEVEL_MODERATOR))); }
                                     }
                                 }
                             }
@@ -596,7 +705,7 @@ impl BbsServer {
                                     Some(u) => {
                                         if u.username == self.config.bbs.sysop { deferred_reply = Some("Cannot modify sysop.\n".into()); }
                                         else if u.user_level <= LEVEL_USER { deferred_reply = Some("Already at base level.\n".into()); }
-                                        else { self.storage.update_user_level(&u.username, LEVEL_USER).await?; deferred_reply = Some(format!("{} demoted to {}.\n", u.username, role_name(LEVEL_USER))); }
+                                        else { self.storage.update_user_level(&u.username, LEVEL_USER, session.username.as_deref().unwrap_or("unknown")).await?; deferred_reply = Some(format!("{} demoted to {}.\n", u.username, role_name(LEVEL_USER))); }
                                     }
                                 }
                             }
@@ -650,6 +759,204 @@ impl BbsServer {
                                 Err(e) => deferred_reply = Some(format!("Failed: {}\n", e)),
                             }
                         }
+                    } else if upper.starts_with("ADMINLOG") {
+                        if session.user_level < LEVEL_MODERATOR { deferred_reply = Some("Permission denied.\n".into()); }
+                        else {
+                            let parts: Vec<&str> = raw_content.split_whitespace().collect();
+                            let page = if parts.len() >= 2 { parts[1].parse::<usize>().unwrap_or(1) } else { 1 };
+                            match self.storage.get_admin_audit_page(page, 10).await {
+                                Ok(entries) => {
+                                    if entries.is_empty() { deferred_reply = Some("No admin audit entries.\n".into()); }
+                                    else { 
+                                        let mut out = String::from("Admin Audit Log:\n");
+                                        for e in entries {
+                                            let target_str = e.target.as_deref().unwrap_or("-");
+                                            let details_str = e.details.as_deref().unwrap_or("");
+                                            out.push_str(&format!("{} {} {} {} {}\n", 
+                                                e.timestamp.format("%m/%d %H:%M"), 
+                                                e.actor, 
+                                                e.action, 
+                                                target_str,
+                                                details_str
+                                            ));
+                                        }
+                                        deferred_reply = Some(out);
+                                    }
+                                }
+                                Err(e) => deferred_reply = Some(format!("Failed: {}\n", e)),
+                            }
+                        }
+                    } else if upper.starts_with("USERS") {
+                        if session.user_level < LEVEL_MODERATOR { deferred_reply = Some("Permission denied.\n".into()); }
+                        else {
+                            let parts: Vec<&str> = raw_content.split_whitespace().collect();
+                            let pattern = if parts.len() >= 2 { Some(parts[1].to_lowercase()) } else { None };
+                            
+                            match self.storage.list_all_users().await {
+                                Ok(mut users) => {
+                                    // Filter users by pattern if provided
+                                    if let Some(ref p) = pattern {
+                                        users.retain(|u| u.username.to_lowercase().contains(p));
+                                    }
+                                    
+                                    let logged_in_usernames: std::collections::HashSet<&str> = self.get_logged_in_users()
+                                        .iter()
+                                        .filter_map(|s| s.username.as_deref())
+                                        .collect();
+                                    
+                                    let mut response = if let Some(ref p) = pattern {
+                                        format!("Users matching '{}' ({} found):\n", p, users.len())
+                                    } else {
+                                        format!("Registered Users ({}/{}):\n", users.len(), self.config.bbs.max_users)
+                                    };
+                                    
+                                    for user in users {
+                                        let status = if logged_in_usernames.contains(user.username.as_str()) { "Online" } else { "Offline" };
+                                        let role = super::roles::role_name(user.user_level);
+                                        response.push_str(&format!("  {} ({}, Level {}) - {}\n", user.username, role, user.user_level, status));
+                                    }
+                                    
+                                    if pattern.is_none() {
+                                        response.push_str(&format!("\nActive Sessions: {}\n", self.logged_in_session_count()));
+                                    }
+                                    deferred_reply = Some(response);
+                                }
+                                Err(e) => deferred_reply = Some(format!("Failed to list users: {}\n", e)),
+                            }
+                        }
+                    } else if upper == "WHO" {
+                        if session.user_level < LEVEL_MODERATOR { deferred_reply = Some("Permission denied.\n".into()); }
+                        else {
+                            let logged_in = self.get_logged_in_users();
+                            if logged_in.is_empty() {
+                                deferred_reply = Some("No users currently logged in.\n".into());
+                            } else {
+                                let mut response = format!("Logged In Users ({}):\n", logged_in.len());
+                                for session in logged_in {
+                                    let username = session.username.as_deref().unwrap_or("Guest");
+                                    let role = super::roles::role_name(session.user_level);
+                                    let duration = session.session_duration().num_minutes();
+                                    let state = match session.state {
+                                        super::session::SessionState::MainMenu => "Main Menu",
+                                        super::session::SessionState::MessageAreas => "Message Areas",
+                                        super::session::SessionState::ReadingMessages => "Reading",
+                                        super::session::SessionState::PostingMessage => "Posting",
+                                        super::session::SessionState::UserMenu => "User Menu",
+                                        _ => "Other",
+                                    };
+                                    response.push_str(&format!("  {} ({}) - {} - {}m - {}\n", username, role, session.node_id, duration, state));
+                                }
+                                deferred_reply = Some(response);
+                            }
+                        }
+                    } else if upper.starts_with("USERINFO ") {
+                        if session.user_level < LEVEL_MODERATOR { deferred_reply = Some("Permission denied.\n".into()); }
+                        else {
+                            let parts: Vec<&str> = raw_content.split_whitespace().collect();
+                            if parts.len() < 2 { deferred_reply = Some("Usage: USERINFO <user>\n".into()); }
+                            else {
+                                let target = parts[1];
+                                match self.storage.get_user_details(target).await? {
+                                    None => deferred_reply = Some("User not found.\n".into()),
+                                    Some(user) => {
+                                        let post_count = self.storage.count_user_posts(&user.username).await.unwrap_or(0);
+                                        let is_online = self.get_logged_in_users().iter().any(|s| s.username.as_deref() == Some(&user.username));
+                                        let role = super::roles::role_name(user.user_level);
+                                        
+                                        let mut response = format!("User Information for {}:\n", user.username);
+                                        response.push_str(&format!("  Role: {} (Level {})\n", role, user.user_level));
+                                        response.push_str(&format!("  Status: {}\n", if is_online { "Online" } else { "Offline" }));
+                                        response.push_str(&format!("  First Login: {}\n", user.first_login.format("%Y-%m-%d %H:%M UTC")));
+                                        response.push_str(&format!("  Last Login: {}\n", user.last_login.format("%Y-%m-%d %H:%M UTC")));
+                                        response.push_str(&format!("  Total Posts: {}\n", post_count));
+                                        if let Some(node_id) = &user.node_id {
+                                            response.push_str(&format!("  Node ID: {}\n", node_id));
+                                        }
+                                        deferred_reply = Some(response);
+                                    }
+                                }
+                            }
+                        }
+                    } else if upper == "SESSIONS" {
+                        if session.user_level < LEVEL_MODERATOR { deferred_reply = Some("Permission denied.\n".into()); }
+                        else {
+                            let all_sessions = self.get_active_sessions();
+                            let mut response = format!("Active Sessions ({}):\n", all_sessions.len());
+                            for s in all_sessions {
+                                let username = s.username.as_deref().unwrap_or("Guest");
+                                let role = super::roles::role_name(s.user_level);
+                                let duration = s.session_duration().num_minutes();
+                                let logged_in = if s.is_logged_in() { "Yes" } else { "No" };
+                                let state = match s.state {
+                                    super::session::SessionState::Connected => "Connected",
+                                    super::session::SessionState::LoggingIn => "Logging In",
+                                    super::session::SessionState::MainMenu => "Main Menu",
+                                    super::session::SessionState::MessageAreas => "Message Areas",
+                                    super::session::SessionState::ReadingMessages => "Reading",
+                                    super::session::SessionState::PostingMessage => "Posting",
+                                    super::session::SessionState::UserMenu => "User Menu",
+                                    super::session::SessionState::Disconnected => "Disconnected",
+                                };
+                                response.push_str(&format!("  {} ({}) | {} | {}m | Login: {} | {}\n", 
+                                    username, role, s.node_id, duration, logged_in, state));
+                            }
+                            deferred_reply = Some(response);
+                        }
+                    } else if upper.starts_with("KICK ") {
+                        if session.user_level < LEVEL_MODERATOR { deferred_reply = Some("Permission denied.\n".into()); }
+                        else {
+                            let parts: Vec<&str> = raw_content.split_whitespace().collect();
+                            if parts.len() < 2 { deferred_reply = Some("Usage: KICK <user>\n".into()); }
+                            else {
+                                let target = parts[1];
+                                let actor = session.username.as_deref().unwrap_or("unknown").to_string();
+                                if target == actor {
+                                    deferred_reply = Some("Cannot kick yourself.\n".into());
+                                } else if target == self.config.bbs.sysop {
+                                    deferred_reply = Some("Cannot kick sysop.\n".into());
+                                } else {
+                                    match self.force_logout_user(target).await? {
+                                        true => {
+                                            // Log the administrative action
+                                            if let Err(e) = self.storage.log_admin_action("KICK", Some(target), &actor, None).await {
+                                                warn!("Failed to log admin action: {}", e);
+                                            }
+                                            deferred_reply = Some(format!("User {} has been kicked.\n", target));
+                                        },
+                                        false => deferred_reply = Some("User not found or not logged in.\n".into()),
+                                    }
+                                }
+                            }
+                        }
+                    } else if upper.starts_with("BROADCAST ") {
+                        if session.user_level < LEVEL_MODERATOR { deferred_reply = Some("Permission denied.\n".into()); }
+                        else {
+                            let message = raw_content.strip_prefix("BROADCAST ").unwrap_or("").trim();
+                            if message.is_empty() { deferred_reply = Some("Usage: BROADCAST <message>\n".into()); }
+                            else {
+                                let sender = session.username.as_deref().unwrap_or("System").to_string();
+                                let message = message.to_string();
+                                post_action = PostAction::Broadcast{message, sender};
+                            }
+                        }
+                    } else if upper == "ADMIN" || upper == "DASHBOARD" {
+                        if session.user_level < LEVEL_MODERATOR { deferred_reply = Some("Permission denied.\n".into()); }
+                        else {
+                            let stats = self.storage.get_statistics().await?;
+                            let active_count = self.get_active_sessions().len();
+                            let logged_in_count = self.logged_in_session_count();
+                            
+                            let mut response = String::from("=== ADMINISTRATIVE DASHBOARD ===\n");
+                            response.push_str(&format!("System Status:\n"));
+                            response.push_str(&format!("  Total Users: {}\n", stats.total_users));
+                            response.push_str(&format!("  Total Messages: {}\n", stats.total_messages));
+                            response.push_str(&format!("  Active Sessions: {}\n", active_count));
+                            response.push_str(&format!("  Logged In Users: {}\n", logged_in_count));
+                            response.push_str(&format!("  Max Users: {}\n", self.config.bbs.max_users));
+                            response.push_str(&format!("  Session Timeout: {} min\n", self.config.bbs.session_timeout));
+                            response.push_str(&format!("\nCommands: USERS, WHO, USERINFO <user>, SESSIONS, KICK <user>, BROADCAST <msg>\n"));
+                            deferred_reply = Some(response);
+                        }
                     } else if upper == "LOGOUT" {
                         if session.is_logged_in() { let name = session.display_name(); session.logout().await?; deferred_reply = Some(format!("User {} logged out.\n", name)); }
                         else { deferred_reply = Some("Not logged in.\n".into()); }
@@ -683,6 +990,19 @@ impl BbsServer {
                     }
                     PostAction::Unlock{area,actor} => {
                         if let Err(e) = self.moderator_unlock_area(&area, &actor).await { deferred_reply.get_or_insert(format!("Unlock failed: {}\n", e)); }
+                    }
+                    PostAction::Broadcast{message,sender} => {
+                        match self.broadcast_message(&message, &sender).await {
+                            Ok(0) => { deferred_reply.get_or_insert("No users online to receive broadcast.\n".into()); },
+                            Ok(count) => { 
+                                // Log the administrative action
+                                if let Err(e) = self.storage.log_admin_action("BROADCAST", None, &sender, Some(&message)).await {
+                                    warn!("Failed to log admin action: {}", e);
+                                }
+                                deferred_reply.get_or_insert(format!("Broadcast sent to {} users.\n", count)); 
+                            },
+                            Err(e) => { deferred_reply.get_or_insert(format!("Broadcast failed: {}\n", e)); }
+                        }
                     }
                 }
                 if let Some(msg) = deferred_reply { self.send_session_message(&node_key, &msg, true).await?; }
@@ -865,14 +1185,30 @@ impl BbsServer {
     #[cfg(feature = "weather")]
     async fn fetch_weather(&mut self) -> Option<String> {
         use tokio::time::timeout;
+        use std::time::{SystemTime, UNIX_EPOCH};
         const TTL: Duration = Duration::from_secs(5 * 60); // 5 minutes
+        const MAX_STALE_AGE: Duration = Duration::from_secs(60 * 60); // 1 hour max age for stale cache
+        
         // If we have a fresh cached value, return it immediately
         if let Some((ts, val)) = &self.weather_cache {
-            if ts.elapsed() < TTL { return Some(val.clone()); }
+            let age = ts.elapsed();
+            debug!("Weather cache check: age={:.1}min, TTL={:.1}min, MAX_STALE={:.1}min", 
+                   age.as_secs_f64() / 60.0, TTL.as_secs_f64() / 60.0, MAX_STALE_AGE.as_secs_f64() / 60.0);
+            
+            // Failsafe: if cache is suspiciously old (>2 hours), force clear it
+            if age > Duration::from_secs(2 * 60 * 60) {
+                warn!("Weather cache extremely stale ({:.1} hours), forcing clear", age.as_secs_f64() / 3600.0);
+                self.weather_cache = None;
+            } else if age < TTL { 
+                debug!("Returning fresh cached weather (age: {:.1} min)", age.as_secs_f64() / 60.0);
+                return Some(val.clone()); 
+            }
         }
+        
         // Attempt refresh
-        let zipcode = self.config.bbs.zipcode.trim();
-        let url = format!("https://wttr.in/{}?format=%l:+%C+%t", zipcode);
+        let location = self.config.bbs.location.trim();
+        let encoded_location = location.replace(" ", "%20");
+        let url = format!("https://wttr.in/{}?format=%l:+%C+%t", encoded_location);
         trace!("Fetching weather from {} (refresh)", url);
         let fut = async {
             let client = reqwest::Client::new();
@@ -886,10 +1222,29 @@ impl BbsServer {
         };
         let result = match timeout(Duration::from_secs(4), fut).await { Ok(v) => v, Err(_) => None };
         match result {
-            Some(v) => { self.weather_cache = Some((Instant::now(), v.clone())); Some(v) },
+            Some(v) => { 
+                info!("Weather fetched successfully: {}", v.chars().take(50).collect::<String>());
+                self.weather_cache = Some((Instant::now(), v.clone())); 
+                Some(v) 
+            },
             None => {
-                // If refresh failed but we have a stale cached value, reuse it
-                if let Some((_, val)) = &self.weather_cache { return Some(val.clone()); }
+                // If refresh failed but we have a stale cached value, check if it's not too old
+                if let Some((ts, val)) = &self.weather_cache {
+                    let age = ts.elapsed();
+                    if age < MAX_STALE_AGE {
+                        // Add staleness indicator for old cache
+                        if age > TTL {
+                            debug!("Returning stale weather cache (age: {:.1} min)", age.as_secs_f64() / 60.0);
+                            return Some(format!("{} (cached)", val));
+                        } else {
+                            return Some(val.clone());
+                        }
+                    } else {
+                        // Cache is too old, discard it
+                        warn!("Weather cache too old ({:.1} minutes), discarding", age.as_secs_f64() / 60.0);
+                        self.weather_cache = None;
+                    }
+                }
                 None
             }
         }

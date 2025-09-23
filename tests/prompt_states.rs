@@ -44,7 +44,7 @@ async fn help_shortcuts_once_and_help_plus_chunks() {
     server.route_test_text_direct(&node_key, "HELP+").await.unwrap();
     // Collect last N messages (unknown exact count; assert at least 2)
     let verbose_msgs: Vec<_> = server.test_messages().iter().filter(|(to,_msg)| to==&node_key).map(|(_,m)| m.clone()).collect();
-    let help_plus_msgs: Vec<_> = verbose_msgs.into_iter().rev().take(5).collect(); // small window
+    let help_plus_msgs: Vec<_> = verbose_msgs.into_iter().rev().take(10).collect(); // larger window for longer help
     // Ensure at least one chunk contains Extended Help header
     assert!(help_plus_msgs.iter().any(|m| m.contains("MeshBBS Extended Help")));
 }

@@ -1,6 +1,6 @@
 [package]
 name = "meshbbs"
-version = "0.9.0"
+version = "0.9.18"
 edition = "2021"
 authors = ["Martin Bogomolni <martinbogo@gmail.com>"]
 description = "A Bulletin Board System (BBS) for Meshtastic mesh networks"
@@ -39,6 +39,12 @@ chrono = { version = "0.4", features = ["serde"] }
 
 # UUID for message IDs
 uuid = { version = "1.0", features = ["v4", "serde"] }
+
+# URL/percent encoding for safe filenames
+percent-encoding = "2.3"
+
+# File locking for concurrent access protection  
+fs2 = "0.4"
 
 # Optional: For direct serial communication with Meshtastic devices
 serialport = { version = "4.0", optional = true }

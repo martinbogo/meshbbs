@@ -6,6 +6,7 @@ mod bbs;
 mod meshtastic;
 mod config;
 mod storage;
+mod validation;
 mod protobuf; // for meshtastic-proto feature generated code
 
 use crate::bbs::BbsServer;

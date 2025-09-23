@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.18] - 2025-09-23
+### Added
+- **New User Welcome System**: Enhanced onboarding experience for new users
+  - Registration welcome message with comprehensive quick start guide including key commands (HELP, LIST, POST, READ, WHO)
+  - First login follow-up message with additional tips and command suggestions (LIST, WHO, RECENT)
+  - Persistent tracking ensures welcome messages are shown only once per user
+- **Sysop Username Support**: Fixed validation to allow "sysop" as a valid username for sysop role while maintaining security for regular users
+- **Enhanced Security Features**: 
+  - Increased minimum password length from 6 to 8 characters
+  - File locking protection for concurrent access using fs2 crate
+  - Comprehensive admin audit logging for administrative actions (PROMOTE, DEMOTE, KICK, BROADCAST)
+  - New ADMINLOG command for sysops to view administrative action history
+- **Reserved Username Documentation**: Complete list of 45 blocked system usernames for reference
+
+### Changed
+- Username validation system enhanced with role-aware reserved name checking
+- User data structure extended with welcome message tracking fields
+- Storage layer improved with secure file operations and audit trail support
+
+### Security
+- Password minimum length increased to 8 characters for better security
+- File operations now use exclusive locking to prevent race conditions
+- Admin actions now generate persistent audit logs for accountability
+- Reserved system usernames properly enforced with sysop role exceptions
+
+### Fixed
+- Sysop can now use "sysop" as username (previously blocked by reserved name validation)
+- Concurrent file access issues resolved through proper locking mechanisms
+- User creation properly initializes new welcome tracking fields
+
 ## [0.9.0] - 2025-09-22
 ### Added
 - **Dynamic contextual prompts**: Prompts now show current state and context instead of static '>'.

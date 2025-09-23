@@ -166,7 +166,7 @@ LOGOUT                    # End session
 
 ### Dynamic Prompts
 
-MeshBBS 0.9.0+ shows contextual prompts that reflect your current state:
+MeshBBS 0.9.18+ shows contextual prompts that reflect your current state:
 
 - `unauth>` - Not logged in
 - `alice (lvl1)>` - Logged in as alice, user level 1
@@ -385,6 +385,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 
 Recent releases have focused on user experience improvements and core functionality:
 
+- ✅ **v0.9.18** (2025-09-23): New user welcome system, enhanced security, sysop username support, admin audit logging
 - ✅ **v0.9.0** (2025-09-22): Dynamic prompts, enhanced help system, proactive weather updates
 - ✅ **v0.8.11** (2025-09-22): Unread message notifications, role-aware help
 - ✅ **v0.8.10** (2025-09-22): Session management, user limits, welcome banners

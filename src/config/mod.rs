@@ -12,7 +12,6 @@ pub struct BbsConfig {
     pub name: String,
     pub sysop: String,
     pub location: String,
-    pub zipcode: String,
     pub description: String,
     pub max_users: u32,
     pub session_timeout: u32, // minutes
@@ -134,7 +133,6 @@ impl Default for Config {
                 name: "MeshBBS Station".to_string(),
                 sysop: "Your Name".to_string(),
                 location: "Your Location".to_string(),
-                zipcode: "97210".to_string(),
                 description: "A bulletin board system for mesh networks".to_string(),
                 max_users: 100,
                 session_timeout: 10,

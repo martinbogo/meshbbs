@@ -7,7 +7,7 @@ async fn passwordless_user_prompt_and_set() {
     let tmp = tempdir().unwrap();
     let data_dir = tmp.path().to_str().unwrap().to_string();
     let _cfg = Config {
-        bbs: BbsConfig { name: "Test".into(), sysop: "sysop".into(), location: "loc".into(), zipcode: "00000".into(), description: "d".into(), max_users: 10, session_timeout: 10, welcome_message: "Welcome".into(), sysop_password_hash: None },
+        bbs: BbsConfig { name: "Test".into(), sysop: "sysop".into(), location: "loc".into(), description: "d".into(), max_users: 10, session_timeout: 10, welcome_message: "Welcome".into(), sysop_password_hash: None },
         meshtastic: MeshtasticConfig { port: "".into(), baud_rate: 0, node_id: "".into(), channel: 0 },
         storage: StorageConfig { data_dir: data_dir.clone(), max_message_size: 230, message_retention_days: 30, max_messages_per_area: 1000 },
         message_areas: Default::default(),
