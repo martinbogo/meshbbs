@@ -21,7 +21,70 @@ macro_rules! sec_log {
 #[allow(unused_imports)]
 pub(crate) use sec_log;
 
-/// Main BBS server that coordinates all operations
+/// # BBS Server - Core Application Controller
+///
+/// The `BbsServer` is the main orchestrator for the MeshBBS system, coordinating
+/// all components and managing the overall application lifecycle.
+///
+/// ## Responsibilities
+///
+/// - **Device Management**: Controls Meshtastic device communication
+/// - **Session Coordination**: Manages active user sessions and state
+/// - **Message Routing**: Routes messages between public and private channels
+/// - **Storage Integration**: Coordinates with the storage layer for persistence
+/// - **Weather Services**: Provides proactive weather updates (when enabled)
+/// - **Security Enforcement**: Implements authentication and authorization
+///
+/// ## Architecture
+///
+/// The server implements an event-driven architecture using Tokio async/await:
+///
+/// ```text
+/// ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+/// │  Meshtastic     │───→│   BbsServer     │───→│    Storage      │
+/// │  Device         │    │   (Core)        │    │    Layer        │
+/// └─────────────────┘    └─────────────────┘    └─────────────────┘
+///                               │
+/// ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+/// │  Session        │←───│                 │───→│   Public        │
+/// │  Manager        │    │                 │    │   Commands      │
+/// └─────────────────┘    └─────────────────┘    └─────────────────┘
+/// ```
+///
+/// ## Usage
+///
+/// ```rust,no_run
+/// use meshbbs::bbs::BbsServer;
+/// use meshbbs::config::Config;
+///
+/// #[tokio::main]
+/// async fn main() -> anyhow::Result<()> {
+///     // Load configuration
+///     let config = Config::from_file("config.toml").await?;
+///     
+///     // Create and initialize server
+///     let server = BbsServer::new(config).await?;
+///     
+///     // Run the server (blocks until shutdown)
+///     server.run().await?;
+///     
+///     Ok(())
+/// }
+/// ```
+///
+/// ## Features
+///
+/// - **Async/Await**: Full async support for high concurrency
+/// - **Hot Configuration**: Runtime configuration updates
+/// - **Session Management**: Automatic timeout and cleanup
+/// - **Weather Integration**: Proactive weather updates every 5 minutes
+/// - **Audit Logging**: Comprehensive security and administrative logging
+/// - **Protocol Support**: Both text and protobuf Meshtastic protocols
+///
+/// ## Thread Safety
+///
+/// The `BbsServer` is designed for single-threaded async operation within a Tokio runtime.
+/// Internal state is managed safely through async coordination patterns.
 pub struct BbsServer {
     config: Config,
     storage: Storage,
@@ -72,7 +135,51 @@ fn chunk_verbose_help() -> Vec<String> {
 }
 
 impl BbsServer {
-    /// Create a new BBS server instance
+    /// Creates a new BBS server instance with the provided configuration.
+    ///
+    /// This function initializes all components of the BBS system including storage,
+    /// device communication, session management, and configuration validation.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - A validated [`Config`] instance containing all system settings
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Result<BbsServer>` that contains the initialized server on success,
+    /// or an error describing what went wrong during initialization.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if:
+    /// - The sysop name in the configuration is invalid
+    /// - The storage system cannot be initialized
+    /// - The data directory cannot be created or accessed
+    /// - Argon2 parameters are invalid (if custom security config provided)
+    /// - Message area configuration is malformed
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use meshbbs::bbs::BbsServer;
+    /// use meshbbs::config::Config;
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> anyhow::Result<()> {
+    ///     let config = Config::from_file("config.toml").await?;
+    ///     let server = BbsServer::new(config).await?;
+    ///     // Server is now ready to run
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// # Configuration Validation
+    ///
+    /// The function performs comprehensive validation including:
+    /// - Sysop name format and reserved name checking
+    /// - Message area access level validation
+    /// - Storage directory permissions
+    /// - Security parameter validation
     pub async fn new(config: Config) -> Result<Self> {
         // Validate sysop name before starting BBS
         if let Err(e) = validate_sysop_name(&config.bbs.sysop) {
@@ -154,7 +261,68 @@ impl BbsServer {
         Ok(())
     }
 
-    /// Start the BBS server main loop
+    /// Starts the main BBS server event loop.
+    ///
+    /// This is the core method that runs the BBS server. It initializes the sysop account,
+    /// starts the message processing loop, and handles all incoming events from the
+    /// Meshtastic device until the server is shut down.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` on clean shutdown, or an error if a fatal condition occurs
+    /// that prevents the server from continuing operation.
+    ///
+    /// # Behavior
+    ///
+    /// The run loop performs the following operations:
+    /// 1. **Sysop Initialization**: Ensures the sysop account exists and is properly configured
+    /// 2. **Device Connection**: Establishes communication with the Meshtastic device
+    /// 3. **Event Processing**: Processes incoming messages, commands, and system events
+    /// 4. **Session Management**: Handles user session lifecycle and timeouts
+    /// 5. **Weather Updates**: Provides proactive weather information (if enabled)
+    /// 6. **Audit Logging**: Records security and administrative events
+    ///
+    /// # Event Loop
+    ///
+    /// The server operates on an event-driven model:
+    /// - **Device Events**: Messages from the Meshtastic network
+    /// - **Internal Messages**: Commands from active sessions
+    /// - **Timer Events**: Periodic tasks like weather updates and session cleanup
+    /// - **System Events**: Configuration changes and administrative actions
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use meshbbs::bbs::BbsServer;
+    /// use meshbbs::config::Config;
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> anyhow::Result<()> {
+    ///     let config = Config::from_file("config.toml").await?;
+    ///     let mut server = BbsServer::new(config).await?;
+    ///     
+    ///     // This will run until the server is shut down
+    ///     server.run().await?;
+    ///     
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// # Error Handling
+    ///
+    /// The method handles various error conditions gracefully:
+    /// - Device communication failures are logged and retried
+    /// - Session errors are isolated and don't affect other users
+    /// - Storage errors are logged and operations are retried when possible
+    /// - Configuration errors cause clean shutdown with descriptive messages
+    ///
+    /// # Shutdown
+    ///
+    /// The server can be shut down through:
+    /// - SIGINT/SIGTERM signals (handled by the runtime)
+    /// - Fatal device communication errors
+    /// - Storage system failures
+    /// - Administrative shutdown commands
     pub async fn run(&mut self) -> Result<()> {
         info!("BBS '{}' started by {}", self.config.bbs.name, self.config.bbs.sysop);
         self.seed_sysop().await?;

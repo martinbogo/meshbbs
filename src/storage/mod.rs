@@ -1,4 +1,89 @@
-//! Storage module for persisting BBS data
+//! # Storage Module - Data Persistence Layer
+//!
+//! This module provides comprehensive data persistence for the MeshBBS system, handling
+//! all storage operations for messages, users, configuration, and audit logs.
+//!
+//! ## Features
+//!
+//! - **Message Storage**: Persistent message boards with area-based organization
+//! - **User Management**: Secure user account storage with Argon2id password hashing
+//! - **Audit Logging**: Comprehensive logging of administrative actions and deletions
+//! - **File Locking**: Safe concurrent access to data files
+//! - **Input Validation**: Comprehensive sanitization and validation of all stored data
+//!
+//! ## Architecture
+//!
+//! The storage system uses a file-based approach with JSON serialization:
+//!
+//! ```text
+//! data/
+//! ├── users/          ← User account data
+//! ├── messages/       ← Message area storage
+//! ├── audit/          ← Administrative audit logs
+//! └── config/         ← Runtime configuration
+//! ```
+//!
+//! ## Usage
+//!
+//! ```rust,no_run
+//! use meshbbs::storage::Storage;
+//!
+//! #[tokio::main]
+//! async fn main() -> anyhow::Result<()> {
+//!     // Initialize storage system
+//!     let storage = Storage::new("./data", Default::default()).await?;
+//!     
+//!     // Store a message
+//!     let message = storage.store_message(
+//!         "general",
+//!         "alice",
+//!         "Hello, mesh network!"
+//!     ).await?;
+//!     
+//!     // Retrieve recent messages
+//!     let messages = storage.get_recent_messages("general", 10).await?;
+//!     
+//!     Ok(())
+//! }
+//! ```
+//!
+//! ## Security Features
+//!
+//! - **Password Hashing**: Argon2id with configurable parameters
+//! - **Path Validation**: Prevents directory traversal attacks
+//! - **Input Sanitization**: All user input is validated and sanitized
+//! - **File Locking**: Prevents concurrent modification issues
+//! - **Size Limits**: Configurable limits on message and file sizes
+//!
+//! ## Data Structures
+//!
+//! The module defines several core data structures:
+//!
+//! - [`Message`] - Individual message posts with metadata
+//! - [`User`] - User account information and permissions
+//! - [`DeletionAuditEntry`] - Records of message deletions
+//! - [`AdminAuditEntry`] - Records of administrative actions
+//!
+//! ## Configuration
+//!
+//! Storage behavior is configured via the main configuration system:
+//!
+//! ```toml
+//! [storage]
+//! data_dir = "./data"
+//! max_message_size = 230
+//! message_retention_days = 30
+//! max_messages_per_area = 1000
+//! ```
+//!
+//! ## Error Handling
+//!
+//! The storage system provides comprehensive error handling for:
+//! - File system operations
+//! - JSON serialization/deserialization
+//! - Validation failures
+//! - Concurrent access conflicts
+//! - Storage quota enforcement
 
 use anyhow::{Result, anyhow};
 use chrono::{DateTime, Utc};

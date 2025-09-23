@@ -6,7 +6,56 @@ use serde::{Serialize, Deserialize};
 use crate::storage::Storage;
 use super::commands::CommandProcessor;
 
-/// Represents a user session on the BBS
+/// # User Session Management
+///
+/// Represents an active user session on the BBS system. Each session tracks
+/// a user's connection state, authentication status, current location within
+/// the BBS, and session-specific preferences.
+///
+/// ## Session Lifecycle
+///
+/// Sessions progress through several states:
+/// 1. **Connected** - Initial connection established
+/// 2. **LoggingIn** - User is authenticating
+/// 3. **MainMenu** - Authenticated and at main menu
+/// 4. **MessageAreas** - Browsing message areas
+/// 5. **ReadingMessages** - Reading messages in an area
+/// 6. **PostingMessage** - Composing a new message
+/// 7. **UserMenu** - Managing user account settings
+/// 8. **Disconnected** - Session ended
+///
+/// ## Usage
+///
+/// ```rust,no_run
+/// use meshbbs::bbs::session::{Session, SessionState};
+///
+/// // Create new session for a connecting user
+/// let session = Session::new("session_123".to_string(), "node_456".to_string());
+/// 
+/// // Sessions start in Connected state
+/// assert!(matches!(session.state, SessionState::Connected));
+/// ```
+///
+/// ## Authentication
+///
+/// Sessions track authentication state through the `username` and `user_level` fields:
+/// - `username: None` - User not authenticated
+/// - `username: Some(name)` - User authenticated as 'name'
+/// - `user_level` - User's permission level (0=anonymous, 1=user, 5=moderator, 10=sysop)
+///
+/// ## Location Tracking
+///
+/// The session tracks the user's current location in the BBS:
+/// - `current_area` - Current message area (if any)
+/// - `state` - Current menu/interface state
+///
+/// ## Session Management
+///
+/// Sessions are managed by the BBS server and include automatic:
+/// - **Timeout handling** - Sessions expire after configured inactivity
+/// - **State persistence** - Session state survives across message exchanges
+/// - **Activity tracking** - Last activity timestamp for timeout calculations
+/// - **Label management** - Short and long display names for the session
 #[derive(Debug, Clone)]
 pub struct Session {
     pub id: String,
@@ -139,11 +188,14 @@ impl Session {
     }
 
     /// Build a dynamic prompt string based on session state.
-    /// Formats (all end with '>'):
-    ///  unauthenticated: "unauth>"
-    ///  main/menu (logged in): "<user> (lvl<level>)>"
-    ///  reading messages / in area: "<user>@<area>>" (area truncated to 20 chars)
-    ///  posting: "post@<area>>" (falls back to just "post>" if no area)
+    /// 
+    /// ## Prompt Formats
+    /// 
+    /// All prompts end with `>`:
+    /// - Unauthenticated: `"unauth>"`
+    /// - Main/menu (logged in): `"username (lvl1)>"`
+    /// - Reading messages/in area: `"username@area>"` (area truncated to 20 chars)
+    /// - Posting: `"post@area>"` (falls back to `"post>"` if no area)
     pub fn build_prompt(&self) -> String {
         // Unauthenticated
         if !self.is_logged_in() {

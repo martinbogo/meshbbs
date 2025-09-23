@@ -1,6 +1,68 @@
-//! Meshtastic device communication module
+//! # Meshtastic Device Communication Module
 //! 
-//! This module handles communication with Meshtastic devices via serial port.
+//! This module provides communication interfaces with Meshtastic devices, supporting both
+//! text-based and protocol buffer communication modes. It handles device connection management,
+//! message parsing, and event processing.
+//!
+//! ## Features
+//!
+//! - **Serial Communication**: Connect to Meshtastic devices via USB/UART
+//! - **Protocol Support**: Both text parsing and protobuf decoding
+//! - **Event Processing**: Convert raw device messages to structured events
+//! - **SLIP Decoding**: Handle SLIP-encoded protocol buffer frames
+//!
+//! ## Communication Modes
+//!
+//! ### Text Mode (Default)
+//! ```rust,no_run
+//! use meshbbs::meshtastic::MeshtasticDevice;
+//!
+//! // Create device connection
+//! let mut device = MeshtasticDevice::new("/dev/ttyUSB0", 115200)?;
+//! 
+//! // Receive text events
+//! while let Some(event) = device.receive_message().await? {
+//!     match event {
+//!         TextEvent::Message { from, to, text, .. } => {
+//!             println!("Message from {}: {}", from, text);
+//!         }
+//!         _ => {}
+//!     }
+//! }
+//! ```
+//!
+//! ### Protocol Buffer Mode (with `meshtastic-proto` feature)
+//! When enabled, provides rich packet decoding for positions, node info, telemetry, etc.
+//!
+//! ## Event Types
+//!
+//! The module produces [`TextEvent`] instances that represent different types of
+//! communication from the mesh network:
+//!
+//! - **Messages**: Text communications between nodes
+//! - **Node Info**: Device information and capabilities
+//! - **Position**: GPS location data
+//! - **Telemetry**: Device metrics and sensor data
+//!
+//! ## Error Handling
+//!
+//! The module provides robust error handling for:
+//! - Device connection failures
+//! - Serial communication errors
+//! - Protocol parsing issues
+//! - Timeout conditions
+//!
+//! ## Configuration
+//!
+//! Device parameters are typically configured via the main configuration system:
+//!
+//! ```toml
+//! [meshtastic]
+//! port = "/dev/ttyUSB0"
+//! baud_rate = 115200
+//! node_id = ""
+//! channel = 0
+//! ```
 
 use anyhow::{Result, anyhow};
 use log::{info, debug, error, trace};

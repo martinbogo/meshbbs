@@ -1,4 +1,84 @@
-//! Configuration management module
+//! # Configuration Management Module
+//!
+//! This module handles all configuration aspects of the MeshBBS system, providing
+//! a centralized configuration system with validation, defaults, and persistence.
+//!
+//! ## Features
+//!
+//! - **Structured Configuration**: Type-safe configuration with serde serialization
+//! - **Validation**: Comprehensive validation of all configuration values
+//! - **Defaults**: Sensible default values for all configuration options
+//! - **Hot Reloading**: Support for runtime configuration updates
+//! - **Environment Integration**: Integration with environment variables and CLI args
+//!
+//! ## Configuration Structure
+//!
+//! The configuration is organized into logical sections:
+//!
+//! - [`BbsConfig`] - Core BBS settings (name, sysop, limits)
+//! - [`MeshtasticConfig`] - Device communication settings
+//! - [`StorageConfig`] - Data persistence settings
+//! - [`MessageAreaConfig`] - Individual message area configuration
+//! - [`LoggingConfig`] - Logging and debugging settings
+//! - [`SecurityConfig`] - Security and authentication parameters
+//!
+//! ## Usage
+//!
+//! ```rust,no_run
+//! use meshbbs::config::Config;
+//!
+//! #[tokio::main]
+//! async fn main() -> anyhow::Result<()> {
+//!     // Load configuration from file
+//!     let config = Config::from_file("config.toml").await?;
+//!     
+//!     // Access configuration sections
+//!     println!("BBS Name: {}", config.bbs.name);
+//!     println!("Serial Port: {}", config.meshtastic.port);
+//!     
+//!     // Create default configuration
+//!     let default_config = Config::default();
+//!     default_config.save_to_file("config.toml").await?;
+//!     
+//!     Ok(())
+//! }
+//! ```
+//!
+//! ## Configuration File Format
+//!
+//! MeshBBS uses TOML format for human-readable configuration:
+//!
+//! ```toml
+//! [bbs]
+//! name = "My Mesh BBS"
+//! sysop = "admin"
+//! location = "Mesh Network"
+//! max_users = 100
+//! session_timeout = 10
+//!
+//! [meshtastic]
+//! port = "/dev/ttyUSB0"
+//! baud_rate = 115200
+//! channel = 0
+//!
+//! [message_areas.general]
+//! name = "General Discussion"
+//! description = "General chat area"
+//! read_level = 0
+//! post_level = 0
+//! ```
+//!
+//! ## Validation and Security
+//!
+//! - **Input Validation**: All configuration values are validated on load
+//! - **Type Safety**: Strong typing prevents configuration errors
+//! - **Secure Defaults**: Default values are chosen for security and stability
+//! - **Sanitization**: String values are sanitized to prevent injection attacks
+//!
+//! ## Environment Integration
+//!
+//! Configuration values can be overridden via environment variables and CLI arguments,
+//! following a clear precedence order: CLI args > Environment > Config file > Defaults
 
 use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};

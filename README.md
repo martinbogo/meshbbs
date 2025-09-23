@@ -62,10 +62,51 @@ cd meshbbs
 # Build the project
 cargo build --release
 
-# Initialize the BBS
+# Initialize the BBS configuration
 ./target/release/meshbbs init
+```
 
-# Start the BBS server
+### ⚙️ Configure Your BBS
+
+After initialization, edit the `config.toml` file to set up your BBS:
+
+```bash
+# Open config.toml in your preferred editor
+nano config.toml  # or vim, code, etc.
+```
+
+**Critical settings to configure:**
+
+1. **📡 Meshtastic Connection** - Update your serial port:
+   ```toml
+   [meshtastic]
+   port = "/dev/ttyUSB0"  # Change to your device port
+   # macOS: often /dev/tty.usbserial-*
+   # Windows: often COM3, COM4, etc.
+   # Linux: often /dev/ttyUSB0, /dev/ttyACM0
+   ```
+
+2. **👑 Sysop Information** - Set your admin details:
+   ```toml
+   [bbs]
+   name = "Your BBS Name"
+   sysop = "Your Name"  # This becomes your admin username
+   location = "Your Location"
+   zipcode = "12345"    # For weather features
+   ```
+
+3. **🔐 Set Sysop Password** - Secure your admin account:
+   ```bash
+   ./target/release/meshbbs sysop-passwd
+   ```
+
+### 🚀 Start Your BBS
+
+```bash
+# Start the BBS server (use your configured port)
+./target/release/meshbbs start
+
+# Or specify port if different from config
 ./target/release/meshbbs start --port /dev/ttyUSB0
 ```
 
@@ -73,10 +114,11 @@ cargo build --release
 
 | Command | Description |
 |---------|-------------|
-| `meshbbs init` | Create initial configuration |
-| `meshbbs start --port /dev/ttyUSB0` | Start BBS server |
-| `meshbbs status` | Show statistics |
-| `meshbbs sysop-passwd` | Set/update sysop password |
+| `meshbbs init` | Create initial configuration file |
+| `meshbbs sysop-passwd` | Set/update sysop password (do this first!) |
+| `meshbbs start` | Start BBS server with config.toml settings |
+| `meshbbs start --port /dev/ttyUSB0` | Override port from command line |
+| `meshbbs status` | Show server statistics and status |
 
 ## ⚙️ Configuration
 
@@ -155,14 +197,14 @@ meshbbs -vv start
 
 ### 📡 Connecting via Meshtastic
 
-MeshBBS uses a **two-phase interaction model** that keeps the shared mesh channel quiet while enabling rich private sessions.
+MeshBBS uses a **two-step interaction model** that keeps the shared mesh channel quiet while enabling rich private sessions.
 
-#### Phase 1: Public Discovery 
+#### 🔍 **Step 1: Say Hello on the Public Channel**
 Commands require `^` prefix to address the BBS:
 - `^HELP` - Returns onboarding message
 - `^LOGIN <username>` - Registers pending login for your node ID
 
-#### Phase 2: Direct Message Session
+#### 💬 **Step 2: Start Your Private Conversation**
 After public `LOGIN`, open a private message to the BBS node to start your authenticated session.
 
 <details>
