@@ -13,11 +13,11 @@ async fn message_area_aliases() {
     // Back to main menu to test short form
     session.state = meshbbs::bbs::session::SessionState::MainMenu;
     let _areas_short = meshbbs::bbs::commands::CommandProcessor::new().process(&mut session, "m", &mut storage).await.unwrap();
-    // In MessageAreas state now. R vs READ path handled by handle_message_areas only for R/READ without area argument; we only check they produce same transition output.
+    // In MessageTopics state now. R vs READ path handled by handle_message_topics only for R/READ without topic argument; we only check they produce same transition output.
     let r_full = meshbbs::bbs::commands::CommandProcessor::new().process(&mut session, "READ", &mut storage).await.unwrap();
     assert!(r_full.contains("Messages in") || r_full.contains("Recent messages"), "READ output should list messages");
-    // Reset state to MessageAreas to compare short form again
-    session.state = meshbbs::bbs::session::SessionState::MessageAreas;
+    // Reset state to MessageTopics to compare short form again
+    session.state = meshbbs::bbs::session::SessionState::MessageTopics;
     let r_short = meshbbs::bbs::commands::CommandProcessor::new().process(&mut session, "R", &mut storage).await.unwrap();
     assert!(r_short.contains("Messages in") || r_short.contains("Recent messages"), "R output should list messages");
 }

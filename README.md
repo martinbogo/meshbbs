@@ -5,7 +5,7 @@
   
   **A modern Bulletin Board System for Meshtastic mesh networks**
   
-  [![Version](https://img.shields.io/badge/version-0.9.50-blue.svg)](https://github.com/martinbogo/meshbbs/releases)
+  [![Version](https://img.shields.io/badge/version-0.9.55-blue.svg)](https://github.com/martinbogo/meshbbs/releases)
   [![License](https://img.shields.io/badge/license-CC--BY--NC--4.0-green.svg)](LICENSE)
   [![Language](https://img.shields.io/badge/language-Rust-orange.svg)](https://www.rust-lang.org/)
   [![Platform](https://img.shields.io/badge/platform-Meshtastic-purple.svg)](https://meshtastic.org/)
@@ -43,19 +43,19 @@ Comprehensive documentation is available in the [`docs/`](docs/) directory and h
 - **⚡ Async Design**: Built with Tokio for high performance
 
 ### 💬 **Communication & Messaging**
-- **📚 Message Boards**: Traditional BBS-style message areas and forums
-- **🎯 Dynamic Contextual Prompts**: Smart prompts showing current state (`unauth>`, `user@area>`, `post@area>`)
+- **📚 Message Boards**: Traditional BBS-style message topics and forums
+- **🎯 Dynamic Contextual Prompts**: Smart prompts showing current state (`unauth>`, `user@topic>`, `post@topic>`)
 - **📜 Enhanced Help System**: Compact `HELP` + verbose `HELP+` with detailed command reference
 - **📏 Optimized Message Size**: 230-byte limit optimized for Meshtastic constraints
 
 ### 👥 **User Management & Security**
 - **🔐 Robust Security**: Argon2id password hashing with configurable parameters
 - **👑 Role-Based Access**: User, Moderator, and Sysop roles with granular permissions
-- **🛂 Per-Area Access Levels**: Config-driven read/post level gating
+- **🛂 Per-Topic Access Levels**: Config-driven read/post level gating
 - **💡 Smart User Experience**: One-time shortcuts reminder, streamlined login flow
 
 ### 🛠️ **Administration & Moderation**
-- **🧷 Persistent Area Locks**: Moderators can LOCK/UNLOCK areas; state survives restarts
+- **🧷 Persistent Topic Locks**: Moderators can LOCK/UNLOCK topics; state survives restarts
 - **📊 Deletion Audit Log**: `DELLOG` command for accountability tracking
 - **📈 Network Statistics**: Usage and performance monitoring
 - **🌤️ Proactive Weather Updates**: Automatic 5-minute weather refresh
@@ -160,9 +160,9 @@ channel = 0
 data_dir = "./data"
 max_message_size = 230        # Protocol hard cap
 message_retention_days = 30
-max_messages_per_area = 1000
+max_messages_per_topic = 1000
 
-[message_areas.general]
+[message_topics.general]
 name = "General Discussion"
 description = "General chat and discussion"
 read_level = 0    # Minimum user level to read
@@ -181,7 +181,7 @@ file = "meshbbs.log"
 | `[bbs]` | Basic BBS settings | `name`, `sysop`, `max_users`, `session_timeout` |
 | `[meshtastic]` | Device connection | `port`, `baud_rate`, `channel` |
 | `[storage]` | Data management | `max_message_size`, `retention_days` |
-| `[message_areas.*]` | Forum areas | `read_level`, `post_level` |
+| `[message_topics.*]` | Forum topics | `read_level`, `post_level` |
 
 ## 📖 Usage
 
@@ -236,7 +236,7 @@ SETPASS <new>             # Set initial password (passwordless accounts)
 ```bash
 HELP / H / ?              # Compact help with shortcuts
 HELP+ / HELP V            # Detailed verbose help with examples
-M                         # Quick navigation to message areas
+M                         # Quick navigation to message topics
 U                         # Quick navigation to user menu
 Q                         # Quit/logout
 B                         # Back to previous menu
@@ -244,17 +244,17 @@ B                         # Back to previous menu
 
 **Message Commands:**
 ```bash
-AREAS / LIST              # List available message areas
-READ <area>               # Read recent messages from area
-POST <area> <message>     # Post a message to area
-POST <area>               # Start multi-line post (end with '.' on new line)
+TOPICS / LIST             # List available message topics
+READ <topic>              # Read recent messages from topic
+POST <topic> <message>    # Post a message to topic
+POST <topic>              # Start multi-line post (end with '.' on new line)
 ```
 
 **Moderator Commands** (level ≥5):
 ```bash
-DELETE <area> <id>        # Remove a message
-LOCK <area>               # Prevent new posts
-UNLOCK <area>             # Allow posts again  
+DELETE <topic> <id>       # Remove a message
+LOCK <topic>              # Prevent new posts
+UNLOCK <topic>            # Allow posts again  
 DELLOG [page]             # View deletion audit entries
 ```
 
@@ -273,8 +273,8 @@ MeshBBS shows contextual prompts that reflect your current state:
 |--------|---------|
 | `unauth>` | Not logged in |
 | `alice (lvl1)>` | Logged in as alice, user level 1 |
-| `alice@general>` | Reading messages in 'general' area |
-| `post@general>` | Posting a message to 'general' area |
+| `alice@general>` | Reading messages in 'general' topic |
+| `post@general>` | Posting a message to 'general' topic |
 
 ### 📏 Message Size Limit
 
@@ -407,6 +407,7 @@ meshbbs/
 ## 🗺️ Roadmap
 
 ### ✅ Recent Releases
+- **v0.9.55** (2025-09-23): Complete AREA → TOPIC terminology refactor, enhanced default topics, documentation fixes
 - **v0.9.50** (2025-09-23): Documentation accuracy improvements, streamlined roadmap, tested hardware clarity
 - **v0.9.30** (2025-09-23): Critical security fix for public login password bypass vulnerability
 - **v0.9.25** (2025-09-23): Documentation improvements, rustdoc fixes, ^WEATHER command addition

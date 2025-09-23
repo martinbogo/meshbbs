@@ -12,7 +12,7 @@ async fn reject_oversize_message() {
     let now = chrono::Utc::now();
     let nanos = now.timestamp_nanos_opt().unwrap_or_else(|| now.timestamp_micros() * 1000);
     let uname = format!("alice_{}", nanos);
-    server.test_register(&uname, "pass").await.expect("register");
+    server.test_register(&uname, "pass1234").await.expect("register");
     // Promote to ensure posting is allowed by default levels
     let ok = server.test_store_message("general", &uname, &"a".repeat(230)).await;
     assert!(ok.is_ok(), "230 bytes should be accepted: {ok:?}");

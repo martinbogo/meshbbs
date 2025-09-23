@@ -1,11 +1,11 @@
 //! # Storage Module - Data Persistence Layer
 //!
 //! This module provides comprehensive data persistence for the MeshBBS system, handling
-//! all storage operations for messages, users, configuration, and audit logs.
+//! all storage operations for messages, users, configuration, and topic management.
 //!
 //! ## Features
 //!
-//! - **Message Storage**: Persistent message boards with area-based organization
+//! - **Message Storage**: Persistent message boards with topic-based organization
 //! - **User Management**: Secure user account storage with Argon2id password hashing
 //! - **Audit Logging**: Comprehensive logging of administrative actions and deletions
 //! - **File Locking**: Safe concurrent access to data files
@@ -18,7 +18,7 @@
 //! ```text
 //! data/
 //! ├── users/          ← User account data
-//! ├── messages/       ← Message area storage
+//! ├── messages/       ← Message topic storage
 //! ├── audit/          ← Administrative audit logs
 //! └── config/         ← Runtime configuration
 //! ```
@@ -73,7 +73,7 @@
 //! data_dir = "./data"
 //! max_message_size = 230
 //! message_retention_days = 30
-//! max_messages_per_area = 1000
+//! max_messages_per_topic = 1000
 //! ```
 //!
 //! ## Error Handling
@@ -94,7 +94,7 @@ use std::io::ErrorKind;
 use tokio::fs;
 use uuid::Uuid;
 use crate::bbs::roles;
-use crate::validation::{validate_user_name, safe_filename, validate_area_name, sanitize_message_content, secure_message_path, secure_area_path, secure_json_parse, validate_file_size};
+use crate::validation::{validate_user_name, safe_filename, validate_topic_name, sanitize_message_content, secure_message_path, secure_topic_path, secure_json_parse, validate_file_size};
 use password_hash::{PasswordHasher, PasswordVerifier};
 use argon2::{Argon2, Params, Algorithm, Version};
 use log::warn;
@@ -104,16 +104,16 @@ use fs2::FileExt;
 pub struct Storage {
     data_dir: String,
     argon2: Argon2<'static>,
-    locked_areas: HashSet<String>,
+    locked_topics: HashSet<String>,
     #[allow(dead_code)]
-    area_levels: std::collections::HashMap<String, (u8,u8)>, // area -> (read_level, post_level)
+    topic_levels: std::collections::HashMap<String, (u8,u8)>, // topic -> (read_level, post_level)
     max_message_bytes: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
     pub id: String,
-    pub area: String,
+    pub topic: String,
     pub author: String,
     pub content: String,
     pub timestamp: DateTime<Utc>,
@@ -123,7 +123,7 @@ pub struct Message {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeletionAuditEntry {
     pub timestamp: DateTime<Utc>,
-    pub area: String,
+    pub topic: String,
     pub id: String,
     pub actor: String,
 }
@@ -186,12 +186,12 @@ impl Storage {
         fs::create_dir_all(&users_dir).await?;
         fs::create_dir_all(&files_dir).await?;
         
-        let locked = Self::load_locked_areas(data_dir).await?;
+        let locked = Self::load_locked_topics(data_dir).await?;
         Ok(Storage {
             data_dir: data_dir.to_string(),
             argon2: Argon2::default(),
-            locked_areas: locked,
-            area_levels: HashMap::new(),
+            locked_topics: locked,
+            topic_levels: HashMap::new(),
             max_message_bytes: 230,
         })
     }
@@ -207,23 +207,23 @@ impl Storage {
         fs::create_dir_all(&users_dir).await?;
         fs::create_dir_all(&files_dir).await?;
         let argon2 = if let Some(p) = params { Argon2::new(Algorithm::Argon2id, Version::V0x13, p) } else { Argon2::default() };
-        let locked = Self::load_locked_areas(data_dir).await?;
-        Ok(Storage { data_dir: data_dir.to_string(), argon2, locked_areas: locked, area_levels: HashMap::new(), max_message_bytes: 230 })
+        let locked = Self::load_locked_topics(data_dir).await?;
+        Ok(Storage { data_dir: data_dir.to_string(), argon2, locked_topics: locked, topic_levels: HashMap::new(), max_message_bytes: 230 })
     }
 
-    pub fn set_area_levels(&mut self, map: std::collections::HashMap<String,(u8,u8)>) { self.area_levels = map; }
-    pub fn get_area_levels(&self, area: &str) -> Option<(u8,u8)> { self.area_levels.get(area).copied() }
+    pub fn set_topic_levels(&mut self, map: std::collections::HashMap<String,(u8,u8)>) { self.topic_levels = map; }
+    pub fn get_topic_levels(&self, topic: &str) -> Option<(u8,u8)> { self.topic_levels.get(topic).copied() }
     pub fn set_max_message_bytes(&mut self, max: usize) { self.max_message_bytes = max.min(230); }
 
-    async fn load_locked_areas(data_dir: &str) -> Result<HashSet<String>> {
-        let path = Path::new(data_dir).join("locked_areas.json");
+    async fn load_locked_topics(data_dir: &str) -> Result<HashSet<String>> {
+        let path = Path::new(data_dir).join("locked_topics.json");
         match fs::read_to_string(&path).await {
             Ok(data) => {
                 let v: Vec<String> = serde_json::from_str(&data).unwrap_or_default();
                 Ok(v.into_iter().collect())
             }
             Err(e) if e.kind() == ErrorKind::NotFound => Ok(HashSet::new()),
-            Err(e) => Err(anyhow!("Failed reading locked areas: {e}")),
+            Err(e) => Err(anyhow!("Failed reading locked topics: {e}")),
         }
     }
 
@@ -271,9 +271,9 @@ impl Storage {
         Ok(())
     }
 
-    async fn persist_locked_areas(&self) -> Result<()> {
-        let path = Path::new(&self.data_dir).join("locked_areas.json");
-        let mut list: Vec<String> = self.locked_areas.iter().cloned().collect();
+    async fn persist_locked_topics(&self) -> Result<()> {
+        let path = Path::new(&self.data_dir).join("locked_topics.json");
+        let mut list: Vec<String> = self.locked_topics.iter().cloned().collect();
         list.sort();
         let data = serde_json::to_string_pretty(&list)?;
         Self::write_file_locked(&path, &data).await?;
@@ -419,19 +419,19 @@ impl Storage {
     }
 
     /// Store a new message
-    pub async fn store_message(&mut self, area: &str, author: &str, content: &str) -> Result<String> {
+    pub async fn store_message(&mut self, topic: &str, author: &str, content: &str) -> Result<String> {
         // Validate and sanitize inputs
-        let validated_area = validate_area_name(area)
-            .map_err(|e| anyhow!("Invalid area name: {}", e))?;
+        let validated_topic = validate_topic_name(topic)
+            .map_err(|e| anyhow!("Invalid topic name: {}", e))?;
         
         let sanitized_content = sanitize_message_content(content, self.max_message_bytes)
             .map_err(|e| anyhow!("Invalid message content: {}", e))?;
         
-        if self.locked_areas.contains(&validated_area) { 
-            return Err(anyhow!("Area locked")); 
+        if self.locked_topics.contains(&validated_topic) { 
+            return Err(anyhow!("Topic locked")); 
         }
         
-        if let Some((_, post_level)) = self.get_area_levels(&validated_area) {
+        if let Some((_, post_level)) = self.get_topic_levels(&validated_topic) {
             // Determine author level (missing user defaults to 0/1?) default user level is 1 but config might use 0; use 0 baseline
             let author_level = if let Some(user) = self.get_user(author).await? { user.user_level } else { 0 };
             if author_level < post_level { return Err(anyhow!("Insufficient level to post")); }
@@ -439,7 +439,7 @@ impl Storage {
 
         let message = Message {
             id: Uuid::new_v4().to_string(),
-            area: validated_area.clone(),
+            topic: validated_topic.clone(),
             author: author.to_string(),
             content: sanitized_content,
             timestamp: Utc::now(),
@@ -447,11 +447,11 @@ impl Storage {
         };
         
         // Use secure path construction
-        let area_dir = secure_area_path(&self.data_dir, &validated_area)
+        let topic_dir = secure_topic_path(&self.data_dir, &validated_topic)
             .map_err(|e| anyhow!("Path validation failed: {}", e))?;
-        fs::create_dir_all(&area_dir).await?;
+        fs::create_dir_all(&topic_dir).await?;
         
-        let message_file = secure_message_path(&self.data_dir, &validated_area, &message.id)
+        let message_file = secure_message_path(&self.data_dir, &validated_topic, &message.id)
             .map_err(|e| anyhow!("Message path validation failed: {}", e))?;
         
         let json_content = serde_json::to_string_pretty(&message)?;
@@ -464,7 +464,7 @@ impl Storage {
     /// Count messages whose timestamp is strictly greater than the supplied instant.
     /// This performs a linear scan of all message JSON files. For typical small BBS
     /// deployments this is acceptable; if performance becomes an issue we can
-    /// introduce a lightweight global index or per-area cached high-water marks.
+    /// introduce a lightweight global index or per-topic cached high-water marks.
     pub async fn count_messages_since(&self, since: DateTime<Utc>) -> Result<u32> {
         let mut count: u32 = 0;
         let messages_dir = Path::new(&self.data_dir).join("messages");
@@ -472,9 +472,9 @@ impl Storage {
         let mut area_entries = fs::read_dir(&messages_dir).await?;
         while let Some(area_entry) = area_entries.next_entry().await? {
             if area_entry.file_type().await?.is_dir() {
-                // Validate area name to prevent processing invalid directories
+                // Validate topic name to prevent processing invalid directories
                 if let Some(area_name) = area_entry.file_name().to_str() {
-                    if validate_area_name(area_name).is_err() {
+                    if validate_topic_name(area_name).is_err() {
                         warn!("Skipping invalid area directory: {}", area_name);
                         continue;
                     }
@@ -529,10 +529,10 @@ impl Storage {
         Ok(user)
     }
 
-    /// Delete a message by area and id
-    pub async fn delete_message(&mut self, area: &str, id: &str) -> Result<bool> {
+    /// Delete a message by topic and id
+    pub async fn delete_message(&mut self, topic: &str, id: &str) -> Result<bool> {
         // Validate inputs to prevent path traversal
-        let message_file = secure_message_path(&self.data_dir, area, id)
+        let message_file = secure_message_path(&self.data_dir, topic, id)
             .map_err(|e| anyhow!("Invalid path parameters: {}", e))?;
         
         if message_file.exists() { 
@@ -543,9 +543,9 @@ impl Storage {
     }
 
     /// Append a deletion audit entry (caller ensures deletion occurred)
-    pub async fn append_deletion_audit(&self, area: &str, id: &str, actor: &str) -> Result<()> {
+    pub async fn append_deletion_audit(&self, topic: &str, id: &str, actor: &str) -> Result<()> {
         let path = Path::new(&self.data_dir).join("deletion_audit.log");
-        let entry = DeletionAuditEntry { timestamp: Utc::now(), area: area.to_string(), id: id.to_string(), actor: actor.to_string() };
+        let entry = DeletionAuditEntry { timestamp: Utc::now(), topic: topic.to_string(), id: id.to_string(), actor: actor.to_string() };
         let line = serde_json::to_string(&entry)? + "\n";
         Self::append_file_locked(&path, &line).await?;
         Ok(())
@@ -604,36 +604,36 @@ impl Storage {
         Ok(entries.into_iter().skip(start).take(page_size).collect())
     }
 
-    /// Lock a message area (prevent posting)
-    pub fn lock_area(&mut self, area: &str) { self.locked_areas.insert(area.to_string()); }
-    /// Unlock a message area
-    pub fn unlock_area(&mut self, area: &str) { self.locked_areas.remove(area); }
-    /// Check if area locked
-    pub fn is_area_locked(&self, area: &str) -> bool { self.locked_areas.contains(area) }
+    /// Lock a message topic (prevent posting)
+    pub fn lock_topic(&mut self, topic: &str) { self.locked_topics.insert(topic.to_string()); }
+    /// Unlock a message topic
+    pub fn unlock_topic(&mut self, topic: &str) { self.locked_topics.remove(topic); }
+    /// Check if topic locked
+    pub fn is_topic_locked(&self, topic: &str) -> bool { self.locked_topics.contains(topic) }
 
-        /// Lock area and persist
-        pub async fn lock_area_persist(&mut self, area: &str) -> Result<()> {
-            self.lock_area(area);
-            self.persist_locked_areas().await
+        /// Lock topic and persist
+        pub async fn lock_topic_persist(&mut self, topic: &str) -> Result<()> {
+            self.lock_topic(topic);
+            self.persist_locked_topics().await
         }
-        /// Unlock area and persist
-        pub async fn unlock_area_persist(&mut self, area: &str) -> Result<()> {
-            self.unlock_area(area);
-            self.persist_locked_areas().await
+        /// Unlock topic and persist
+        pub async fn unlock_topic_persist(&mut self, topic: &str) -> Result<()> {
+            self.unlock_topic(topic);
+            self.persist_locked_topics().await
         }
 
-    /// Get recent messages from an area
-    pub async fn get_messages(&self, area: &str, limit: usize) -> Result<Vec<Message>> {
-        // Validate area name to prevent path traversal
-        let area_dir = secure_area_path(&self.data_dir, area)
-            .map_err(|e| anyhow!("Invalid area name: {}", e))?;
+    /// Get recent messages from a topic
+    pub async fn get_messages(&self, topic: &str, limit: usize) -> Result<Vec<Message>> {
+        // Validate topic name to prevent path traversal
+        let topic_dir = secure_topic_path(&self.data_dir, topic)
+            .map_err(|e| anyhow!("Invalid topic name: {}", e))?;
         
-        if !area_dir.exists() {
+        if !topic_dir.exists() {
             return Ok(Vec::new());
         }
         
         let mut messages = Vec::new();
-        let mut entries = fs::read_dir(&area_dir).await?;
+        let mut entries = fs::read_dir(&topic_dir).await?;
         
         while let Some(entry) = entries.next_entry().await? {
             if entry.path().extension().and_then(|s| s.to_str()) == Some("json") {
@@ -644,27 +644,21 @@ impl Storage {
                     continue;
                 }
                 
-                match fs::read_to_string(entry.path()).await {
-                    Ok(content) => {
-                        match serde_json::from_str::<Message>(&content) {
-                            Ok(message) => {
-                                // Validate the message ID matches the filename
-                                if let Some(filename) = entry.path().file_stem().and_then(|s| s.to_str()) {
-                                    if message.id == filename {
-                                        messages.push(message);
-                                    } else {
-                                        warn!("Message ID mismatch in file: {:?}", entry.path());
-                                    }
-                                }
-                            }
-                            Err(e) => {
-                                warn!("Failed to parse message file {:?}: {}", entry.path(), e);
+                if let Ok(content) = fs::read_to_string(entry.path()).await {
+                    if let Ok(message) = serde_json::from_str::<Message>(&content) {
+                        // Validate the message ID matches the filename
+                        if let Some(filename) = entry.path().file_stem().and_then(|s| s.to_str()) {
+                            if message.id == filename {
+                                messages.push(message);
+                            } else {
+                                warn!("Message ID mismatch in file: {:?}", entry.path());
                             }
                         }
+                    } else {
+                        warn!("Failed to parse message file: {:?}", entry.path());
                     }
-                    Err(e) => {
-                        warn!("Failed to read message file {:?}: {}", entry.path(), e);
-                    }
+                } else {
+                    warn!("Failed to read message file: {:?}", entry.path());
                 }
             }
         }
@@ -676,36 +670,36 @@ impl Storage {
         Ok(messages)
     }
 
-    /// List available message areas
-    pub async fn list_message_areas(&self) -> Result<Vec<String>> {
+    /// List available message topics
+    pub async fn list_message_topics(&self) -> Result<Vec<String>> {
         let messages_dir = Path::new(&self.data_dir).join("messages");
         
         if !messages_dir.exists() {
             return Ok(vec!["general".to_string()]);
         }
         
-        let mut areas = Vec::new();
+        let mut topics = Vec::new();
         let mut entries = fs::read_dir(&messages_dir).await?;
         
         while let Some(entry) = entries.next_entry().await? {
             if entry.file_type().await?.is_dir() {
-                if let Some(area_name) = entry.file_name().to_str() {
-                    // Validate area name to only include legitimate areas
-                    if validate_area_name(area_name).is_ok() {
-                        areas.push(area_name.to_string());
+                if let Some(topic_name) = entry.file_name().to_str() {
+                    // Validate topic name to only include legitimate topics
+                    if validate_topic_name(topic_name).is_ok() {
+                        topics.push(topic_name.to_string());
                     } else {
-                        warn!("Skipping invalid area directory: {}", area_name);
+                        warn!("Skipping invalid topic directory: {}", topic_name);
                     }
                 }
             }
         }
         
-        if areas.is_empty() {
-            areas.push("general".to_string());
+        if topics.is_empty() {
+            topics.push("general".to_string());
         }
         
-        areas.sort();
-        Ok(areas)
+        topics.sort();
+        Ok(topics)
     }
 
     /// Create or update a user
@@ -841,12 +835,12 @@ impl Storage {
         Ok(users)
     }
 
-    /// Get enhanced user information including post count in specific areas
+    /// Get enhanced user information including post count in specific topics
     pub async fn get_user_details(&self, username: &str) -> Result<Option<User>> {
         self.get_user(username).await
     }
 
-    /// Count total posts by a specific user across all areas
+    /// Count total posts by a specific user across all topics
     pub async fn count_user_posts(&self, username: &str) -> Result<u32> {
         let messages_dir = Path::new(&self.data_dir).join("messages");
         let mut post_count = 0;

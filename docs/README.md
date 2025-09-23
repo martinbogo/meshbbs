@@ -12,13 +12,13 @@ Welcome to the comprehensive documentation for MeshBBS, a modern Bulletin Board 
 ### User Guide
 - [Connecting to the BBS](user-guide/connecting.md) - How to connect via Meshtastic
 - [Command Reference](user-guide/commands.md) - Complete command documentation
-- [Message Areas](user-guide/message-areas.md) - Using the bulletin board system
+- [Message Topics](user-guide/message-topics.md) - Using the bulletin board system
 - [Troubleshooting](user-guide/troubleshooting.md) - Common issues and solutions
 
 ### Administration
 - [BBS Setup](administration/setup.md) - Setting up and administering your BBS
 - [User Management](administration/user-management.md) - Managing users and permissions
-- [Moderation Tools](administration/moderation.md) - Content moderation and area management
+- [Moderation Tools](administration/moderation.md) - Content moderation and topic management
 
 ### Hardware & Devices
 - [Device Compatibility](hardware/compatibility.md) - Supported Meshtastic devices

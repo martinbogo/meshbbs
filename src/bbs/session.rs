@@ -18,8 +18,8 @@ use super::commands::CommandProcessor;
 /// 1. **Connected** - Initial connection established
 /// 2. **LoggingIn** - User is authenticating
 /// 3. **MainMenu** - Authenticated and at main menu
-/// 4. **MessageAreas** - Browsing message areas
-/// 5. **ReadingMessages** - Reading messages in an area
+/// 4. **MessageTopics** - Browsing message topics
+/// 5. **ReadingMessages** - Reading messages in a topic
 /// 6. **PostingMessage** - Composing a new message
 /// 7. **UserMenu** - Managing user account settings
 /// 8. **Disconnected** - Session ended
@@ -46,7 +46,7 @@ use super::commands::CommandProcessor;
 /// ## Location Tracking
 ///
 /// The session tracks the user's current location in the BBS:
-/// - `current_area` - Current message area (if any)
+/// - `current_topic` - Current message topic (if any)
 /// - `state` - Current menu/interface state
 ///
 /// ## Session Management
@@ -64,7 +64,7 @@ pub struct Session {
     pub long_label: Option<String>,
     pub username: Option<String>,
     pub user_level: u8,
-    pub current_area: Option<String>,
+    pub current_topic: Option<String>,
     /// Whether the abbreviated HELP has already been shown this session (used to append shortcuts line once)
     pub help_seen: bool,
     pub login_time: DateTime<Utc>,
@@ -77,7 +77,7 @@ pub enum SessionState {
     Connected,
     LoggingIn,
     MainMenu,
-    MessageAreas,
+    MessageTopics,
     ReadingMessages,
     PostingMessage,
     UserMenu,
@@ -96,7 +96,7 @@ impl Session {
             long_label: None,
             username: None,
             user_level: 0,
-            current_area: None,
+            current_topic: None,
             help_seen: false,
             login_time: now,
             last_activity: now,
@@ -136,7 +136,7 @@ impl Session {
         // Logging handled in server
         self.username = None;
         self.user_level = 0;
-        self.current_area = None;
+        self.current_topic = None;
         self.state = SessionState::Disconnected;
         
         Ok(())
@@ -194,8 +194,8 @@ impl Session {
     /// All prompts end with `>`:
     /// - Unauthenticated: `"unauth>"`
     /// - Main/menu (logged in): `"username (lvl1)>"`
-    /// - Reading messages/in area: `"username@area>"` (area truncated to 20 chars)
-    /// - Posting: `"post@area>"` (falls back to `"post>"` if no area)
+    /// - Reading messages/in topic: `"username@topic>"` (topic truncated to 20 chars)
+    /// - Posting: `"post@topic>"` (falls back to `"post>"` if no topic)
     pub fn build_prompt(&self) -> String {
         // Unauthenticated
         if !self.is_logged_in() {
@@ -205,10 +205,10 @@ impl Session {
         let level = self.user_level;
         match self.state {
             SessionState::PostingMessage => {
-                if let Some(area) = &self.current_area { format!("post@{}>", Self::truncate_area(area)) } else { "post>".into() }
+                if let Some(topic) = &self.current_topic { format!("post@{}>", Self::truncate_topic(topic)) } else { "post>".into() }
             }
-            SessionState::ReadingMessages | SessionState::MessageAreas => {
-                if let Some(area) = &self.current_area { format!("{}@{}>", self.display_name(), Self::truncate_area(area)) } else { format!("{} (lvl{})>", self.display_name(), level) }
+            SessionState::ReadingMessages | SessionState::MessageTopics => {
+                if let Some(topic) = &self.current_topic { format!("{}@{}>", self.display_name(), Self::truncate_topic(topic)) } else { format!("{} (lvl{})>", self.display_name(), level) }
             }
             SessionState::MainMenu | SessionState::UserMenu | SessionState::LoggingIn | SessionState::Connected => {
                 format!("{} (lvl{})>", self.display_name(), level)
@@ -217,8 +217,8 @@ impl Session {
         }
     }
 
-    fn truncate_area(area: &str) -> String {
+    fn truncate_topic(topic: &str) -> String {
         const MAX: usize = 20;
-        if area.len() <= MAX { area.to_string() } else { format!("{}…", &area[..MAX-1]) }
+        if topic.len() <= MAX { topic.to_string() } else { format!("{}…", &topic[..MAX-1]) }
     }
 }

@@ -30,8 +30,8 @@ pub enum UsernameError {
 
 #[derive(Debug)]
 pub enum SecurityError {
-    /// The area name contains invalid characters or is too long
-    InvalidAreaName { reason: String },
+    /// The topic name contains invalid characters or is too long
+    InvalidTopicName { reason: String },
     
     /// The message ID is not a valid UUID format
     InvalidMessageId { reason: String },
@@ -52,7 +52,7 @@ pub enum SecurityError {
 impl std::fmt::Display for SecurityError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SecurityError::InvalidAreaName { reason } => write!(f, "Invalid area name: {}", reason),
+            SecurityError::InvalidTopicName { reason } => write!(f, "Invalid topic name: {}", reason),
             SecurityError::InvalidMessageId { reason } => write!(f, "Invalid message ID: {}", reason),
             SecurityError::ContentTooLong { max_length } => write!(f, "Content too long (max {} bytes)", max_length),
             SecurityError::FileSizeExceeded { limit } => write!(f, "File size exceeds limit ({} bytes)", limit),
@@ -217,38 +217,39 @@ pub fn validate_user_name(name: &str) -> Result<String, UsernameError> {
     validate_username(name, &UsernameRules::user())
 }
 
-/// Validate area name for filesystem safety (prevents path traversal)
-pub fn validate_area_name(area: &str) -> Result<String, SecurityError> {
-    let trimmed = area.trim();
+/// Validate topic name for filesystem safety (prevents path traversal)
+pub fn validate_topic_name(topic: &str) -> Result<String, SecurityError> {
+    let trimmed = topic.trim();
     
-    // Check length
+    // Check if empty after trimming
     if trimmed.is_empty() {
-        return Err(SecurityError::InvalidAreaName { 
-            reason: "Area name cannot be empty".to_string() 
+        return Err(SecurityError::InvalidTopicName { 
+            reason: "Topic name cannot be empty".to_string() 
         });
     }
+    
     if trimmed.len() > 50 {
-        return Err(SecurityError::InvalidAreaName { 
-            reason: "Area name too long (max 50 characters)".to_string() 
+        return Err(SecurityError::InvalidTopicName { 
+            reason: "Topic name too long (max 50 characters)".to_string() 
         });
     }
     
     // Only allow alphanumeric, underscore, and hyphen
     if !trimmed.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
-        return Err(SecurityError::InvalidAreaName { 
-            reason: "Area name must contain only letters, numbers, underscore, and hyphen".to_string() 
+        return Err(SecurityError::InvalidTopicName { 
+            reason: "Topic name must contain only letters, numbers, underscore, and hyphen".to_string() 
         });
     }
     
-    // Prevent reserved names
+    // Check for reserved names that could cause filesystem issues
     let lower = trimmed.to_lowercase();
-    if matches!(lower.as_str(), "con" | "prn" | "aux" | "nul" | "." | ".." | "admin" | "root" | "system") {
-        return Err(SecurityError::InvalidAreaName { 
-            reason: "Area name is reserved".to_string() 
+    if matches!(lower.as_str(), "con" | "prn" | "aux" | "nul" | "com1" | "com2" | "com3" | "com4" | "com5" | "com6" | "com7" | "com8" | "com9" | "lpt1" | "lpt2" | "lpt3" | "lpt4" | "lpt5" | "lpt6" | "lpt7" | "lpt8" | "lpt9" | "." | ".." | "config" | "data" | "admin") {
+        return Err(SecurityError::InvalidTopicName { 
+            reason: "Topic name is reserved".to_string() 
         });
     }
     
-    Ok(trimmed.to_string())
+    Ok(trimmed.to_lowercase())
 }
 
 /// Validate message ID (must be valid UUID format)
@@ -297,30 +298,26 @@ pub fn validate_file_size(size: u64, max_size: u64) -> Result<(), SecurityError>
 }
 
 /// Secure path construction for message files
-pub fn secure_message_path(data_dir: &str, area: &str, message_id: &str) -> Result<std::path::PathBuf, SecurityError> {
-    let validated_area = validate_area_name(area)?;
+use std::path::Path;
+
+pub fn secure_message_path(data_dir: &str, topic: &str, message_id: &str) -> Result<std::path::PathBuf, SecurityError> {
+    let validated_topic = validate_topic_name(topic)?;
     let validated_id = validate_message_id(message_id)?;
     
-    let path = std::path::Path::new(data_dir)
+    // UUIDs are filesystem-safe (only alphanumeric and hyphens), so no need to URL-encode
+    Ok(Path::new(data_dir)
         .join("messages")
-        .join(&validated_area)
-        .join(format!("{}.json", validated_id));
-    
-    // Ensure the path is still within our data directory
-    if !path.starts_with(data_dir) {
-        return Err(SecurityError::InvalidPath);
-    }
-    
-    Ok(path)
+        .join(&validated_topic)
+        .join(format!("{}.json", validated_id)))
 }
 
-/// Secure path construction for area directories
-pub fn secure_area_path(data_dir: &str, area: &str) -> Result<std::path::PathBuf, SecurityError> {
-    let validated_area = validate_area_name(area)?;
+/// Secure path construction for topic directories
+pub fn secure_topic_path(data_dir: &str, topic: &str) -> Result<std::path::PathBuf, SecurityError> {
+    let validated_topic = validate_topic_name(topic)?;
     
     let path = std::path::Path::new(data_dir)
         .join("messages")
-        .join(&validated_area);
+        .join(&validated_topic);
     
     // Ensure the path is still within our data directory
     if !path.starts_with(data_dir) {
@@ -382,22 +379,22 @@ mod tests {
     }
 
     #[test]
-    fn test_area_name_validation() {
-        // Valid area names
-        assert!(validate_area_name("general").is_ok());
-        assert!(validate_area_name("tech-support").is_ok());
-        assert!(validate_area_name("area_1").is_ok());
+    fn test_topic_name_validation() {
+        // Valid topic names
+        assert!(validate_topic_name("general").is_ok());
+        assert!(validate_topic_name("tech-support").is_ok());
+        assert!(validate_topic_name("topic_1").is_ok());
         
-        // Invalid area names (path traversal attempts)
-        assert!(validate_area_name("../etc").is_err());
-        assert!(validate_area_name("area/../other").is_err());
-        assert!(validate_area_name("").is_err());
-        assert!(validate_area_name("area with spaces").is_err());
-        assert!(validate_area_name("area/subarea").is_err());
+        // Invalid topic names (path traversal attempts)
+        assert!(validate_topic_name("../etc").is_err());
+        assert!(validate_topic_name("topic/../other").is_err());
+        assert!(validate_topic_name("").is_err());
+        assert!(validate_topic_name("topic with spaces").is_err());
+        assert!(validate_topic_name("topic/subtopic").is_err());
         
         // Reserved names
-        assert!(validate_area_name("con").is_err());
-        assert!(validate_area_name("admin").is_err());
+        assert!(validate_topic_name("con").is_err());
+        assert!(validate_topic_name("admin").is_err());
     }
 
     #[test]

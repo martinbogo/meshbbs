@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.55] - 2025-09-23
+### Changed
+- **Complete AREA → TOPIC terminology refactor**: Comprehensive update across the entire codebase
+  - Updated all user-facing text from "areas" to "topics" throughout help system and commands
+  - Renamed functions: `moderator_lock_area` → `moderator_lock_topic`, `self_area_can_read` → `self_topic_can_read`, etc.
+  - Updated parameter names and variable names from "area" to "topic" throughout the codebase
+  - Updated README.md documentation with new terminology (command examples, configuration sections)
+  - Updated code comments and documentation strings to use "topic" terminology
+  - Updated command syntax examples: `READ <area>` → `READ <topic>`, `POST <area>` → `POST <topic>`
+  - Configuration section renamed: `[message_areas.*]` → `[message_topics.*]`
+- **Default Topics Enhancement**: All three default topics now properly available in working directory
+  - `general/` - General discussions
+  - `community/` - Events, meet-ups, and community discussions  
+  - `technical/` - Tech, hardware, and administrative discussions
+
+### Fixed
+- **Documentation Examples**: Fixed all rustdoc examples to use correct API methods
+  - Fixed `Config::load()` method calls instead of non-existent `from_file()`
+  - Fixed `Storage::new()` and `get_messages()` method signatures
+  - Fixed `MeshtasticDevice` examples to use correct return types
+  - Added proper feature guards for conditional compilation examples
+  - All 9 documentation examples now compile and pass doctest
+
+### Technical
+- Maintained backward compatibility for stored message data format
+- All 57 tests continue to pass after refactor
+- Build system remains stable with no breaking changes
+
 ## [0.9.18] - 2025-09-23
 ### Added
 - **New User Welcome System**: Enhanced onboarding experience for new users

@@ -16,7 +16,7 @@ async fn first_dm_login_immediate() {
 
     // Simulate incoming direct REGISTER command as very first DM
     let node_id: u32 = 0x1234;
-    let ev = TextEvent { source: node_id, dest: None, is_direct: true, channel: None, content: "REGISTER testuser pass123".into() };
+    let ev = TextEvent { source: node_id, dest: None, is_direct: true, channel: None, content: "REGISTER testuser pass1234".into() };
     server.route_text_event(ev).await.unwrap();
 
     // The server should have a session logged in as testuser

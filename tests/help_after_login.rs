@@ -12,8 +12,8 @@ async fn help_after_login() {
     let mut server = BbsServer::new(cfg).await.expect("server");
 
     // Use a unique username each run to avoid collision with existing test data
-    let uname = format!("testuser_help_{}", uuid::Uuid::new_v4().simple());
-    let dm_register = TextEvent { source: 77, dest: Some(1), is_direct: true, channel: None, content: format!("REGISTER {} testpw", uname) };
+    let uname = format!("tuh_{}", &uuid::Uuid::new_v4().simple().to_string()[..12]);
+    let dm_register = TextEvent { source: 77, dest: Some(1), is_direct: true, channel: None, content: format!("REGISTER {} testpass1", uname) };
     server.route_text_event(dm_register).await.expect("register");
     // Issue HELP
     let dm_help = TextEvent { source: 77, dest: Some(1), is_direct: true, channel: None, content: "HELP".into() };

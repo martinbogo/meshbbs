@@ -6,7 +6,7 @@
 //! ## Features
 //!
 //! - **Meshtastic Integration**: Direct communication with Meshtastic devices via serial or Bluetooth
-//! - **Message Boards**: Traditional BBS-style message areas and forums
+//! - **Message Boards**: Traditional BBS-style message topics and forums
 //! - **User Management**: Role-based access control (User, Moderator, Sysop)
 //! - **Security**: Argon2id password hashing with configurable parameters
 //! - **Async Design**: Built with Tokio for high performance

@@ -1,0 +1,10 @@
+{
+  "username": "alice",
+  "node_id": "123",
+  "access_level": 1,
+  "first_login": "2025-09-23T21:51:59.778972Z",
+  "last_login": "2025-09-23T22:29:45.479180Z",
+  "total_messages": 0,
+  "welcome_shown_on_registration": false,
+  "welcome_shown_on_first_login": false
+}

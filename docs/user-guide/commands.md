@@ -33,23 +33,23 @@ After using `^LOGIN` on the public channel, open a direct message to the BBS nod
 |---------|-------------|---------|
 | `HELP` or `H` or `?` | Show compact help | `HELP` |
 | `HELP+` or `HELP V` | Show detailed help with examples | `HELP+` |
-| `M` | Quick navigation to message areas | `M` |
+| `M` | Quick navigation to message topics | `M` |
 | `U` | Quick navigation to user menu | `U` |
 | `Q` | Quit/logout | `Q` |
 | `B` | Back to previous menu | `B` |
 
-### Message Areas
+### Message Topics
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `AREAS` or `LIST` | List available message areas | `AREAS` |
-| `READ area` | Read recent messages from area | `READ general` |
-| `POST area message` | Post a message to area | `POST general Hello everyone!` |
-| `POST area` | Start multi-line post | `POST general` |
+| `TOPICS` or `LIST` | List available message topics | `TOPICS` |
+| `READ topic` | Read recent messages from topic | `READ general` |
+| `POST topic message` | Post a message to topic | `POST general Hello everyone!` |
+| `POST topic` | Start multi-line post | `POST general` |
 
 #### Multi-line Posting
 
-When using `POST area` without a message, you enter multi-line mode:
+When using `POST topic` without a message, you enter multi-line mode:
 
 ```
 > POST general
@@ -74,9 +74,9 @@ Available to users with moderator privileges:
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `DELETE area id` | Remove a message | `DELETE general msg123` |
-| `LOCK area` | Prevent new posts in area | `LOCK general` |
-| `UNLOCK area` | Allow posts in area again | `UNLOCK general` |
+| `DELETE topic id` | Remove a message | `DELETE general msg123` |
+| `LOCK topic` | Prevent new posts in topic | `LOCK general` |
+| `UNLOCK topic` | Allow posts in topic again | `UNLOCK general` |
 | `DELLOG [page]` | View deletion audit log | `DELLOG` or `DELLOG 2` |
 
 ## Sysop Commands (Level 10)
@@ -96,13 +96,13 @@ MeshBBS shows contextual prompts that reflect your current state:
 |--------|---------|
 | `unauth>` | Not logged in |
 | `alice (lvl1)>` | Logged in as alice, user level 1 |
-| `alice@general>` | Reading messages in 'general' area |
-| `post@general>` | Posting a message to 'general' area |
+| `alice@general>` | Reading messages in 'general' topic |
+| `post@general>` | Posting a message to 'general' topic |
 
 ## Tips and Shortcuts
 
 - **First-time help**: The first time you use `HELP` after login, you'll see a shortcuts reminder
-- **Area names**: Long area names are truncated in prompts with ellipsis
+- **Topic names**: Long topic names are truncated in prompts with ellipsis
 - **Message limits**: Each message is limited to 230 bytes (optimized for Meshtastic)
 - **Session timeout**: Sessions automatically timeout after inactivity (configurable by sysop)
 - **Case sensitivity**: Commands are case-insensitive (`help`, `HELP`, and `Help` all work)
@@ -115,7 +115,7 @@ Common error messages and their meanings:
 |-------|---------|----------|
 | `Invalid username` | Username doesn't meet requirements | Use 2-20 chars, letters/numbers/underscore only |
 | `Wrong password` | Incorrect password provided | Check password or use `SETPASS` if passwordless |
-| `Area not found` | Message area doesn't exist | Use `AREAS` to see available areas |
+| `Topic not found` | Message topic doesn't exist | Use `TOPICS` to see available topics |
 | `Access denied` | Insufficient privileges | Check your user level with sysop |
 | `Message too long` | Message exceeds 230 byte limit | Shorten your message |
 | `Session timeout` | Inactive too long | Log in again |

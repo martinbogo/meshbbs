@@ -1,4 +1,4 @@
-use meshbbs::config::{Config, BbsConfig, StorageConfig, MeshtasticConfig, MessageAreaConfig, LoggingConfig};
+use meshbbs::config::{Config, BbsConfig, StorageConfig, MeshtasticConfig, MessageTopicConfig, LoggingConfig};
 use meshbbs::bbs::BbsServer;
 use chrono::{Utc, Duration};
 use std::collections::HashMap;
@@ -13,9 +13,9 @@ async fn unread_message_count_on_login() {
         bbs: BbsConfig { name: "Test".into(), sysop: "sysop".into(), location: "Loc".into(), description: "Desc".into(), max_users: 10, session_timeout: 5, welcome_message: "Welcome".into(), sysop_password_hash: None },
         meshtastic: MeshtasticConfig { port: "".into(), baud_rate: 115200, node_id: "".into(), channel: 0 },
         storage: StorageConfig { data_dir: data_dir.to_string_lossy().to_string(), max_message_size: 230, message_retention_days: 30, max_messages_per_area: 1000 },
-        message_areas: {
+        message_topics: {
             let mut m = HashMap::new();
-            m.insert("general".into(), MessageAreaConfig { name: "General".into(), description: "Gen".into(), read_level: 0, post_level: 0 });
+            m.insert("general".into(), MessageTopicConfig { name: "General".into(), description: "Gen".into(), read_level: 0, post_level: 0 });
             m
         },
         logging: LoggingConfig { level: "info".into(), file: None, security_file: None },
@@ -25,7 +25,7 @@ async fn unread_message_count_on_login() {
     let mut server = BbsServer::new(cfg_clone).await.unwrap();
 
     // Register a user and store initial last_login
-    server.test_register("alice", "passw").await.unwrap();
+    server.test_register("alice", "password123").await.unwrap();
     // Create two messages after a simulated earlier last_login
     // Manually adjust last_login backward to count messages
     // Access storage base dir indirectly by reading user then constructing path from configured data_dir

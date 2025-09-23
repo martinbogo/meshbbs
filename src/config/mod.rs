@@ -18,7 +18,7 @@
 //! - [`BbsConfig`] - Core BBS settings (name, sysop, limits)
 //! - [`MeshtasticConfig`] - Device communication settings
 //! - [`StorageConfig`] - Data persistence settings
-//! - [`MessageAreaConfig`] - Individual message area configuration
+//! - [`MessageTopicConfig`] - Individual message topic configuration
 //! - [`LoggingConfig`] - Logging and debugging settings
 //! - [`SecurityConfig`] - Security and authentication parameters
 //!
@@ -60,9 +60,9 @@
 //! baud_rate = 115200
 //! channel = 0
 //!
-//! [message_areas.general]
-//! name = "General Discussion"
-//! description = "General chat area"
+//! [message_topics.general]
+//! name = "General"
+//! description = "General discussions"
 //! read_level = 0
 //! post_level = 0
 //! ```
@@ -104,7 +104,7 @@ pub struct Config {
     pub bbs: BbsConfig,
     pub meshtastic: MeshtasticConfig,
     pub storage: StorageConfig,
-    pub message_areas: HashMap<String, MessageAreaConfig>,
+    pub message_topics: HashMap<String, MessageTopicConfig>,
     pub logging: LoggingConfig,
     pub security: Option<SecurityConfig>,
 }
@@ -126,7 +126,7 @@ pub struct StorageConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MessageAreaConfig {
+pub struct MessageTopicConfig {
     pub name: String,
     pub description: String,
     pub read_level: u8,
@@ -184,33 +184,33 @@ impl Config {
 
 impl Default for Config {
     fn default() -> Self {
-        let mut message_areas = HashMap::new();
+        let mut message_topics = HashMap::new();
         
-        message_areas.insert("general".to_string(), MessageAreaConfig {
-            name: "General Discussion".to_string(),
-            description: "General chat and discussion".to_string(),
+        message_topics.insert("general".to_string(), MessageTopicConfig {
+            name: "General".to_string(),
+            description: "General discussions".to_string(),
             read_level: 0,
             post_level: 0,
         });
         
-        message_areas.insert("technical".to_string(), MessageAreaConfig {
-            name: "Technical Support".to_string(),
-            description: "Technical help and support".to_string(),
+        message_topics.insert("community".to_string(), MessageTopicConfig {
+            name: "Community".to_string(),
+            description: "Events, meet-ups, and community discussions".to_string(),
             read_level: 0,
             post_level: 0,
         });
         
-        message_areas.insert("announcements".to_string(), MessageAreaConfig {
-            name: "Announcements".to_string(),
-            description: "Important announcements".to_string(),
+        message_topics.insert("technical".to_string(), MessageTopicConfig {
+            name: "Technical".to_string(),
+            description: "Tech, hardware, and administrative discussions".to_string(),
             read_level: 0,
-            post_level: 10,
+            post_level: 0,
         });
 
         Config {
             bbs: BbsConfig {
                 name: "MeshBBS Station".to_string(),
-                sysop: "Your Name".to_string(),
+                sysop: "sysop".to_string(),
                 location: "Your Location".to_string(),
                 description: "A bulletin board system for mesh networks".to_string(),
                 max_users: 100,
@@ -230,7 +230,7 @@ impl Default for Config {
                 message_retention_days: 30,
                 max_messages_per_area: 1000,
             },
-            message_areas,
+            message_topics,
             logging: LoggingConfig {
                 level: "info".to_string(),
                 file: Some("meshbbs.log".to_string()),

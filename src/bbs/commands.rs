@@ -2,15 +2,16 @@ use anyhow::Result;
 // use log::{debug}; // retained for future detailed command tracing
 
 use crate::storage::Storage;
-use crate::validation::{validate_user_name, validate_area_name, sanitize_message_content};
-
-fn self_area_can_read(user_level: u8, area: &str, storage: &Storage) -> bool {
-    if let Some((r,_)) = storage.get_area_levels(area) { user_level >= r } else { true }
-}
-fn self_area_can_post(user_level: u8, area: &str, storage: &Storage) -> bool {
-    if let Some((_,p)) = storage.get_area_levels(area) { user_level >= p } else { true }
-}
+use crate::validation::{validate_user_name, validate_topic_name, sanitize_message_content};
 use super::session::{Session, SessionState};
+
+fn self_topic_can_read(user_level: u8, topic: &str, storage: &Storage) -> bool {
+    if let Some((r,_)) = storage.get_topic_levels(topic) { user_level >= r } else { true }
+}
+
+fn self_topic_can_post(user_level: u8, topic: &str, storage: &Storage) -> bool {
+    if let Some((_,p)) = storage.get_topic_levels(topic) { user_level >= p } else { true }
+}
 
 /// Processes BBS commands from users
 pub struct CommandProcessor;
@@ -29,9 +30,9 @@ impl CommandProcessor {
                 if let Some(resp) = self.try_inline_message_command(session, raw, &cmd_upper, storage).await? { return Ok(resp); }
                 self.handle_main_menu(session, &cmd_upper, storage).await
             }
-            SessionState::MessageAreas => {
+            SessionState::MessageTopics => {
                 if let Some(resp) = self.try_inline_message_command(session, raw, &cmd_upper, storage).await? { return Ok(resp); }
-                self.handle_message_areas(session, &cmd_upper, storage).await
+                self.handle_message_topics(session, &cmd_upper, storage).await
             }
             SessionState::ReadingMessages => self.handle_reading_messages(session, &cmd_upper, storage).await,
             SessionState::PostingMessage => self.handle_posting_message(session, &cmd_upper, storage).await,
@@ -42,21 +43,21 @@ impl CommandProcessor {
 
     async fn try_inline_message_command(&self, session: &mut Session, raw: &str, upper: &str, storage: &mut Storage) -> Result<Option<String>> {
         if upper.starts_with("READ") {
-            let raw_area = raw.split_whitespace().nth(1).unwrap_or("general");
+            let raw_topic = raw.split_whitespace().nth(1).unwrap_or("general");
             
-            // Validate area name before using it
-            let area = match validate_area_name(raw_area) {
-                Ok(_) => raw_area.to_lowercase(),
+            // Validate topic name before using it
+            let topic = match validate_topic_name(raw_topic) {
+                Ok(_) => raw_topic.to_lowercase(),
                 Err(_) => {
-                    return Ok(Some("Invalid area name. Area names must contain only letters, numbers, and underscores.\n".to_string()));
+                    return Ok(Some("Invalid topic name. Topic names must contain only letters, numbers, and underscores.\n".to_string()));
                 }
             };
             
             // Permission check
-            if !self_area_can_read(session.user_level, &area, storage) { return Ok(Some("Permission denied.\n".into())); }
-            session.current_area = Some(area.clone());
-            let messages = storage.get_messages(&area, 10).await?;
-            let mut response = format!("Messages in {}:\n", area);
+            if !self_topic_can_read(session.user_level, &topic, storage) { return Ok(Some("Permission denied.\n".into())); }
+            session.current_topic = Some(topic.clone());
+            let messages = storage.get_messages(&topic, 10).await?;
+            let mut response = format!("Messages in {}:\n", topic);
             for msg in messages { response.push_str(&format!("{} | {}\n{}\n---\n", msg.author, msg.timestamp.format("%m/%d %H:%M"), msg.content)); }
             response.push_str(">\n");
             return Ok(Some(response));
@@ -66,26 +67,26 @@ impl CommandProcessor {
             parts.next(); // skip "POST"
             let second = parts.next();
             
-            // Parse area and message content
-            let (raw_area, text) = if let Some(s) = second { 
+            // Parse topic and message content
+            let (raw_topic, text) = if let Some(s) = second { 
                 if let Some(rest) = parts.next() { 
                     (s, rest) 
                 } else { 
-                    (session.current_area.as_ref().map(|s| s.as_str()).unwrap_or("general"), s) 
+                    (session.current_topic.as_ref().map(|s| s.as_str()).unwrap_or("general"), s) 
                 } 
             } else { 
-                (session.current_area.as_ref().map(|s| s.as_str()).unwrap_or("general"), "") 
+                (session.current_topic.as_ref().map(|s| s.as_str()).unwrap_or("general"), "") 
             };
             
             if text.is_empty() { 
-                return Ok(Some("Usage: POST [area] <message>".into())); 
+                return Ok(Some("Usage: POST [topic] <message>".into())); 
             }
             
-            // Validate area name
-            let area = match validate_area_name(raw_area) {
-                Ok(_) => raw_area.to_lowercase(),
+            // Validate topic name
+            let topic = match validate_topic_name(raw_topic) {
+                Ok(_) => raw_topic.to_lowercase(),
                 Err(_) => {
-                    return Ok(Some("Invalid area name. Area names must contain only letters, numbers, and underscores.\n".to_string()));
+                    return Ok(Some("Invalid topic name. Topic names must contain only letters, numbers, and underscores.\n".to_string()));
                 }
             };
             
@@ -99,22 +100,22 @@ impl CommandProcessor {
                 return Ok(Some("Message content cannot be empty after sanitization.\n".to_string()));
             }
             
-            if storage.is_area_locked(&area) { 
-                return Ok(Some("Area locked.\n".into())); 
+            if storage.is_topic_locked(&topic) { 
+                return Ok(Some("Topic locked.\n".into())); 
             }
             
-            if !self_area_can_post(session.user_level, &area, storage) { 
+            if !self_topic_can_post(session.user_level, &topic, storage) { 
                 return Ok(Some("Permission denied.\n".into())); 
             }
             
             let author = session.display_name();
-            storage.store_message(&area, &author, &sanitized_content).await?;
-            return Ok(Some(format!("Posted to {}.\n", area)));
+            storage.store_message(&topic, &author, &sanitized_content).await?;
+            return Ok(Some(format!("Posted to {}.\n", topic)));
         }
-        if upper == "AREAS" || upper == "LIST" {
-            let areas = storage.list_message_areas().await?;
-            let mut response = "Areas:\n".to_string();
-            for a in areas { if self_area_can_read(session.user_level, &a, storage) { response.push_str(&format!("- {}\n", a)); } }
+        if upper == "TOPICS" || upper == "LIST" {
+            let topics = storage.list_message_topics().await?;
+            let mut response = "Topics:\n".to_string();
+            for t in topics { if self_topic_can_read(session.user_level, &t, storage) { response.push_str(&format!("- {}\n", t)); } }
             response.push_str(">\n");
             return Ok(Some(response));
         }
@@ -162,11 +163,11 @@ impl CommandProcessor {
     async fn handle_main_menu(&self, session: &mut Session, cmd: &str, storage: &mut Storage) -> Result<String> {
         match &cmd[..] {
             "M" | "MESSAGES" => {
-                session.state = SessionState::MessageAreas;
-                let areas = storage.list_message_areas().await?;
-                let mut response = "Message Areas:\n".to_string();
-                for (i, area) in areas.iter().enumerate() { response.push_str(&format!("{}. {}\n", i + 1, area)); }
-                response.push_str("Type number to select area, or [R]ead [P]ost [L]ist [B]ack\n");
+                session.state = SessionState::MessageTopics;
+                let topics = storage.list_message_topics().await?;
+                let mut response = "Message Topics:\n".to_string();
+                for (i, topic) in topics.iter().enumerate() { response.push_str(&format!("{}. {}\n", i + 1, topic)); }
+                response.push_str("Type number to select topic, or [R]ead [P]ost [L]ist [B]ack\n");
                 Ok(response)
             }
             "U" | "USER" => {
@@ -187,7 +188,7 @@ impl CommandProcessor {
                     return Ok(out);
                 }
                 out.push_str("ACCT: SETPASS <new> | CHPASS <old> <new> | LOGOUT\n");
-                out.push_str("MSG: M=menu READ <a> POST <a> <txt> AREAS/LIST\n");
+                out.push_str("MSG: M=menu READ <t> POST <t> <txt> TOPICS/LIST\n");
                 if session.user_level >= 5 { out.push_str("MOD: DELETE <a> <id> LOCK/UNLOCK <a> DELLOG [p]\n"); }
                 if session.user_level >= 10 { out.push_str("ADM: PROMOTE <u> DEMOTE <u>\n"); }
                 out.push_str("OTHER: U=User Q=Quit\n");
@@ -315,22 +316,22 @@ impl CommandProcessor {
         }
     }
 
-    async fn handle_message_areas(&self, session: &mut Session, cmd: &str, storage: &mut Storage) -> Result<String> {
-        // Check if command is a number for area selection
+    async fn handle_message_topics(&self, session: &mut Session, cmd: &str, storage: &mut Storage) -> Result<String> {
+        // Check if command is a number for topic selection
         if let Ok(num) = cmd.parse::<usize>() {
             if num >= 1 {
-                let areas = storage.list_message_areas().await?;
-                if num <= areas.len() {
-                    let selected_area = &areas[num - 1];
+                let topics = storage.list_message_topics().await?;
+                if num <= topics.len() {
+                    let selected_topic = &topics[num - 1];
                     session.state = SessionState::ReadingMessages;
-                    session.current_area = Some(selected_area.clone());
-                    let messages = storage.get_messages(selected_area, 10).await?;
-                    let mut response = format!("Recent messages in {}:\n", selected_area);
+                    session.current_topic = Some(selected_topic.clone());
+                    let messages = storage.get_messages(selected_topic, 10).await?;
+                    let mut response = format!("Recent messages in {}:\n", selected_topic);
                     for msg in messages { response.push_str(&format!("From: {} | {}\n{}\n---\n", msg.author, msg.timestamp.format("%m/%d %H:%M"), msg.content)); }
                     response.push_str("[N]ext [P]rev [R]eply [B]ack\n");
                     return Ok(response);
                 } else {
-                    return Ok(format!("Invalid area number. Choose 1-{}\n", areas.len()));
+                    return Ok(format!("Invalid topic number. Choose 1-{}\n", topics.len()));
                 }
             }
         }
@@ -338,42 +339,42 @@ impl CommandProcessor {
         match &cmd[..] {
             "R" | "READ" => {
                 session.state = SessionState::ReadingMessages;
-                // Default to first available area instead of hardcoded "general"
-                let areas = storage.list_message_areas().await?;
-                let default_area = areas.first().unwrap_or(&"general".to_string()).clone();
-                session.current_area = Some(default_area.clone());
-                let messages = storage.get_messages(&default_area, 10).await?;
-                let mut response = format!("Recent messages in {}:\n", default_area);
+                // Default to first available topic instead of hardcoded "general"
+                let topics = storage.list_message_topics().await?;
+                let default_topic = topics.first().unwrap_or(&"general".to_string()).clone();
+                session.current_topic = Some(default_topic.clone());
+                let messages = storage.get_messages(&default_topic, 10).await?;
+                let mut response = format!("Recent messages in {}:\n", default_topic);
                 for msg in messages { response.push_str(&format!("From: {} | {}\n{}\n---\n", msg.author, msg.timestamp.format("%m/%d %H:%M"), msg.content)); }
                 response.push_str("[N]ext [P]rev [R]eply [B]ack\n");
                 Ok(response)
             }
             "P" | "POST" => { session.state = SessionState::PostingMessage; Ok("Enter your message (end with . on a line):\n".to_string()) }
             "L" | "LIST" => {
-                let areas = storage.list_message_areas().await?;
-                let mut response = "Available areas:\n".to_string();
-                for area in areas { response.push_str(&format!("- {}\n", area)); }
+                let topics = storage.list_message_topics().await?;
+                let mut response = "Available topics:\n".to_string();
+                for topic in topics { response.push_str(&format!("- {}\n", topic)); }
                 response.push_str("\n");
                 Ok(response)
             }
             "B" | "BACK" => { session.state = SessionState::MainMenu; Ok("Main Menu:\n[M]essages [U]ser [Q]uit\n".to_string()) }
-            _ => Ok("Commands: [R]ead [P]ost [L]ist [B]ack or type area number\n".to_string())
+            _ => Ok("Commands: [R]ead [P]ost [L]ist [B]ack or type topic number\n".to_string())
         }
     }
 
     async fn handle_reading_messages(&self, session: &mut Session, cmd: &str, _storage: &mut Storage) -> Result<String> {
         match &cmd[..] {
-            "B" | "BACK" => { session.state = SessionState::MessageAreas; Ok("Message Areas:\n[R]ead [P]ost [L]ist [B]ack\n".to_string()) }
+            "B" | "BACK" => { session.state = SessionState::MessageTopics; Ok("Message Topics:\n[R]ead [P]ost [L]ist [B]ack\n".to_string()) }
             _ => Ok("Commands: [N]ext [P]rev [R]eply [B]ack\n".to_string())
         }
     }
 
     async fn handle_posting_message(&self, session: &mut Session, cmd: &str, storage: &mut Storage) -> Result<String> {
         if cmd == "." {
-            session.state = SessionState::MessageAreas;
-            Ok("Message posted!\nMessage Areas:\n[R]ead [P]ost [L]ist [B]ack\n".to_string())
+            session.state = SessionState::MessageTopics;
+            Ok("Message posted!\nMessage Topics:\n[R]ead [P]ost [L]ist [B]ack\n".to_string())
         } else {
-            let area = session.current_area.as_ref().unwrap_or(&"general".to_string()).clone();
+            let topic = session.current_topic.as_ref().unwrap_or(&"general".to_string()).clone();
             
             // Sanitize message content before storing
             let sanitized_content = match sanitize_message_content(cmd, 10000) { // 10KB limit
@@ -386,9 +387,9 @@ impl CommandProcessor {
             }
             
             let author = session.display_name();
-            storage.store_message(&area, &author, &sanitized_content).await?;
-            session.state = SessionState::MessageAreas;
-            Ok("Message posted!\nMessage Areas:\n[R]ead [P]ost [L]ist [B]ack\n".to_string())
+            storage.store_message(&topic, &author, &sanitized_content).await?;
+            session.state = SessionState::MessageTopics;
+            Ok("Message posted!\nMessage Topics:\n[R]ead [P]ost [L]ist [B]ack\n".to_string())
         }
     }
 

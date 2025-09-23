@@ -111,8 +111,8 @@ pub struct BbsServer {
 const VERBOSE_HELP: &str = concat!(
     "MeshBBS Extended Help\n",
     "Authentication:\n  REGISTER <name> <pass>  Create account\n  LOGIN <name> <pass>     Log in\n  SETPASS <new>           Set first password\n  CHPASS <old> <new>      Change password\n  LOGOUT                  End session\n\n",
-    "Messages & Areas:\n  AREAS / LIST            List areas\n  READ <area>             Read recent messages\n  POST <area> <text>      Post inline\n  POST then multiline '.' End with '.' line\n  DELETE <area> <id>      (mod) Delete message\n  LOCK/UNLOCK <area>      (mod) Lock area\n\n",
-    "Navigation Shortcuts:\n  M   Message areas menu\n  U   User menu\n  Q   Quit\n  B   Back to previous menu\n\n",
+    "Messages & Topics:\n  TOPICS / LIST           List topics\n  READ <topic>            Read recent messages\n  POST <topic> <text>     Post inline\n  POST then multiline '.' End with '.' line\n  DELETE <topic> <id>     (mod) Delete message\n  LOCK/UNLOCK <topic>     (mod) Lock topic\n\n",
+    "Navigation Shortcuts:\n  M   Message topics menu\n  U   User menu\n  Q   Quit\n  B   Back to previous menu\n\n",
     "User Info / Admin:\n  PROMOTE <user>          (sysop) Raise to moderator\n  DEMOTE <user>           (sysop) Lower to base user\n  DELLOG [page]           (mod) Deletion log\n  ADMINLOG [page]         (mod) Admin audit log\n  USERS [pattern]         (mod) List users, optional search\n  WHO                     (mod) Show logged in users\n  USERINFO <user>         (mod) Detailed user info\n  SESSIONS                (mod) List all sessions\n  KICK <user>             (mod) Force logout user\n  BROADCAST <msg>         (mod) Message all users\n  ADMIN/DASHBOARD         (mod) System overview\n\n",
     "Misc:\n  HELP        Compact help\n  HELP+ / HELP V  Verbose help (this)\n  Weather (public)  Send WEATHER on public channel\n\n",
     "Limits:\n  Max frame ~230 bytes; verbose help auto-splits.\n"
@@ -156,7 +156,7 @@ impl BbsServer {
     /// - The storage system cannot be initialized
     /// - The data directory cannot be created or accessed
     /// - Argon2 parameters are invalid (if custom security config provided)
-    /// - Message area configuration is malformed
+    /// - Message topic configuration is malformed
     ///
     /// # Examples
     ///
@@ -177,7 +177,7 @@ impl BbsServer {
     ///
     /// The function performs comprehensive validation including:
     /// - Sysop name format and reserved name checking
-    /// - Message area access level validation
+    /// - Message topic access level validation
     /// - Storage directory permissions
     /// - Security parameter validation
     pub async fn new(config: Config) -> Result<Self> {
@@ -221,10 +221,10 @@ impl BbsServer {
             }
         };
         
-        // Populate area level map from config.message_areas
+        // Populate topic level map from config.message_topics
         let mut level_map = std::collections::HashMap::new();
-        for (k,v) in &config.message_areas { level_map.insert(k.clone(), (v.read_level, v.post_level)); }
-        storage.set_area_levels(level_map);
+        for (k,v) in &config.message_topics { level_map.insert(k.clone(), (v.read_level, v.post_level)); }
+        storage.set_topic_levels(level_map);
     // Apply max message size clamp (protocol cap 230 bytes)
     storage.set_max_message_bytes(config.storage.max_message_size);
 
@@ -587,33 +587,33 @@ impl BbsServer {
     #[allow(dead_code)]
     pub async fn test_update_level(&mut self, username: &str, lvl: u8) -> Result<()> { if username == self.config.bbs.sysop { return Err(anyhow::anyhow!("Cannot modify sysop level")); } self.storage.update_user_level(username, lvl, "test").await.map(|_| ()) }
     #[allow(dead_code)]
-    pub async fn test_store_message(&mut self, area: &str, author: &str, content: &str) -> Result<String> { self.storage.store_message(area, author, content).await }
+    pub async fn test_store_message(&mut self, topic: &str, author: &str, content: &str) -> Result<String> { self.storage.store_message(topic, author, content).await }
     #[allow(dead_code)]
-    pub async fn test_get_messages(&self, area: &str, limit: usize) -> Result<Vec<crate::storage::Message>> { self.storage.get_messages(area, limit).await }
+    pub async fn test_get_messages(&self, topic: &str, limit: usize) -> Result<Vec<crate::storage::Message>> { self.storage.get_messages(topic, limit).await }
     #[allow(dead_code)]
-    pub fn test_is_locked(&self, area: &str) -> bool { self.storage.is_area_locked(area) }
+    pub fn test_is_locked(&self, topic: &str) -> bool { self.storage.is_topic_locked(topic) }
     #[allow(dead_code)]
     pub async fn test_deletion_page(&self, page: usize, size: usize) -> Result<Vec<crate::storage::DeletionAuditEntry>> { self.storage.get_deletion_audit_page(page, size).await }
     // (duplicate definition removed; consolidated above)
 
     // Moderator / sysop internal helpers
-    pub async fn moderator_delete_message(&mut self, area: &str, id: &str, actor: &str) -> Result<bool> {
-        let deleted = self.storage.delete_message(area, id).await?;
+    pub async fn moderator_delete_message(&mut self, topic: &str, id: &str, actor: &str) -> Result<bool> {
+        let deleted = self.storage.delete_message(topic, id).await?;
         if deleted {
-            sec_log!("DELETE by {}: {}/{}", actor, area, id);
+            sec_log!("DELETE by {}: {}/{}", actor, topic, id);
             // Fire and forget audit append; if it fails, surface as error to caller
-            self.storage.append_deletion_audit(area, id, actor).await?;
+            self.storage.append_deletion_audit(topic, id, actor).await?;
         }
         Ok(deleted)
     }
-    pub async fn moderator_lock_area(&mut self, area: &str, actor: &str) -> Result<()> {
-        self.storage.lock_area_persist(area).await?;
-        sec_log!("LOCK by {}: {}", actor, area);
+    pub async fn moderator_lock_topic(&mut self, topic: &str, actor: &str) -> Result<()> {
+        self.storage.lock_topic_persist(topic).await?;
+        sec_log!("LOCK by {}: {}", actor, topic);
         Ok(())
     }
-    pub async fn moderator_unlock_area(&mut self, area: &str, actor: &str) -> Result<()> {
-        self.storage.unlock_area_persist(area).await?;
-        sec_log!("UNLOCK by {}: {}", actor, area);
+    pub async fn moderator_unlock_topic(&mut self, topic: &str, actor: &str) -> Result<()> {
+        self.storage.unlock_topic_persist(topic).await?;
+        sec_log!("UNLOCK by {}: {}", actor, topic);
         Ok(())
     }
 
@@ -935,7 +935,7 @@ impl BbsServer {
                             match self.storage.get_deletion_audit_page(page, 10).await {
                                 Ok(entries) => {
                                     if entries.is_empty() { deferred_reply = Some("No entries.\n".into()); }
-                                    else { let mut out = String::from("Deletion Log:\n"); for e in entries { out.push_str(&format!("{} {} {} {}\n", e.timestamp, e.actor, e.area, e.id)); } deferred_reply = Some(out); }
+                                    else { let mut out = String::from("Deletion Log:\n"); for e in entries { out.push_str(&format!("{} {} {} {}\n", e.timestamp, e.actor, e.topic, e.id)); } deferred_reply = Some(out); }
                                 }
                                 Err(e) => deferred_reply = Some(format!("Failed: {}\n", e)),
                             }
@@ -1019,7 +1019,7 @@ impl BbsServer {
                                     let duration = session.session_duration().num_minutes();
                                     let state = match session.state {
                                         super::session::SessionState::MainMenu => "Main Menu",
-                                        super::session::SessionState::MessageAreas => "Message Areas",
+                                        super::session::SessionState::MessageTopics => "Message Areas",
                                         super::session::SessionState::ReadingMessages => "Reading",
                                         super::session::SessionState::PostingMessage => "Posting",
                                         super::session::SessionState::UserMenu => "User Menu",
@@ -1072,7 +1072,7 @@ impl BbsServer {
                                     super::session::SessionState::Connected => "Connected",
                                     super::session::SessionState::LoggingIn => "Logging In",
                                     super::session::SessionState::MainMenu => "Main Menu",
-                                    super::session::SessionState::MessageAreas => "Message Areas",
+                                    super::session::SessionState::MessageTopics => "Message Areas",
                                     super::session::SessionState::ReadingMessages => "Reading",
                                     super::session::SessionState::PostingMessage => "Posting",
                                     super::session::SessionState::UserMenu => "User Menu",
@@ -1167,10 +1167,10 @@ impl BbsServer {
                         }
                     }
                     PostAction::Lock{area,actor} => {
-                        if let Err(e) = self.moderator_lock_area(&area, &actor).await { deferred_reply.get_or_insert(format!("Lock failed: {}\n", e)); }
+                        if let Err(e) = self.moderator_lock_topic(&area, &actor).await { deferred_reply.get_or_insert(format!("Lock failed: {}\n", e)); }
                     }
                     PostAction::Unlock{area,actor} => {
-                        if let Err(e) = self.moderator_unlock_area(&area, &actor).await { deferred_reply.get_or_insert(format!("Unlock failed: {}\n", e)); }
+                        if let Err(e) = self.moderator_unlock_topic(&area, &actor).await { deferred_reply.get_or_insert(format!("Unlock failed: {}\n", e)); }
                     }
                     PostAction::Broadcast{message,sender} => {
                         match self.broadcast_message(&message, &sender).await {

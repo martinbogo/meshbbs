@@ -14,18 +14,18 @@ async fn numbered_area_selection() {
     // Enter message areas
     let areas_output = meshbbs::bbs::commands::CommandProcessor::new().process(&mut session, "M", &mut storage).await.unwrap();
     assert!(areas_output.contains("1. general") || areas_output.contains("1."));
-    assert!(areas_output.contains("Type number to select area"));
+    assert!(areas_output.contains("Type number to select area") || areas_output.contains("Type number to select topic"));
     
     // Test selecting area by number
     let area1_output = meshbbs::bbs::commands::CommandProcessor::new().process(&mut session, "1", &mut storage).await.unwrap();
     assert!(area1_output.contains("Recent messages in") || area1_output.contains("Messages in"));
     
     // Reset to message areas state
-    session.state = meshbbs::bbs::session::SessionState::MessageAreas;
+    session.state = meshbbs::bbs::session::SessionState::MessageTopics;
     
     // Test invalid area number
     let invalid_output = meshbbs::bbs::commands::CommandProcessor::new().process(&mut session, "99", &mut storage).await.unwrap();
-    assert!(invalid_output.contains("Invalid area number"));
+    assert!(invalid_output.contains("Invalid area number") || invalid_output.contains("Invalid topic number"));
     
     // Test that old R command still works
     let r_output = meshbbs::bbs::commands::CommandProcessor::new().process(&mut session, "R", &mut storage).await.unwrap();

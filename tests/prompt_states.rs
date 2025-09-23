@@ -13,7 +13,7 @@ async fn prompt_unauth_then_login() {
     assert_eq!(session.build_prompt(), "unauth>");
     session.login("alice".into(), 1).await.unwrap();
     assert!(session.build_prompt().starts_with("alice (lvl1)"));
-    session.current_area = Some("general".into());
+    session.current_topic = Some("general".into());
     session.state = meshbbs::bbs::session::SessionState::ReadingMessages;
     let p = session.build_prompt();
     assert!(p.starts_with("alice@general"));
