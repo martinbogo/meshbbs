@@ -98,7 +98,7 @@ impl CommandProcessor {
                 let areas = storage.list_message_areas().await?;
                 let mut response = "Message Areas:\n".to_string();
                 for (i, area) in areas.iter().enumerate() { response.push_str(&format!("{}. {}\n", i + 1, area)); }
-                response.push_str("[R]ead [P]ost [L]ist [B]ack\n");
+                response.push_str("Type number to select area, or [R]ead [P]ost [L]ist [B]ack\n");
                 Ok(response)
             }
             "U" | "USER" => {
@@ -133,12 +133,34 @@ impl CommandProcessor {
     }
 
     async fn handle_message_areas(&self, session: &mut Session, cmd: &str, storage: &mut Storage) -> Result<String> {
+        // Check if command is a number for area selection
+        if let Ok(num) = cmd.parse::<usize>() {
+            if num >= 1 {
+                let areas = storage.list_message_areas().await?;
+                if num <= areas.len() {
+                    let selected_area = &areas[num - 1];
+                    session.state = SessionState::ReadingMessages;
+                    session.current_area = Some(selected_area.clone());
+                    let messages = storage.get_messages(selected_area, 10).await?;
+                    let mut response = format!("Recent messages in {}:\n", selected_area);
+                    for msg in messages { response.push_str(&format!("From: {} | {}\n{}\n---\n", msg.author, msg.timestamp.format("%m/%d %H:%M"), msg.content)); }
+                    response.push_str("[N]ext [P]rev [R]eply [B]ack\n");
+                    return Ok(response);
+                } else {
+                    return Ok(format!("Invalid area number. Choose 1-{}\n", areas.len()));
+                }
+            }
+        }
+
         match &cmd[..] {
             "R" | "READ" => {
                 session.state = SessionState::ReadingMessages;
-                session.current_area = Some("general".to_string());
-                let messages = storage.get_messages("general", 10).await?;
-                let mut response = "Recent messages in General:\n".to_string();
+                // Default to first available area instead of hardcoded "general"
+                let areas = storage.list_message_areas().await?;
+                let default_area = areas.first().unwrap_or(&"general".to_string()).clone();
+                session.current_area = Some(default_area.clone());
+                let messages = storage.get_messages(&default_area, 10).await?;
+                let mut response = format!("Recent messages in {}:\n", default_area);
                 for msg in messages { response.push_str(&format!("From: {} | {}\n{}\n---\n", msg.author, msg.timestamp.format("%m/%d %H:%M"), msg.content)); }
                 response.push_str("[N]ext [P]rev [R]eply [B]ack\n");
                 Ok(response)
@@ -152,7 +174,7 @@ impl CommandProcessor {
                 Ok(response)
             }
             "B" | "BACK" => { session.state = SessionState::MainMenu; Ok("Main Menu:\n[M]essages [U]ser [Q]uit\n".to_string()) }
-            _ => Ok("Commands: [R]ead [P]ost [L]ist [B]ack\n".to_string())
+            _ => Ok("Commands: [R]ead [P]ost [L]ist [B]ack or type area number\n".to_string())
         }
     }
 
