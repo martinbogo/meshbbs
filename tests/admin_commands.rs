@@ -90,12 +90,12 @@ async fn broadcast_and_kick_commands() {
     let mut server = BbsServer::new(cfg).await.unwrap();
     
     // Create users
-    server.test_register("admin", "password").await.unwrap();
-    server.test_update_level("admin", 5).await.unwrap(); // Make admin a moderator
+    server.test_register("moderator", "password").await.unwrap();
+    server.test_update_level("moderator", 5).await.unwrap(); // Make moderator a moderator
     
     // Create session
     let mut admin_session = meshbbs::bbs::session::Session::new("admin_session".into(), "admin_node".into());
-    admin_session.login("admin".into(), 5).await.unwrap();
+    admin_session.login("moderator".into(), 5).await.unwrap();
     let admin_node = admin_session.node_id.clone();
     server.test_insert_session(admin_session);
     
