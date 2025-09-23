@@ -1,0 +1,57 @@
+# GitHub Pages Configuration for MeshBBS Documentation
+
+title: MeshBBS Documentation
+description: Comprehensive documentation for MeshBBS - A Bulletin Board System for Meshtastic mesh networks
+baseurl: "/meshbbs"
+url: "https://martinbogo.github.io"
+
+# Theme
+theme: minima
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
+  - jekyll-seo-tag
+
+# Markdown settings
+markdown: kramdown
+highlighter: rouge
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+
+# Navigation
+header_pages:
+  - getting-started/installation.md
+  - user-guide/commands.md
+  - administration/setup.md
+  - hardware/compatibility.md
+
+# Collections
+collections:
+  docs:
+    output: true
+    permalink: /:collection/:name/
+
+# Default settings
+defaults:
+  - scope:
+      path: ""
+      type: "pages"
+    values:
+      layout: "page"
+  - scope:
+      path: ""
+      type: "docs"
+    values:
+      layout: "page"
+
+# Exclude from processing
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor/bundle/
+  - vendor/cache/
+  - vendor/gems/
+  - vendor/ruby/
+  - README.md

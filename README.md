@@ -12,7 +12,7 @@
   
   *Bringing the classic BBS experience to modern mesh networks*
   
-  [🚀 Quick Start](#quick-start) • [📖 Documentation](#usage) • [🤝 Contributing](#contributing) • [💬 Support](#support)
+  [🚀 Quick Start](#quick-start) • [📖 User Guide](#usage) • [📚 Documentation](docs/) • [🔧 API Reference](https://martinbogo.github.io/meshbbs/meshbbs/) • [🤝 Contributing](#contributing) • [💬 Support](#support)
 </div>
 
 ---
@@ -22,6 +22,18 @@
 MeshBBS revolutionizes communication on mesh networks by bringing the beloved Bulletin Board System experience to Meshtastic devices. Exchange messages, participate in forums, and build communities over long-range, low-power radio networks—all without traditional internet infrastructure.
 
 Perfect for emergency communications, remote areas, outdoor adventures, and building resilient community networks.
+
+## 📚 Documentation
+
+Comprehensive documentation is available in the [`docs/`](docs/) directory and hosted at [GitHub Pages](https://martinbogo.github.io/meshbbs):
+
+- **[Installation Guide](docs/getting-started/installation.md)** - Complete setup instructions
+- **[Command Reference](docs/user-guide/commands.md)** - All available commands and usage
+- **[API Documentation](https://martinbogo.github.io/meshbbs/meshbbs/)** - Generated Rust API docs
+- **[Administration Guide](docs/administration/)** - BBS setup and management
+- **[Hardware Compatibility](docs/hardware/)** - Supported devices and setup
+
+> The documentation is maintained alongside the code and automatically updated with each release.
 
 ## ✨ Features
 
@@ -478,7 +490,7 @@ Special thanks to the projects and communities that make MeshBBS possible:
 
 [![Email](https://img.shields.io/badge/Email-martinbogo%40gmail.com-blue?style=for-the-badge&logo=gmail)](mailto:martinbogo@gmail.com)
 [![Issues](https://img.shields.io/badge/Issues-GitHub-orange?style=for-the-badge&logo=github)](https://github.com/martinbogo/meshbbs/issues)
-[![Wiki](https://img.shields.io/badge/Docs-GitHub%20Wiki-green?style=for-the-badge&logo=gitbook)](https://github.com/martinbogo/meshbbs/wiki)
+[![Docs](https://img.shields.io/badge/Documentation-GitHub%20Pages-green?style=for-the-badge&logo=gitbook)](https://martinbogo.github.io/meshbbs)
 
 </div>
 
@@ -493,7 +505,8 @@ Found a bug? Please [open an issue](https://github.com/martinbogo/meshbbs/issues
 Have an idea? We'd love to hear it! [Start a discussion](https://github.com/martinbogo/meshbbs/discussions) or create an issue.
 
 ### 🆘 Getting Help
-- Check the [Wiki](https://github.com/martinbogo/meshbbs/wiki) for documentation
+- Check the [Documentation](docs/) for comprehensive guides
+- Browse the [API Reference](https://martinbogo.github.io/meshbbs/meshbbs/) for technical details
 - Search existing [Issues](https://github.com/martinbogo/meshbbs/issues) for solutions
 - Join the discussion in [GitHub Discussions](https://github.com/martinbogo/meshbbs/discussions)
 
