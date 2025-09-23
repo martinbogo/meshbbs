@@ -3,13 +3,13 @@
 
 [bbs]
 name = "MeshBBS Station"
-sysop = "Your Name"
-location = "Your Location"
-zipcode = "97210"
-description = "A bulletin board system for mesh networks"
+sysop = "sysop"
+location = "Los Angeles"
+zipcode = "90210"
+description = "Describe what your BBS is for here in one line"
 max_users = 100
 session_timeout = 10 # minutes of inactivity before automatic logout
-welcome_message = "Welcome to MeshBBS! Type HELP for commands."
+welcome_message = "Welcome to this Mesh BBS"
 
 [meshtastic]
 # Serial port for Meshtastic device (Linux/macOS: /dev/ttyUSB0, Windows: COM3)
@@ -51,15 +51,6 @@ name = "Announcements"
 description = "Important announcements"
 read_level = 0
 post_level = 10  # Higher level required to post
-
-[web]
-# Enable web interface for administration
-enabled = false
-bind_address = "127.0.0.1"
-port = 8080
-# Basic auth for admin interface
-admin_username = "admin"
-admin_password = "changeme"
 
 [logging]
 level = "info"
