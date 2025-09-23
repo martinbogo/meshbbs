@@ -648,16 +648,29 @@ impl BbsServer {
                     if (current as u32) >= self.config.bbs.max_users {
                         let _ = self.send_message(&node_key, "All available sessions are in use, please wait and try again later.").await;
                     } else {
-                        trace!("Auto-applying pending public login '{}' to new DM session {}", username, node_key);
-                        session.login(username.clone(), 1).await?;
-                        if let Ok(Some(user_before)) = self.storage.get_user(&username).await {
-                            let prev_last = user_before.last_login;
-                            let unread = self.storage.count_messages_since(prev_last).await.unwrap_or(0);
-                            let _ = self.storage.record_user_login(&username).await; // update last_login
-                            let summary = Self::format_unread_line(unread);
-                            let _ = self.send_session_message(&node_key, &format!("Welcome, {} you are now logged in.\n{}", username, summary), true).await;
+                        // Security check: verify if user has a password set
+                        if let Ok(Some(user)) = self.storage.get_user(&username).await {
+                            if user.password_hash.is_some() {
+                                // User has a password - require proper authentication
+                                trace!("User '{}' has password, requiring authentication via DM for node {}", username, node_key);
+                                let _ = self.send_message(&node_key, &format!("Welcome! To complete login as '{}', please enter: LOGIN {} <password>", username, username)).await;
+                                // Put the pending login back so they can complete it with password
+                                self.public_state.set_pending(&node_key, username);
+                            } else {
+                                // User has no password - allow auto-login for backward compatibility
+                                trace!("Auto-applying pending public login '{}' (no password) to new DM session {}", username, node_key);
+                                session.login(username.clone(), 1).await?;
+                                let prev_last = user.last_login;
+                                let unread = self.storage.count_messages_since(prev_last).await.unwrap_or(0);
+                                let _ = self.storage.record_user_login(&username).await; // update last_login
+                                let summary = Self::format_unread_line(unread);
+                                let _ = self.send_session_message(&node_key, &format!("Welcome, {} you are now logged in.\n{}", username, summary), true).await;
+                            }
                         } else {
-                            // New user case shouldn't normally happen here, fallback to zero unread
+                            // New user case - create user without password (they can set one later)
+                            trace!("Auto-applying pending public login '{}' (new user) to new DM session {}", username, node_key);
+                            session.login(username.clone(), 1).await?;
+                            self.storage.create_or_update_user(&username, &node_key).await?;
                             let summary = Self::format_unread_line(0);
                             let _ = self.send_session_message(&node_key, &format!("Welcome, {} you are now logged in.\n{}", username, summary), true).await;
                         }
