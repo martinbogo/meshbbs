@@ -39,8 +39,8 @@
 //!
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {
-//!     let config = Config::from_file("config.toml")?;
-//!     let server = BbsServer::new(config).await?;
+//!     let config = Config::load("config.toml").await?;
+//!     let mut server = BbsServer::new(config).await?;
 //!     server.run().await
 //! }
 //! ```

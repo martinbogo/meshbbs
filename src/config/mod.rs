@@ -30,15 +30,14 @@
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {
 //!     // Load configuration from file
-//!     let config = Config::from_file("config.toml").await?;
+//!     let config = Config::load("config.toml").await?;
 //!     
 //!     // Access configuration sections
 //!     println!("BBS Name: {}", config.bbs.name);
 //!     println!("Serial Port: {}", config.meshtastic.port);
 //!     
 //!     // Create default configuration
-//!     let default_config = Config::default();
-//!     default_config.save_to_file("config.toml").await?;
+//!     Config::create_default("config.toml").await?;
 //!     
 //!     Ok(())
 //! }

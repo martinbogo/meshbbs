@@ -20,10 +20,10 @@
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {
 //!     // Load configuration
-//!     let config = Config::from_file("config.toml")?;
+//!     let config = Config::load("config.toml").await?;
 //!     
 //!     // Create and start BBS server
-//!     let server = BbsServer::new(config).await?;
+//!     let mut server = BbsServer::new(config).await?;
 //!     server.run().await?;
 //!     
 //!     Ok(())

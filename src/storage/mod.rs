@@ -31,17 +31,17 @@
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {
 //!     // Initialize storage system
-//!     let storage = Storage::new("./data", Default::default()).await?;
+//!     let mut storage = Storage::new("./data").await?;
 //!     
 //!     // Store a message
-//!     let message = storage.store_message(
+//!     let message_id = storage.store_message(
 //!         "general",
 //!         "alice",
 //!         "Hello, mesh network!"
 //!     ).await?;
 //!     
 //!     // Retrieve recent messages
-//!     let messages = storage.get_recent_messages("general", 10).await?;
+//!     let messages = storage.get_messages("general", 10).await?;
 //!     
 //!     Ok(())
 //! }

@@ -60,10 +60,10 @@ pub(crate) use sec_log;
 /// #[tokio::main]
 /// async fn main() -> anyhow::Result<()> {
 ///     // Load configuration
-///     let config = Config::from_file("config.toml").await?;
+///     let config = Config::load("config.toml").await?;
 ///     
 ///     // Create and initialize server
-///     let server = BbsServer::new(config).await?;
+///     let mut server = BbsServer::new(config).await?;
 ///     
 ///     // Run the server (blocks until shutdown)
 ///     server.run().await?;
@@ -166,7 +166,7 @@ impl BbsServer {
     ///
     /// #[tokio::main]
     /// async fn main() -> anyhow::Result<()> {
-    ///     let config = Config::from_file("config.toml").await?;
+    ///     let config = Config::load("config.toml").await?;
     ///     let server = BbsServer::new(config).await?;
     ///     // Server is now ready to run
     ///     Ok(())
@@ -298,7 +298,7 @@ impl BbsServer {
     ///
     /// #[tokio::main]
     /// async fn main() -> anyhow::Result<()> {
-    ///     let config = Config::from_file("config.toml").await?;
+    ///     let config = Config::load("config.toml").await?;
     ///     let mut server = BbsServer::new(config).await?;
     ///     
     ///     // This will run until the server is shut down

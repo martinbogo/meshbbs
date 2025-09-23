@@ -15,20 +15,22 @@
 //!
 //! ### Text Mode (Default)
 //! ```rust,no_run
+//! # #[cfg(feature = "serial")]
+//! # {
 //! use meshbbs::meshtastic::MeshtasticDevice;
 //!
-//! // Create device connection
-//! let mut device = MeshtasticDevice::new("/dev/ttyUSB0", 115200)?;
-//! 
-//! // Receive text events
-//! while let Some(event) = device.receive_message().await? {
-//!     match event {
-//!         TextEvent::Message { from, to, text, .. } => {
-//!             println!("Message from {}: {}", from, text);
-//!         }
-//!         _ => {}
+//! #[tokio::main]
+//! async fn main() -> anyhow::Result<()> {
+//!     // Create device connection
+//!     let mut device = MeshtasticDevice::new("/dev/ttyUSB0", 115200).await?;
+//!     
+//!     // Receive text messages
+//!     while let Some(message) = device.receive_message().await? {
+//!         println!("Received: {}", message);
 //!     }
+//!     Ok(())
 //! }
+//! # }
 //! ```
 //!
 //! ### Protocol Buffer Mode (with `meshtastic-proto` feature)
