@@ -1,73 +1,100 @@
-# MeshBBS
+<div align="center">
+  <img src="images/meshbbs_logo.png" alt="MeshBBS Logo" width="200" height="200">
+  
+  # MeshBBS
+  
+  **A modern Bulletin Board System for Meshtastic mesh networks**
+  
+  [![Version](https://img.shields.io/badge/version-0.9.20-blue.svg)](https://github.com/martinbogo/meshbbs/releases)
+  [![License](https://img.shields.io/badge/license-CC--BY--NC--4.0-green.svg)](LICENSE)
+  [![Language](https://img.shields.io/badge/language-Rust-orange.svg)](https://www.rust-lang.org/)
+  [![Platform](https://img.shields.io/badge/platform-Meshtastic-purple.svg)](https://meshtastic.org/)
+  
+  *Bringing the classic BBS experience to modern mesh networks*
+  
+  [🚀 Quick Start](#quick-start) • [📖 Documentation](#usage) • [🤝 Contributing](#contributing) • [💬 Support](#support)
+</div>
 
-A modern Bulletin Board System (BBS) designed for Meshtastic mesh networks, written in Rust.
+---
 
-## Overview
+## 🌟 Overview
 
-MeshBBS brings the classic BBS experience to modern mesh networks, allowing users to exchange messages and communicate over long-range, low-power radio networks using Meshtastic devices. This project aims to create resilient communication systems that work without traditional internet infrastructure.
+MeshBBS revolutionizes communication on mesh networks by bringing the beloved Bulletin Board System experience to Meshtastic devices. Exchange messages, participate in forums, and build communities over long-range, low-power radio networks—all without traditional internet infrastructure.
 
-## Features
+Perfect for emergency communications, remote areas, outdoor adventures, and building resilient community networks.
 
-- 📡 **Meshtastic Integration**: Direct communication with Meshtastic devices via serial or Bluetooth
-- 💬 **Message Boards**: Traditional BBS-style message areas and forums
-- 🎯 **Dynamic Contextual Prompts**: Smart prompts showing current state (`unauth>`, `user@area>`, `post@area>`)
-- 📚 **Enhanced Help System**: Compact `HELP` + verbose `HELP+` with detailed command reference
-- 🌤️ **Proactive Weather Updates**: Automatic 5-minute weather refresh for instant responses
-- 👥 **User Management**: User accounts, roles (User, Moderator, Sysop)
-- 🔐 **Security**: Argon2id password hashing, configurable parameters, sysop immutability
-- 📊 **Statistics**: Network and usage statistics
-- ⚡ **Async Design**: Built with Tokio for high performance
-- 🛎️ **Public Discovery + DM Sessions**: Low-noise public channel handshake (HELP / LOGIN) leading to authenticated Direct Message sessions
-- 🧷 **Persistent Area Locks**: Moderators can LOCK / UNLOCK areas; state survives restarts
-- 📜 **Deletion Audit Log**: `DELLOG [page]` paginates moderator deletion events for accountability
-- 🛂 **Per-Area Access Levels**: Config-driven read/post level gating (areas hidden if insufficient read level)
-- 💡 **Smart User Experience**: One-time shortcuts reminder, streamlined login flow, contextual guidance
+## ✨ Features
 
-## Quick Start
+### � **Connectivity & Integration**
+- **📡 Meshtastic Integration**: Direct communication via serial or Bluetooth
+- **🛎️ Public Discovery + DM Sessions**: Low-noise public channel handshake leading to authenticated Direct Message sessions
+- **⚡ Async Design**: Built with Tokio for high performance
 
-### Prerequisites
+### 💬 **Communication & Messaging**
+- **📚 Message Boards**: Traditional BBS-style message areas and forums
+- **🎯 Dynamic Contextual Prompts**: Smart prompts showing current state (`unauth>`, `user@area>`, `post@area>`)
+- **📜 Enhanced Help System**: Compact `HELP` + verbose `HELP+` with detailed command reference
+- **📏 Optimized Message Size**: 230-byte limit optimized for Meshtastic constraints
 
-- Rust 1.82+ (install from [rustup.rs](https://rustup.rs/))
-- A Meshtastic device (T-Beam, Heltec, etc.)
-- USB cable or Bluetooth connection to your Meshtastic device
+### 👥 **User Management & Security**
+- **🔐 Robust Security**: Argon2id password hashing with configurable parameters
+- **👑 Role-Based Access**: User, Moderator, and Sysop roles with granular permissions
+- **🛂 Per-Area Access Levels**: Config-driven read/post level gating
+- **💡 Smart User Experience**: One-time shortcuts reminder, streamlined login flow
 
-### Installation
+### 🛠️ **Administration & Moderation**
+- **🧷 Persistent Area Locks**: Moderators can LOCK/UNLOCK areas; state survives restarts
+- **📊 Deletion Audit Log**: `DELLOG` command for accountability tracking
+- **📈 Network Statistics**: Usage and performance monitoring
+- **🌤️ Proactive Weather Updates**: Automatic 5-minute weather refresh
 
-1. Clone the repository:
+## 🚀 Quick Start
+
+> **Prerequisites**: Rust 1.82+, Meshtastic device, USB cable or Bluetooth connection
+
+### 📦 Installation
+
 ```bash
-git clone https://github.com/martinbogo/meshbbs.git
+# Clone the repository
+git clone --recurse-submodules https://github.com/martinbogo/meshbbs.git
 cd meshbbs
-```
 
-2. Build the project:
-```bash
+# Build the project
 cargo build --release
-```
 
-3. Initialize the BBS:
-```bash
+# Initialize the BBS
 ./target/release/meshbbs init
-```
 
-4. Start the BBS server:
-```bash
+# Start the BBS server
 ./target/release/meshbbs start --port /dev/ttyUSB0
 ```
 
-### Configuration
+### ⚡ Quick Commands
 
-The BBS is configured via a `config.toml` file. Run `meshbbs init` to create a default configuration:
+| Command | Description |
+|---------|-------------|
+| `meshbbs init` | Create initial configuration |
+| `meshbbs start --port /dev/ttyUSB0` | Start BBS server |
+| `meshbbs status` | Show statistics |
+| `meshbbs sysop-passwd` | Set/update sysop password |
+
+## ⚙️ Configuration
+
+MeshBBS uses a `config.toml` file for all settings. Run `meshbbs init` to create a default configuration.
+
+<details>
+<summary><strong>📋 View Example Configuration</strong></summary>
 
 ```toml
 [bbs]
 name = "MeshBBS Station"
 sysop = "Your Name"
-location = "Your Location"
+location = "Your Location" 
 zipcode = "97210"
 description = "A bulletin board system for mesh networks"
 max_users = 100             # Hard cap on concurrent logged-in sessions
 session_timeout = 10        # Minutes of inactivity before auto-logout
-welcome_message = "Welcome to MeshBBS! Type HELP for commands." # Shown on login then description appended
+welcome_message = "Welcome to MeshBBS! Type HELP for commands."
 
 [meshtastic]
 port = "/dev/ttyUSB0"
@@ -77,30 +104,40 @@ channel = 0
 
 [storage]
 data_dir = "./data"
-max_message_size = 230        # Protocol hard cap; higher values are clamped
+max_message_size = 230        # Protocol hard cap
 message_retention_days = 30
 max_messages_per_area = 1000
 
 [message_areas.general]
 name = "General Discussion"
 description = "General chat and discussion"
-read_level = 0
-post_level = 0
+read_level = 0    # Minimum user level to read
+post_level = 0    # Minimum user level to post
 
 [logging]
 level = "info"
 file = "meshbbs.log"
 ```
+</details>
 
-## Usage
+### 🎛️ Key Configuration Options
 
-### Command Line Interface
+| Section | Purpose | Key Settings |
+|---------|---------|--------------|
+| `[bbs]` | Basic BBS settings | `name`, `sysop`, `max_users`, `session_timeout` |
+| `[meshtastic]` | Device connection | `port`, `baud_rate`, `channel` |
+| `[storage]` | Data management | `max_message_size`, `retention_days` |
+| `[message_areas.*]` | Forum areas | `read_level`, `post_level` |
+
+## 📖 Usage
+
+### 🎮 Command Line Interface
 
 ```bash
 # Start the BBS server
 meshbbs start --port /dev/ttyUSB0
 
-# Initialize configuration
+# Initialize configuration  
 meshbbs init
 
 # Show status and statistics
@@ -116,324 +153,317 @@ meshbbs sysop-passwd
 meshbbs -vv start
 ```
 
-### Connecting via Meshtastic
+### 📡 Connecting via Meshtastic
 
-MeshBBS uses a two-phase interaction model that keeps the shared mesh channel quiet while enabling richer private sessions.
+MeshBBS uses a **two-phase interaction model** that keeps the shared mesh channel quiet while enabling rich private sessions.
 
-1. Public Broadcast (Discovery)
-	- Supported commands: `^HELP`, `^LOGIN <username>` (caret prefix REQUIRED to address the BBS)
-	- `^HELP` returns a short onboarding message.
-	- `^LOGIN <username>` registers a pending login for the sender's node id (no session yet).
-2. Direct Message (DM) Session
-	- After a public `LOGIN`, open a direct/private message to the BBS node.
-	- The pending login is consumed and a session starts under that username.
-	- Further interactive commands occur privately (syntax is evolving; early forms may be simple verbs like `READ general`).
+#### Phase 1: Public Discovery 
+Commands require `^` prefix to address the BBS:
+- `^HELP` - Returns onboarding message
+- `^LOGIN <username>` - Registers pending login for your node ID
 
-This design minimizes public spam, allows lightweight discovery, and reserves bandwidth for substantive interactions in DMs.
+#### Phase 2: Direct Message Session
+After public `LOGIN`, open a private message to the BBS node to start your authenticated session.
 
-#### Example Flow
+<details>
+<summary><strong>📋 Complete Command Reference</strong></summary>
 
-Public channel (note required caret prefix):
-```
-> ^HELP
-< MeshBBS: Send LOGIN <name> then start a DM to begin.
-
-> ^LOGIN alice
-< MeshBBS: Pending login for 'alice'. Open a DM to start your session.
-```
-
-Direct message session commands:
-```
+**Authentication Commands:**
+```bash
 LOGIN <user> [pass]       # Authenticate (set password if first time)
 REGISTER <user> <pass>    # Create new account
-HELP / H / ?              # Show compact help (with shortcuts reminder on first use)
-HELP+ / HELP V            # Detailed verbose help with examples
+LOGOUT                    # End session
+CHPASS <old> <new>        # Change password
+SETPASS <new>             # Set initial password (passwordless accounts)
+```
 
+**Navigation & Help:**
+```bash
+HELP / H / ?              # Compact help with shortcuts
+HELP+ / HELP V            # Detailed verbose help with examples
+M                         # Quick navigation to message areas
+U                         # Quick navigation to user menu
+Q                         # Quit/logout
+B                         # Back to previous menu
+```
+
+**Message Commands:**
+```bash
 AREAS / LIST              # List available message areas
 READ <area>               # Read recent messages from area
 POST <area> <message>     # Post a message to area
 POST <area>               # Start multi-line post (end with '.' on new line)
-
-M                         # Quick navigation to message areas
-U                         # Quick navigation to user menu  
-Q                         # Quit/logout
-B                         # Back to previous menu
-
-CHPASS <old> <new>        # Change password
-SETPASS <new>             # Set initial password (passwordless accounts)
-LOGOUT                    # End session
 ```
 
-### Dynamic Prompts
-
-MeshBBS 0.9.18+ shows contextual prompts that reflect your current state:
-
-- `unauth>` - Not logged in
-- `alice (lvl1)>` - Logged in as alice, user level 1
-- `alice@general>` - Reading messages in 'general' area
-- `post@general>` - Posting a message to 'general' area
-
-Prompts automatically appear at the end of responses and adapt to very long area names (truncated with ellipsis).
-
-### Help System
-
-Two help modes are available:
-
-- **`HELP`** - Compact, role-aware help showing only commands you can use
-- **`HELP+`** or **`HELP V`** - Verbose help with detailed explanations and examples
-
-The first time you use `HELP` after login, you'll see a shortcuts reminder: "Shortcuts: M=areas U=user Q=quit".
-
-Legacy prototype `CMD:` prefixed message formats are deprecated in favor of this simpler discovery + DM approach.
-
-### Moderator & Sysop Commands (Direct Message)
-
-Moderators (level >=5):
-
-```
-DELETE <area> <id>    # Remove a message
-LOCK <area>           # Prevent new posts
-UNLOCK <area>         # Allow posts again
-DELLOG [page]         # View recent deletion audit entries (page size 10)
+**Moderator Commands** (level ≥5):
+```bash
+DELETE <area> <id>        # Remove a message
+LOCK <area>               # Prevent new posts
+UNLOCK <area>             # Allow posts again  
+DELLOG [page]             # View deletion audit entries
 ```
 
-Sysop (level 10) also:
+**Sysop Commands** (level 10):
+```bash
+PROMOTE <user>            # Promote user level
+DEMOTE <user>             # Demote user level
 ```
-PROMOTE <user>
-DEMOTE <user>
+</details>
+
+### 🎯 Dynamic Prompts
+
+MeshBBS shows contextual prompts that reflect your current state:
+
+| Prompt | Meaning |
+|--------|---------|
+| `unauth>` | Not logged in |
+| `alice (lvl1)>` | Logged in as alice, user level 1 |
+| `alice@general>` | Reading messages in 'general' area |
+| `post@general>` | Posting a message to 'general' area |
+
+### 📏 Message Size Limit
+
+Each message is limited to **230 bytes** (not characters) to mirror Meshtastic text payload constraints. Multi-byte UTF-8 characters reduce visible character count. Oversized posts are rejected with an error.
+
+## 🏗️ Architecture
+
+MeshBBS is built with a clean, modular architecture in Rust:
+
+```mermaid
+graph TD
+    A[Meshtastic Device] --> B[Serial/Bluetooth Interface]
+    B --> C[Meshtastic Module]
+    C --> D[BBS Core]
+    D --> E[Session Manager]
+    D --> F[Command Processor]
+    D --> G[Storage Layer]
+    G --> H[Message Database]
+    G --> I[User Database]
+    D --> J[Configuration]
 ```
 
-Area permissions are defined in `config.toml` under `[message_areas]` entries with `read_level` and `post_level`. Users cannot see (LIST/AREAS) areas above their read level, nor post below the post level. Locked areas reject posts even if the user otherwise qualifies.
-
-Example config excerpt:
-```toml
-[message_areas.general]
-name = "General Discussion"
-description = "General chat"
-read_level = 0
-post_level = 0
-
-[message_areas.announcements]
-name = "Announcements"
-description = "Important updates (sysop only posts)"
-read_level = 0
-post_level = 10
-```
-
-### Message Size Limit
-
-Each message is limited to a maximum of **230 bytes** (not characters). This mirrors the practical Meshtastic text payload constraint. The `max_message_size` setting in `[storage]` is clamped to this ceiling even if a higher value is configured. Multi‑byte UTF‑8 characters reduce the number of visible glyphs you can send. Oversized posts are rejected with an error.
-
-## Architecture
-
-MeshBBS is built with a modular architecture:
+### 📁 Module Structure
 
 - **`bbs/`**: Core BBS functionality and user interface
 - **`meshtastic/`**: Meshtastic device communication layer
-	- Parses protobuf frames (when `meshtastic-proto` is enabled) and emits structured `TextEvent` items consumed by the BBS routing logic (public vs DM).
-- **`storage/`**: Message and file storage subsystem
+  - Parses protobuf frames and emits structured `TextEvent` items
+- **`storage/`**: Message and file storage subsystem  
 - **`config/`**: Configuration management
-	(Web interface support was removed in 0.8.10; configuration stubs and default feature were dropped.)
 
-## Development
+## 🛠️ Development
 
-### Building from Source
+### 🔧 Building from Source
 
 ```bash
-# Debug build
+# Development build
 cargo build
 
-# Release build with optimizations
+# Optimized release build
 cargo build --release
 
-# Run tests
+# Run comprehensive test suite
 cargo test
 
-# Run with logging
+# Run with debug logging
 RUST_LOG=debug cargo run -- start
 ```
 
-### Features
+### 🎛️ Feature Flags
 
-The project uses Cargo features to enable optional functionality:
+Control optional functionality with Cargo features:
 
-- `serial` (default): Serial port communication with Meshtastic devices
-- `meshtastic-proto` (default): Enable protobuf parsing of native Meshtastic packets
-- `weather` (default): Enable weather lookup (uses zipcode + wttr.in)
-- `api-reexports` (default): Re-export internal types for downstream crates
+| Feature | Default | Description |
+|---------|---------|-------------|
+| `serial` | ✅ | Serial port communication |
+| `meshtastic-proto` | ✅ | Protobuf parsing of Meshtastic packets |
+| `weather` | ✅ | Weather lookup via wttr.in |
+| `api-reexports` | ✅ | Re-export internal types |
 
 ```bash
-# Build minimal version without serial & protobuf
+# Minimal build without optional features
 cargo build --no-default-features
 
-# Build with Meshtastic protobuf parsing (placeholder proto)
-cargo build --features meshtastic-proto
-
-# Build with real Meshtastic protos (after cloning upstream definitions)
-MESHTASTIC_PROTO_DIR=third_party/meshtastic-protobufs/src proto \
-	cargo build --features meshtastic-proto
+# Build with specific features only
+cargo build --features "serial,weather"
 ```
 
-### Meshtastic Protobuf Integration
+### 📡 Meshtastic Protobuf Integration
 
-By default MeshBBS uses a simplified text parsing heuristic for incoming frames. For richer
-packet handling (positions, node info, channels, telemetry, etc.) enable the `meshtastic-proto` feature.
+For rich packet handling, enable the `meshtastic-proto` feature. Upstream protobuf definitions are included as a git submodule.
 
-The upstream Meshtastic protobuf definitions are included as a **git submodule** at:
-`third_party/meshtastic-protobufs`
+<details>
+<summary><strong>🔧 Protobuf Setup Instructions</strong></summary>
 
-#### Cloning with the Submodule
-
-Fresh clone (preferred):
+**Fresh clone with submodules:**
 ```bash
 git clone --recurse-submodules https://github.com/martinbogo/meshbbs.git
-cd meshbbs
 ```
 
-If you already cloned without submodules:
+**Initialize submodules in existing clone:**
 ```bash
 git submodule update --init --recursive
 ```
 
-#### Building With Protobuf Support
-
+**Build with protobuf support:**
 ```bash
 cargo build --features meshtastic-proto
 ```
 
-If you want to point at a different proto directory (e.g. experimenting with a fork), override:
-```bash
-MESHTASTIC_PROTO_DIR=path/to/your/protos/src cargo build --features meshtastic-proto
-```
-
-#### Updating the Submodule
-
-To pull latest upstream protobuf changes:
+**Update submodules:**
 ```bash
 git submodule update --remote third_party/meshtastic-protobufs
-```
-(Optionally add `--merge` if you keep a local branch.) Then commit the updated gitlink:
-```bash
 git add third_party/meshtastic-protobufs
 git commit -m "chore(deps): bump meshtastic protobufs"
 ```
 
-#### Pinning a Specific Version
-
-For reproducible builds you can pin a commit:
+**Use custom proto directory:**
 ```bash
-cd third_party/meshtastic-protobufs
-git checkout <commit-sha>
-cd ../..
-git add third_party/meshtastic-protobufs
-git commit -m "chore(deps): pin meshtastic protobufs to <commit-sha>"
+MESHTASTIC_PROTO_DIR=path/to/protos cargo build --features meshtastic-proto
 ```
+</details>
 
-#### Fallback Behavior
-
-If the submodule is absent or not initialized, a placeholder proto is used so the build still succeeds, but rich packet decoding will be limited.
-
-#### Roadmap
-
-Future work: Map decoded packet types to BBS events (messages, user presence, telemetry ingestion, channel config synchronization, etc.)
-
-### Project Structure
+### 📂 Project Structure
 
 ```
 meshbbs/
-├── src/
+├── 📄 src/
 │   ├── main.rs           # Application entry point
 │   ├── lib.rs            # Library exports
-│   ├── bbs/              # Core BBS functionality
-│   │   ├── mod.rs
+│   ├── 🎮 bbs/           # Core BBS functionality
 │   │   ├── server.rs     # BBS server implementation
 │   │   ├── session.rs    # User session management
 │   │   ├── commands.rs   # BBS command processing
 │   │   ├── public.rs     # Public channel command parsing
 │   │   └── roles.rs      # User role definitions
-│   ├── meshtastic/       # Meshtastic integration
-│   │   └── mod.rs        # Device communication & protocol
-│   ├── storage/          # Data persistence
-│   │   └── mod.rs        # Message & user storage
-│   ├── config/           # Configuration
-│   │   └── mod.rs        # Settings management
-│   └── protobuf/         # Protobuf definitions
-│       └── mod.rs
-├── tests/                # Integration tests
-├── data/                 # BBS data directory (created at runtime)
-├── third_party/          # Git submodules
+│   ├── 📡 meshtastic/    # Meshtastic integration
+│   ├── 💾 storage/       # Data persistence
+│   ├── ⚙️ config/        # Configuration management
+│   └── 📋 protobuf/      # Protobuf definitions
+├── 🧪 tests/             # Integration tests
+├── 📊 data/              # BBS data directory (runtime)
+├── 🔧 third_party/       # Git submodules
 │   └── meshtastic-protobufs/
-├── config.toml           # Configuration file
-├── Cargo.toml           # Rust dependencies
-└── README.md            # This file
+└── 📝 config.toml        # Configuration file
 ```
 
-## Contributing
+## 🗺️ Roadmap
 
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+### ✅ Recent Releases
+- **v0.9.20** (2025-09-23): Version consistency and stability improvements
+- **v0.9.18** (2025-09-23): New user welcome system, enhanced security, sysop username support
+- **v0.9.0** (2025-09-22): Dynamic prompts, enhanced help system, proactive weather updates
 
-### Development Setup
+### 🚀 Upcoming Features
+- [ ] **📁 File Transfer**: Binary data protocols optimized for mesh constraints
+- [ ] **🔐 Enhanced Encryption**: End-to-end message encryption beyond transport security  
+- [ ] **🌐 Web Interface**: Optional web-based administration and monitoring
+- [ ] **🔗 Federation**: Multi-node BBS networks with message routing
+- [ ] **📱 Mobile Clients**: Native mobile apps for easier mesh BBS access
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Run `cargo test` and `cargo clippy`
-6. Submit a pull request
+## 💻 Hardware Compatibility
 
-## Roadmap
+MeshBBS works with all Meshtastic-compatible devices:
 
-Recent releases have focused on user experience improvements and core functionality:
+| Device Family | Models | Features |
+|---------------|--------|----------|
+| **T-Beam** | ESP32 + LoRa + GPS | ✅ Full support |
+| **Heltec** | LoRa 32 v1/v2/v3 | ✅ Full support |
+| **TTGO** | LoRa32 variants | ✅ Full support |
+| **LilyGO** | T-Echo, T-Deck, T3S3 | ✅ Full support |
+| **RAK WisBlock** | 4631 Core + LoRa | ✅ Full support |
+| **Seeed Studio** | WM1302, WM1110 | ✅ Full support |
 
-- ✅ **v0.9.18** (2025-09-23): New user welcome system, enhanced security, sysop username support, admin audit logging
-- ✅ **v0.9.0** (2025-09-22): Dynamic prompts, enhanced help system, proactive weather updates
-- ✅ **v0.8.11** (2025-09-22): Unread message notifications, role-aware help
-- ✅ **v0.8.10** (2025-09-22): Session management, user limits, welcome banners
-- ✅ **v0.8.0** (2025-09-22): Security features, moderation tools, area access control
+> All devices supporting Meshtastic firmware are compatible with MeshBBS
 
-Future development priorities:
-- [ ] **File transfer capabilities**: Binary data transfer protocols optimized for mesh constraints
-- [ ] **Enhanced encryption**: End-to-end message encryption beyond transport security
-- [ ] **Web interface**: Optional web-based administration and monitoring
-- [ ] **Federation**: Multi-node BBS networks with message routing
-- [ ] **Mobile clients**: Native mobile apps for easier mesh BBS access
+## 🤝 Contributing
 
-## Hardware Compatibility
+We welcome contributions from the community! Here's how to get started:
 
-MeshBBS is designed to work with various Meshtastic-compatible devices:
+### 🚀 Quick Contribution Guide
 
-- **T-Beam**: ESP32 + LoRa + GPS
-- **Heltec LoRa 32**: ESP32 + LoRa + OLED
-- **TTGO LoRa32**: ESP32 + LoRa
-- **LilyGO devices**: Various ESP32-based LoRa boards
-- **RAK WisBlock**: Modular LoRa solutions
+1. **🍴 Fork** the repository
+2. **🌟 Create** a feature branch: `git checkout -b feature/amazing-feature`
+3. **💻 Make** your changes with tests
+4. **✅ Test** your changes: `cargo test && cargo clippy`
+5. **📝 Commit** with clear messages: `git commit -m 'feat: add amazing feature'`
+6. **📤 Push** to your branch: `git push origin feature/amazing-feature`
+7. **🔄 Submit** a Pull Request
 
-## License
+### 📋 Development Guidelines
 
-This project is licensed under the Creative Commons Attribution-NonCommercial 4.0 International License.
+- Follow Rust best practices and idioms
+- Add tests for new functionality
+- Update documentation for user-facing changes
+- Run `cargo fmt` and `cargo clippy` before committing
+- Keep commits focused and atomic
 
-You are free to:
-- **Share** — copy and redistribute the material in any medium or format
-- **Adapt** — remix, transform, and build upon the material
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
-Under the following terms:
-- **Attribution** — You must give appropriate credit, provide a link to the license, and indicate if changes were made
-- **NonCommercial** — You may not use the material for commercial purposes
+## 📄 License
 
-See the [LICENSE](LICENSE) file for the full license text or visit [Creative Commons BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) for more details.
+<div align="center">
 
-## Acknowledgments
+[![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
 
-- [Meshtastic](https://meshtastic.org/) - The open source mesh networking project
-- [Tokio](https://tokio.rs/) - Asynchronous runtime for Rust
-- The amateur radio and mesh networking communities
+</div>
 
-## Support
+This project is licensed under the **Creative Commons Attribution-NonCommercial 4.0 International License**.
 
-- 📧 Email: martinbogo@gmail.com
--  Issues: [GitHub Issues](https://github.com/martinbogo/meshbbs/issues)
-- 📖 Documentation: [Wiki](https://github.com/martinbogo/meshbbs/wiki)
+**You are free to:**
+- ✅ **Share** — copy and redistribute in any medium or format
+- ✅ **Adapt** — remix, transform, and build upon the material
+
+**Under these terms:**
+- 🏷️ **Attribution** — Give appropriate credit and indicate changes
+- 🚫 **NonCommercial** — No commercial use without permission
+
+See the [LICENSE](LICENSE) file or visit [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) for details.
+
+## 🙏 Acknowledgments
+
+Special thanks to the projects and communities that make MeshBBS possible:
+
+- 🌐 **[Meshtastic](https://meshtastic.org/)** - The open source mesh networking project
+- ⚡ **[Tokio](https://tokio.rs/)** - Asynchronous runtime for Rust  
+- 📻 **Amateur Radio Community** - For mesh networking innovations
+- 🦀 **Rust Community** - For the amazing language and ecosystem
+
+## 💬 Support
+
+<div align="center">
+
+**Need help? We're here for you!**
+
+[![Email](https://img.shields.io/badge/Email-martinbogo%40gmail.com-blue?style=for-the-badge&logo=gmail)](mailto:martinbogo@gmail.com)
+[![Issues](https://img.shields.io/badge/Issues-GitHub-orange?style=for-the-badge&logo=github)](https://github.com/martinbogo/meshbbs/issues)
+[![Wiki](https://img.shields.io/badge/Docs-GitHub%20Wiki-green?style=for-the-badge&logo=gitbook)](https://github.com/martinbogo/meshbbs/wiki)
+
+</div>
+
+### 🐛 Bug Reports
+Found a bug? Please [open an issue](https://github.com/martinbogo/meshbbs/issues/new) with:
+- Steps to reproduce
+- Expected vs actual behavior  
+- System information (OS, Rust version, device model)
+- Relevant log output
+
+### 💡 Feature Requests
+Have an idea? We'd love to hear it! [Start a discussion](https://github.com/martinbogo/meshbbs/discussions) or create an issue.
+
+### 🆘 Getting Help
+- Check the [Wiki](https://github.com/martinbogo/meshbbs/wiki) for documentation
+- Search existing [Issues](https://github.com/martinbogo/meshbbs/issues) for solutions
+- Join the discussion in [GitHub Discussions](https://github.com/martinbogo/meshbbs/discussions)
 
 ---
 
-**MeshBBS** - Bringing bulletin board systems to the mesh networking age! 📡
+<div align="center">
+  
+**🎯 MeshBBS - Bringing bulletin board systems to the mesh networking age! 📡**
+
+*Built with ❤️ for the mesh networking community*
+
+[![Made with Rust](https://img.shields.io/badge/Made%20with-Rust-orange?style=flat&logo=rust)](https://www.rust-lang.org/)
+[![Powered by Meshtastic](https://img.shields.io/badge/Powered%20by-Meshtastic-purple?style=flat)](https://meshtastic.org/)
+
+</div>
