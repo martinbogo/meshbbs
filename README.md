@@ -5,7 +5,7 @@
   
   **A modern Bulletin Board System for Meshtastic mesh networks**
   
-   [![Version](https://img.shields.io/badge/version-0.9.90-blue.svg)](https://github.com/martinbogo/meshbbs/releases)
+   [![Version](https://img.shields.io/badge/version-0.9.101-blue.svg)](https://github.com/martinbogo/meshbbs/releases)
   [![License](https://img.shields.io/badge/license-CC--BY--NC--4.0-green.svg)](LICENSE)
   [![Language](https://img.shields.io/badge/language-Rust-orange.svg)](https://www.rust-lang.org/)
   [![Platform](https://img.shields.io/badge/platform-Meshtastic-purple.svg)](https://meshtastic.org/)
@@ -287,6 +287,18 @@ MeshBBS shows contextual prompts that reflect your current state:
 ### 📏 Message Size Limit
 
 Each message is limited to **230 bytes** (not characters) to mirror Meshtastic text payload constraints. Multi-byte UTF-8 characters reduce visible character count. Oversized posts are rejected with an error.
+
+### 🔁 Reliable Delivery & Scheduling (New in 0.9.101)
+
+MeshBBS now uses a centralized scheduler to coordinate all outgoing traffic, including reliable Direct Message (DM) retries. Instead of the writer task periodically scanning for pending retransmissions, each retry is explicitly enqueued with its own wake time under a dedicated `Retry` category. This provides:
+
+* Deterministic pacing honoring `min_send_gap_ms` and fairness between new sends and retries
+* Clear separation between an original send (`OutgoingKind::Normal`) and internally generated retry envelopes (`OutgoingKind::Retry`)
+* Extensible foundation for future per‑category metrics and fairness reporting
+
+ACK responses are correlated to pending reliable DMs, updating counters for sent / acked / failed and accumulating basic latency statistics (exposed internally; user-facing metrics endpoint forthcoming). After the configured backoff schedule (e.g. `[4,8,16]` seconds) exhausts without ACK, the message is marked failed—no busy looping or duplicate scans.
+
+Additionally, the HELP public broadcast now respects a configurable `help_broadcast_delay_ms` which defers the public notice after sending the private HELP DM reply, reducing rate-limit collisions immediately after a reliable send.
 
 ## 🏗️ Architecture
 

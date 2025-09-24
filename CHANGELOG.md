@@ -7,13 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
-- Configuration: `help_broadcast_delay_ms` (under `[meshtastic]`) adds a higher-level scheduling cushion for the public HELP broadcast after the DM help reply. Default `3500ms` (the effective delay is `max(help_broadcast_delay_ms, min_send_gap_ms + post_dm_broadcast_gap_ms)`).
+- (placeholder)
 
 ### Changed
-- Public HELP flow: The public help notice is now scheduled instead of sent immediately, reducing `RateLimitExceeded` occurrences right after a reliable DM.
+- (placeholder)
 
 ### Testing
-- New integration test `help_broadcast_delay` verifies DM help reply is queued immediately and public broadcast is deferred by the configured delay.
+- (placeholder)
+
+## [0.9.101] - 2025-09-24
+### Added
+- Scheduler-driven reliable DM retry system: Retries now dispatched via central scheduler `Retry` category instead of legacy writer heartbeat scan.
+- ACK correlation & latency tracking scaffold (counters for sent/acked/failed, average ACK latency accumulator).
+- `help_broadcast_delay_ms` configuration (under `[meshtastic]`) adds a higher-level scheduling cushion for the public HELP broadcast after the DM help reply. Default `3500ms` (effective delay is `max(help_broadcast_delay_ms, min_send_gap_ms + post_dm_broadcast_gap_ms)`).
+- `OutgoingKind` enum distinguishing original sends from internally scheduled retry envelopes (foundation for future fairness metrics).
+
+### Changed
+- Public HELP flow: Notice is now scheduled (respecting pacing + delay) instead of sent immediately, reducing `RateLimitExceeded` occurrences right after a reliable DM.
+- Unified retry timing fairness: Removed ad-hoc heartbeat resend scan in favor of first-class scheduled retry envelopes.
+
+### Removed
+- Legacy Meshtastic writer heartbeat resend loop.
+
+### Testing
+- All existing integration tests pass under new retry mechanism (no behavior regressions observed).
+- Added placeholder ACK handling test (to be expanded with metrics assertions in future release).
 
 ## [0.9.90] - 2025-09-24
 ### Changed
