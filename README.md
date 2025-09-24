@@ -5,7 +5,7 @@
   
   **A modern Bulletin Board System for Meshtastic mesh networks**
   
-  [![Version](https://img.shields.io/badge/version-0.9.65-blue.svg)](https://github.com/martinbogo/meshbbs/releases)
+  [![Version](https://img.shields.io/badge/version-0.9.70-blue.svg)](https://github.com/martinbogo/meshbbs/releases)
   [![License](https://img.shields.io/badge/license-CC--BY--NC--4.0-green.svg)](LICENSE)
   [![Language](https://img.shields.io/badge/language-Rust-orange.svg)](https://www.rust-lang.org/)
   [![Platform](https://img.shields.io/badge/platform-Meshtastic-purple.svg)](https://meshtastic.org/)
@@ -407,6 +407,7 @@ meshbbs/
 ## 🗺️ Roadmap
 
 ### ✅ Recent Releases
+- **v0.9.70** (2025-09-23): Major architecture refactor implementing reader/writer pattern to resolve asynchronous I/O deadlock, improved message delivery reliability
 - **v0.9.65** (2025-09-23): Fixed short name resolution bug - correctly extract actual short names (e.g., "WAP2") from Meshtastic network instead of generating wrong names from long names (e.g., "WREC")
 - **v0.9.60** (2025-09-23): Enhanced weather debugging with full URL logging, improved DM delivery with hop limit fixes, persistent node cache system
 - **v0.9.55** (2025-09-23): Complete AREA → TOPIC terminology refactor, enhanced default topics, documentation fixes
@@ -415,7 +416,6 @@ meshbbs/
 - **v0.9.25** (2025-09-23): Documentation improvements, rustdoc fixes, ^WEATHER command addition
 - **v0.9.20** (2025-09-23): Version consistency and stability improvements
 - **v0.9.18** (2025-09-23): New user welcome system, enhanced security, sysop username support
-- **v0.9.0** (2025-09-22): Dynamic prompts, enhanced help system, proactive weather updates
 
 ### 🚀 Upcoming Features
 - [ ] **� Locally encrypted data storage**: Enhanced security for stored messages and user data

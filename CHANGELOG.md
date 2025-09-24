@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.70] - 2025-09-23
+### Changed
+- **Major Architecture Refactor**: Implemented reader/writer pattern to resolve asynchronous I/O deadlock
+  - Split Meshtastic device communication into separate reader and writer tasks
+  - Reader task continuously reads from device, sends TextEvents to main server via channels
+  - Writer task handles all outgoing messages via channels, preventing blocking operations
+  - Eliminated deadlock where app would send messages but not process device responses/ACKs until another unrelated message arrived
+  - Improved message delivery reliability and response times
+  - Enhanced error handling with independent task failure management
+  - Better separation of concerns between I/O operations and business logic
+
+### Added
+- **New Channel Architecture**: Clean communication between tasks
+  - TextEvent channel for incoming messages (Reader → Server)
+  - OutgoingMessage channel for outgoing messages (Server → Writer)
+  - Control channels for task coordination and shutdown
+  - Message priority system (High for DMs, Normal for broadcasts)
+
+### Technical
+- Complete separation of reading and writing operations prevents I/O blocking
+- Async task spawning for concurrent reader/writer operation
+- Improved shutdown coordination with proper task termination
+- Enhanced logging for task lifecycle management
+
 ## [0.9.60] - 2025-09-23
 ### Added
 - **Enhanced Weather Debug Logging**: Weather queries now include full URL in debug output

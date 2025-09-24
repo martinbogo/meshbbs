@@ -1,12 +1,11 @@
-use anyhow::Result;
-use log::{info, warn, debug, trace};
-use tokio::time::sleep; // for short polling delay
+use anyhow::{Result, anyhow};
+use log::{info, warn, debug, trace, error};
 use tokio::time::{Instant, Duration};
 use tokio::sync::mpsc;
 use std::collections::HashMap;
 
 use crate::config::Config;
-use crate::meshtastic::MeshtasticDevice;
+use crate::meshtastic::{MeshtasticDevice, OutgoingMessage, MessagePriority, ControlMessage};
 #[cfg(feature = "meshtastic-proto")]
 use crate::meshtastic::TextEvent;
 use crate::storage::Storage;
@@ -91,6 +90,14 @@ pub struct BbsServer {
     device: Option<MeshtasticDevice>,
     sessions: HashMap<String, Session>,
     message_tx: Option<mpsc::UnboundedSender<String>>,
+    #[cfg(feature = "meshtastic-proto")]
+    text_event_rx: Option<mpsc::UnboundedReceiver<TextEvent>>,
+    #[cfg(feature = "meshtastic-proto")]
+    outgoing_tx: Option<mpsc::UnboundedSender<OutgoingMessage>>,
+    #[cfg(feature = "meshtastic-proto")]
+    reader_control_tx: Option<mpsc::UnboundedSender<ControlMessage>>,
+    #[cfg(feature = "meshtastic-proto")]
+    writer_control_tx: Option<mpsc::UnboundedSender<ControlMessage>>,
     public_state: PublicState,
     public_parser: PublicCommandParser,
     #[cfg(feature = "weather")]
@@ -239,6 +246,14 @@ impl BbsServer {
             device: None,
             sessions: HashMap::new(),
             message_tx: None,
+            #[cfg(feature = "meshtastic-proto")]
+            text_event_rx: None,
+            #[cfg(feature = "meshtastic-proto")]
+            outgoing_tx: None,
+            #[cfg(feature = "meshtastic-proto")]
+            reader_control_tx: None,
+            #[cfg(feature = "meshtastic-proto")]
+            writer_control_tx: None,
             public_state: PublicState::new(
                 std::time::Duration::from_secs(20),
                 std::time::Duration::from_secs(300)
@@ -258,20 +273,45 @@ impl BbsServer {
         })
     }
 
-    /// Connect to a Meshtastic device
+    /// Connect to a Meshtastic device using the new reader/writer pattern
+    #[cfg(feature = "meshtastic-proto")]
+    pub async fn connect_device(&mut self, port: &str) -> Result<()> {
+        info!("Connecting to Meshtastic device on {} using reader/writer pattern", port);
+        
+        // Create the reader/writer system
+        let (reader, writer, text_event_rx, outgoing_tx, reader_control_tx, writer_control_tx) = 
+            crate::meshtastic::create_reader_writer_system(port, self.config.meshtastic.baud_rate).await?;
+        
+        // Store the channels in the server
+        self.text_event_rx = Some(text_event_rx);
+        self.outgoing_tx = Some(outgoing_tx);
+        self.reader_control_tx = Some(reader_control_tx);
+        self.writer_control_tx = Some(writer_control_tx);
+        
+        // Spawn the reader and writer tasks
+        tokio::spawn(async move {
+            if let Err(e) = reader.run().await {
+                error!("Reader task failed: {}", e);
+            }
+        });
+        
+        tokio::spawn(async move {
+            if let Err(e) = writer.run().await {
+                error!("Writer task failed: {}", e);
+            }
+        });
+        
+        info!("Meshtastic reader/writer tasks spawned successfully");
+        Ok(())
+    }
+
+    /// Fallback connect method for when meshtastic-proto feature is disabled
+    #[cfg(not(feature = "meshtastic-proto"))]
     pub async fn connect_device(&mut self, port: &str) -> Result<()> {
         info!("Connecting to Meshtastic device on {}", port);
         
         let mut device = MeshtasticDevice::new(port, self.config.meshtastic.baud_rate).await?;
-        
-        // Load cached nodes
-        #[cfg(feature = "meshtastic-proto")]
-        if let Err(e) = device.load_node_cache() {
-            warn!("Failed to load node cache: {}", e);
-        }
-        
         self.device = Some(device);
-        
         Ok(())
     }
 
@@ -343,41 +383,11 @@ impl BbsServer {
         
         let (tx, mut rx) = mpsc::unbounded_channel();
         self.message_tx = Some(tx);
-        // Heartbeat / want_config scheduling state (only meaningful with meshtastic-proto feature)
-        #[cfg(feature = "meshtastic-proto")] 
-        let mut last_hb = Instant::now();
-        #[cfg(feature = "meshtastic-proto")] 
-        let start_instant = Instant::now();
-        #[cfg(feature = "meshtastic-proto")] 
-    let ascii_lines: usize = 0; // count legacy ASCII summaries before binary detected
-        #[cfg(feature = "meshtastic-proto")] 
-        let mut ascii_warned = false;
+        
+        let mut interval = tokio::time::interval(Duration::from_millis(50));
         
         // Main message processing loop
         loop {
-            // Periodic handshake maintenance (heartbeat + want_config) prior to draining events to minimize latency
-            #[cfg(feature = "meshtastic-proto")]
-            if let Some(dev) = &mut self.device {
-                // Send heartbeat every 3s until initial sync complete, afterwards every ~30s (simple heuristic)
-                let hb_interval = if dev.is_config_complete() { Duration::from_secs(30) } else { Duration::from_secs(3) };
-                if last_hb.elapsed() >= hb_interval {
-                    if let Err(e) = dev.send_heartbeat() { debug!("heartbeat send error: {e:?}"); }
-                    last_hb = Instant::now();
-                }
-                // Always attempt want_config (function internally rate-limits and stops once complete)
-                if let Err(e) = dev.ensure_want_config() { debug!("ensure_want_config error: {e:?}"); }
-            }
-            // First drain any text events outside the select to avoid borrowing self across await points in same branch.
-            // Drain text events first collecting them to avoid holding device borrow across awaits
-            #[cfg(feature = "meshtastic-proto")]
-            {
-                let mut drained_events = Vec::new();
-                if let Some(dev) = &mut self.device {
-                    while let Some(ev) = dev.next_text_event() { drained_events.push(ev); }
-                }
-                for ev in drained_events { if let Err(e) = self.route_text_event(ev).await { warn!("route_text_event error: {e:?}"); } }
-            }
-            
             // Proactive weather refresh every 5 minutes
             #[cfg(feature = "weather")]
             if self.weather_last_poll.elapsed() >= Duration::from_secs(300) {
@@ -388,45 +398,93 @@ impl BbsServer {
             // Node cache cleanup every hour - remove nodes not seen for 7 days
             #[cfg(feature = "meshtastic-proto")]
             if self.node_cache_last_cleanup.elapsed() >= Duration::from_secs(3600) {
-                if let Some(dev) = &mut self.device {
-                    if let Err(e) = dev.cleanup_stale_nodes(7) {
-                        warn!("Node cache cleanup failed: {}", e);
-                    }
-                }
+                // Note: node cache cleanup is now handled by the reader task
                 self.node_cache_last_cleanup = Instant::now();
             }
 
-            tokio::select! {
-                msg = self.receive_message() => {
-                    if let Ok(Some(summary)) = msg { debug!("Legacy summary: {}", summary); }
-                }
-                msg = rx.recv() => {
-                    if let Some(internal_msg) = msg { debug!("Processing internal message: {}", internal_msg); }
-                }
-                _ = tokio::signal::ctrl_c() => { info!("Received shutdown signal"); break; }
-                _ = sleep(std::time::Duration::from_millis(25)) => {}
-            }
-            // After select loop iteration, evaluate ASCII-only heuristic warning
-            #[cfg(feature = "meshtastic-proto")] {
-                if let Some(dev) = &self.device {
-                    if !ascii_warned && !dev.binary_detected() && start_instant.elapsed() > Duration::from_secs(8) && ascii_lines > 15 {
-                        warn!("No protobuf binary frames detected after 8s ({} ASCII lines seen). Device may still be in text console mode. Ensure: meshtastic --set serial.enabled true --set serial.mode PROTO", ascii_lines);
-                        ascii_warned = true;
+            #[cfg(feature = "meshtastic-proto")]
+            {
+                tokio::select! {
+                    // Receive TextEvents from the reader task
+                    text_event = async {
+                        if let Some(ref mut rx) = self.text_event_rx {
+                            rx.recv().await
+                        } else {
+                            std::future::pending().await
+                        }
+                    } => {
+                        if let Some(event) = text_event {
+                            if let Err(e) = self.route_text_event(event).await {
+                                warn!("route_text_event error: {e:?}");
+                            }
+                        } else {
+                            warn!("Text event channel closed");
+                        }
+                    }
+                    
+                    msg = rx.recv() => {
+                        if let Some(internal_msg) = msg {
+                            debug!("Processing internal message: {}", internal_msg);
+                        }
+                    }
+                    
+                    _ = tokio::signal::ctrl_c() => {
+                        info!("Received shutdown signal");
+                        break;
                     }
                 }
-                // Flush any queued direct messages once we have our node id (after processing events & reads)
-                if let Some(dev_mut) = &mut self.device {
-                    if dev_mut.our_node_id().is_some() && !self.pending_direct.is_empty() {
-                        let mut still_pending = Vec::new();
-                        for (dest, channel, msg) in self.pending_direct.drain(..) {
-                            match dev_mut.send_text_packet(Some(dest), channel, &msg) {
-                                Ok(_) => debug!("Flushed pending DM to {dest} on channel {channel}"),
-                                Err(e) => { warn!("Pending DM send to {dest} on channel {channel} failed: {e:?}"); still_pending.push((dest, channel, msg)); }
+            }
+            
+            #[cfg(not(feature = "meshtastic-proto"))]
+            {
+                tokio::select! {
+                    _ = interval.tick() => {
+                        // Fallback for when meshtastic-proto feature is disabled
+                        if let Some(ref mut device) = self.device {
+                            if let Ok(Some(summary)) = device.receive_message().await {
+                                debug!("Legacy summary: {}", summary);
                             }
                         }
-                        self.pending_direct = still_pending;
+                    }
+                    
+                    msg = rx.recv() => {
+                        if let Some(internal_msg) = msg {
+                            debug!("Processing internal message: {}", internal_msg);
+                        }
+                    }
+                    
+                    _ = tokio::signal::ctrl_c() => {
+                        info!("Received shutdown signal");
+                        break;
                     }
                 }
+            }
+            
+            // Flush any queued direct messages (legacy support)
+            #[cfg(feature = "meshtastic-proto")]
+            if !self.pending_direct.is_empty() {
+                let mut still_pending = Vec::new();
+                for (dest, channel, msg) in self.pending_direct.drain(..) {
+                    let outgoing = OutgoingMessage {
+                        to_node: Some(dest),
+                        channel,
+                        content: msg.clone(),
+                        priority: MessagePriority::High,
+                    };
+                    
+                    if let Some(ref tx) = self.outgoing_tx {
+                        match tx.send(outgoing) {
+                            Ok(_) => debug!("Flushed pending DM to {dest} on channel {channel}"),
+                            Err(_) => {
+                                warn!("Failed to send pending DM to {dest} on channel {channel}");
+                                still_pending.push((dest, channel, msg));
+                            }
+                        }
+                    } else {
+                        still_pending.push((dest, channel, msg));
+                    }
+                }
+                self.pending_direct = still_pending;
             }
         }
 
@@ -660,18 +718,6 @@ impl BbsServer {
         self.storage.unlock_topic_persist(topic).await?;
         sec_log!("UNLOCK by {}: {}", actor, topic);
         Ok(())
-    }
-
-
-    /// Receive a message from the Meshtastic device
-    async fn receive_message(&mut self) -> Result<Option<String>> {
-        if let Some(ref mut device) = self.device {
-            device.receive_message().await
-        } else {
-            // No device connected, wait a bit
-            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-            Ok(None)
-        }
     }
 
 
@@ -1338,7 +1384,7 @@ impl BbsServer {
                         info!("Processing HELP DM for node {} (0x{:08x}). Raw ev.source={}, node_key='{}'", node_key, ev.source, ev.source, node_key);
                         
                         // Send comprehensive help DM using the same mechanism as direct message help
-                        let help_text = format!("Welcome to MeshBBS! Type HELP for commands.\nA bulletin board system for mesh networks.\n\nNode: {}\nAuth: REGISTER <user> <pass> or LOGIN <user> <pass>", ev.source);
+                        let help_text = "Welcome to MeshBBS! Type HELP for commands.\nA bulletin board system for mesh networks.\n\nTo get started:\n- REGISTER <user> <pass>\n- LOGIN <user> <pass>\n\nOnce logged in, type HELP for a full list of commands.".to_string();
                         
                         // DMs must always go to channel 0, not the original message channel
                         let dm_channel = 0;
@@ -1368,18 +1414,14 @@ impl BbsServer {
                         let mut broadcasted = false;
                         #[cfg(feature = "meshtastic-proto")]
                         {
-                            if let Some(dev) = &mut self.device {
-                                match dev.send_text_packet(None, 0, &weather) {
-                                    Ok(_) => {
-                                        trace!("Broadcasted weather to public channel: '{}'", weather);
-                                        broadcasted = true;
-                                    }
-                                    Err(e) => {
-                                        warn!("Weather broadcast failed: {e:?} (will fallback DM)");
-                                    }
+                            match self.send_broadcast(&weather).await {
+                                Ok(_) => {
+                                    trace!("Broadcasted weather to public channel: '{}'", weather);
+                                    broadcasted = true;
                                 }
-                            } else {
-                                debug!("No device connected; cannot broadcast weather, will fallback DM");
+                                Err(e) => {
+                                    warn!("Weather broadcast failed: {e:?} (will fallback DM)");
+                                }
                             }
                         }
                         if !broadcasted {
@@ -1405,13 +1447,83 @@ impl BbsServer {
 
     /// Send a message to a specific node
     async fn send_message(&mut self, to_node: &str, message: &str) -> Result<()> {
-        if let Some(ref mut device) = self.device {
-            device.send_message(to_node, message).await?;
-            debug!("Sent message to {}: {}", to_node, message);
-        } else {
-            warn!("No device connected, cannot send message");
+        #[cfg(feature = "meshtastic-proto")]
+        {
+            // Parse node ID from string
+            let node_id = if to_node.starts_with("0x") {
+                u32::from_str_radix(&to_node[2..], 16).ok()
+            } else {
+                to_node.parse::<u32>().ok()
+            };
+            
+            if let Some(id) = node_id {
+                let outgoing = OutgoingMessage {
+                    to_node: Some(id),
+                    channel: 0, // Primary channel
+                    content: message.to_string(),
+                    priority: MessagePriority::High, // DMs are high priority
+                };
+                
+                if let Some(ref tx) = self.outgoing_tx {
+                    match tx.send(outgoing) {
+                        Ok(_) => {
+                            debug!("Queued message to {}: {}", to_node, message);
+                        }
+                        Err(e) => {
+                            warn!("Failed to queue message to {}: {}", to_node, e);
+                            return Err(anyhow!("Failed to queue message: {}", e));
+                        }
+                    }
+                } else {
+                    warn!("No outgoing channel available, cannot send message");
+                    return Err(anyhow!("Outgoing channel not available"));
+                }
+            } else {
+                warn!("Invalid node ID format: {}", to_node);
+                return Err(anyhow!("Invalid node ID format: {}", to_node));
+            }
         }
+        
+        #[cfg(not(feature = "meshtastic-proto"))]
+        {
+            // Fallback for when meshtastic-proto feature is disabled
+            if let Some(ref mut device) = self.device {
+                device.send_message(to_node, message).await?;
+                debug!("Sent message to {}: {}", to_node, message);
+            } else {
+                warn!("No device connected, cannot send message");
+            }
+        }
+        
         self.test_messages.push((to_node.to_string(), message.to_string()));
+        Ok(())
+    }
+
+    /// Send a broadcast message to the public channel
+    #[cfg(feature = "meshtastic-proto")]
+    async fn send_broadcast(&mut self, message: &str) -> Result<()> {
+        let outgoing = OutgoingMessage {
+            to_node: None, // None means broadcast
+            channel: 0, // Primary channel
+            content: message.to_string(),
+            priority: MessagePriority::Normal, // Broadcasts are normal priority
+        };
+        
+        if let Some(ref tx) = self.outgoing_tx {
+            match tx.send(outgoing) {
+                Ok(_) => {
+                    debug!("Queued broadcast message: {}", message);
+                }
+                Err(e) => {
+                    warn!("Failed to queue broadcast message: {}", e);
+                    return Err(anyhow!("Failed to queue broadcast: {}", e));
+                }
+            }
+        } else {
+            warn!("No outgoing channel available, cannot send broadcast");
+            return Err(anyhow!("Outgoing channel not available"));
+        }
+        
         Ok(())
     }
 
@@ -1605,7 +1717,18 @@ impl BbsServer {
         }
         self.sessions.clear();
         
-        // Disconnect device
+        // Send shutdown signals to reader and writer tasks
+        #[cfg(feature = "meshtastic-proto")]
+        {
+            if let Some(ref tx) = self.reader_control_tx {
+                let _ = tx.send(ControlMessage::Shutdown);
+            }
+            if let Some(ref tx) = self.writer_control_tx {
+                let _ = tx.send(ControlMessage::Shutdown);
+            }
+        }
+        
+        // Disconnect device (fallback for non-proto mode)
         if let Some(device) = &mut self.device {
             device.disconnect().await?;
         }
