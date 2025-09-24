@@ -351,7 +351,7 @@ impl BbsServer {
     #[allow(dead_code)]
     #[doc(hidden)]
     pub fn test_messages(&self) -> &Vec<(String,String)> { &self.test_messages }
-    // Expose scheduler handle for tests (un-gated so integration tests see it)
+    // Expose scheduler handle for tests (used by scheduler_overflow.rs). Keep public until a dedicated test API is introduced.
     pub fn scheduler_handle(&self) -> Option<crate::bbs::dispatch::SchedulerHandle> { self.scheduler.clone() }
     #[allow(dead_code)]
     #[doc(hidden)]
@@ -1587,6 +1587,7 @@ impl BbsServer {
 
     // (legacy) exported_test_messages retained for backwards compatibility in tests
     #[cfg(test)]
+    #[allow(dead_code)] // Accessed by some legacy / external integration harnesses; keep until removed.
     pub fn exported_test_messages(&self) -> &Vec<(String,String)> { &self.test_messages }
 
     /// Lightweight direct-message routing helper for tests (no meshtastic-proto TextEvent needed)

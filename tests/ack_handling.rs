@@ -20,9 +20,13 @@ async fn ack_clears_pending() {
 
     // Placeholder: ensure metrics snapshot accessible.
     let snap_before = meshbbs::metrics::snapshot();
-    // Inject AckReceived via a dedicated control channel is not currently exposed; future refactor could add a test hook.
-    // This test is a placeholder to keep infrastructure ready; assert snapshot struct fields existence.
-    assert!(snap_before.reliable_sent >= 0, "snapshot accessible");
+    // Read individual fields to exercise struct usage (avoids dead_code field warnings when tests are compiled).
+    let _tot = snap_before.reliable_sent
+        + snap_before.reliable_acked
+        + snap_before.reliable_failed
+        + snap_before.reliable_retries
+        + snap_before.ack_latency_avg_ms.unwrap_or(0);
+    assert!(snap_before.reliable_sent >= 0, "snapshot accessible (non-negative sentinel)");
 }
 
 #[cfg(not(feature = "meshtastic-proto"))]

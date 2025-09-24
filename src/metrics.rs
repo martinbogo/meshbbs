@@ -26,6 +26,7 @@ pub fn observe_ack_latency(sent_at: Instant) {
 }
 
 #[derive(Debug, Default, Clone)]
+#[allow(dead_code)] // Fields read primarily in tests / future metrics endpoint
 pub struct Snapshot {
     pub reliable_sent: u64,
     pub reliable_acked: u64,
