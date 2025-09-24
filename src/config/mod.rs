@@ -133,6 +133,15 @@ pub struct MeshtasticConfig {
     /// to 3500ms. Must be >= post_dm_broadcast_gap_ms.
     #[serde(default)]
     pub help_broadcast_delay_ms: Option<u64>,
+    /// Maximum number of queued outbound messages in scheduler before drop policy engages.
+    #[serde(default)]
+    pub scheduler_max_queue: Option<usize>,
+    /// Aging threshold (ms) after which a waiting message may have its effective priority boosted.
+    #[serde(default)]
+    pub scheduler_aging_threshold_ms: Option<u64>,
+    /// Interval (ms) for periodic scheduler stats logging (0 disables periodic stats logs).
+    #[serde(default)]
+    pub scheduler_stats_interval_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -244,6 +253,9 @@ impl Default for Config {
                 post_dm_broadcast_gap_ms: Some(1200),
                 dm_to_dm_gap_ms: Some(600),
                 help_broadcast_delay_ms: Some(3500),
+                scheduler_max_queue: Some(512),
+                scheduler_aging_threshold_ms: Some(5000),
+                scheduler_stats_interval_ms: Some(10000),
             },
             storage: StorageConfig {
                 data_dir: "./data".to_string(),

@@ -316,6 +316,9 @@ impl BbsServer {
             min_send_gap_ms: tuning.min_send_gap_ms,
             post_dm_broadcast_gap_ms: tuning.post_dm_broadcast_gap_ms,
             help_broadcast_delay_ms: help_delay_ms,
+            max_queue: mcfg.scheduler_max_queue.unwrap_or(512),
+            aging_threshold_ms: mcfg.scheduler_aging_threshold_ms.unwrap_or(5000),
+            stats_interval_ms: mcfg.scheduler_stats_interval_ms.unwrap_or(10000),
         };
         let scheduler_handle = crate::bbs::dispatch::start_scheduler(sched_cfg, outgoing_tx.clone());
         self.scheduler = Some(scheduler_handle);
@@ -480,21 +483,19 @@ impl BbsServer {
             if !self.pending_direct.is_empty() {
                 let mut still_pending = Vec::new();
                 for (dest, channel, msg) in self.pending_direct.drain(..) {
-                    let outgoing = OutgoingMessage {
-                        to_node: Some(dest),
-                        channel,
-                        content: msg.clone(),
-                        priority: MessagePriority::High,
-                    };
-                    
-                    if let Some(ref tx) = self.outgoing_tx {
-                        match tx.send(outgoing) {
-                            Ok(_) => debug!("Flushed pending DM to {dest} on channel {channel}"),
-                            Err(_) => {
-                                warn!("Failed to send pending DM to {dest} on channel {channel}");
-                                still_pending.push((dest, channel, msg));
-                            }
-                        }
+                    if let Some(scheduler) = &self.scheduler {
+                        let outgoing = OutgoingMessage { to_node: Some(dest), channel, content: msg.clone(), priority: MessagePriority::High };
+                        let env = crate::bbs::dispatch::MessageEnvelope::new(
+                            crate::bbs::dispatch::MessageCategory::Direct,
+                            crate::bbs::dispatch::Priority::High,
+                            Duration::from_millis(0),
+                            outgoing
+                        );
+                        scheduler.enqueue(env);
+                        debug!("Flushed pending DM to {dest} via scheduler on channel {channel}");
+                    } else if let Some(ref tx) = self.outgoing_tx {
+                        let outgoing = OutgoingMessage { to_node: Some(dest), channel, content: msg.clone(), priority: MessagePriority::High };
+                        if tx.send(outgoing).is_err() { warn!("Failed to send pending DM to {dest} on channel {channel}"); still_pending.push((dest, channel, msg)); }
                     } else {
                         still_pending.push((dest, channel, msg));
                     }
@@ -1394,26 +1395,25 @@ impl BbsServer {
                             let required = post_gap.saturating_add(min_gap);
                             if base < required { required } else { base }
                         };
-                        if let Some(tx) = self.outgoing_tx.clone() {
+                        if let Some(scheduler) = &self.scheduler {
+                            info!("Scheduling HELP public notice in {}ms (text='{}')", delay_ms, public_notice);
+                            let outgoing = crate::meshtastic::OutgoingMessage { to_node: None, channel: 0, content: public_notice.clone(), priority: crate::meshtastic::MessagePriority::Normal };
+                            let env = crate::bbs::dispatch::MessageEnvelope::new(
+                                crate::bbs::dispatch::MessageCategory::HelpBroadcast,
+                                crate::bbs::dispatch::Priority::Low,
+                                Duration::from_millis(delay_ms as u64),
+                                outgoing
+                            );
+                            scheduler.enqueue(env);
+                        } else if let Some(tx) = self.outgoing_tx.clone() { // fallback legacy path
                             let notice = public_notice.clone();
-                            info!("Scheduling HELP public notice in {}ms (text='{}')", delay_ms, notice);
+                            info!("Scheduling HELP public notice in {}ms (legacy path) text='{}'", delay_ms, notice);
                             tokio::spawn(async move {
                                 tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
-                                let outgoing = crate::meshtastic::OutgoingMessage {
-                                    to_node: None,
-                                    channel: 0,
-                                    content: notice.clone(),
-                                    priority: crate::meshtastic::MessagePriority::Normal,
-                                };
-                                if let Err(e) = tx.send(outgoing) {
-                                    log::warn!("Failed to queue scheduled HELP public notice: {}", e);
-                                } else {
-                                    log::debug!("Queued scheduled HELP public notice after delay");
-                                }
+                                let outgoing = crate::meshtastic::OutgoingMessage { to_node: None, channel: 0, content: notice.clone(), priority: crate::meshtastic::MessagePriority::Normal };
+                                if let Err(e) = tx.send(outgoing) { log::warn!("Failed to queue scheduled HELP public notice: {}", e); } else { log::debug!("Queued scheduled HELP public notice after delay (legacy)"); }
                             });
-                        } else {
-                            warn!("Cannot schedule HELP public notice: no outgoing channel");
-                        }
+                        } else { warn!("Cannot schedule HELP public notice: no outgoing path"); }
                     }
                 }
                 PublicCommand::Login(username) => {
@@ -1461,11 +1461,25 @@ impl BbsServer {
     }
 
     /// Send a message to a specific node
-    async fn send_message(&mut self, to_node: &str, message: &str) -> Result<()> {
+    pub async fn send_message(&mut self, to_node: &str, message: &str) -> Result<()> {
         #[cfg(feature = "meshtastic-proto")]
         {
-            // If we have an active outgoing channel (device connected), enforce numeric node IDs
-            if let Some(ref tx) = self.outgoing_tx {
+            // If we have an active scheduler prefer enqueue path, else fallback to direct channel
+            if let Some(scheduler) = &self.scheduler {
+                let node_id = if to_node.starts_with("0x") { u32::from_str_radix(&to_node[2..], 16).ok() } else { to_node.parse::<u32>().ok() };
+                if let Some(id) = node_id {
+                    let outgoing = OutgoingMessage { to_node: Some(id), channel: 0, content: message.to_string(), priority: MessagePriority::High };
+                    let env = crate::bbs::dispatch::MessageEnvelope::new(
+                        crate::bbs::dispatch::MessageCategory::Direct,
+                        crate::bbs::dispatch::Priority::High,
+                        Duration::from_millis(0),
+                        outgoing
+                    );
+                    scheduler.enqueue(env);
+                } else {
+                    warn!("Invalid node ID format: {}", to_node); return Err(anyhow!("Invalid node ID format: {}", to_node));
+                }
+            } else if let Some(ref tx) = self.outgoing_tx {
                 // Parse node ID from string when actually sending to radio
                 let node_id = if to_node.starts_with("0x") {
                     u32::from_str_radix(&to_node[2..], 16).ok()
@@ -1518,30 +1532,28 @@ impl BbsServer {
 
     /// Send a broadcast message to the public channel
     #[cfg(feature = "meshtastic-proto")]
-    async fn send_broadcast(&mut self, message: &str) -> Result<()> {
-        let outgoing = OutgoingMessage {
-            to_node: None, // None means broadcast
-            channel: 0, // Primary channel
-            content: message.to_string(),
-            priority: MessagePriority::Normal, // Broadcasts are normal priority
-        };
-        
-        if let Some(ref tx) = self.outgoing_tx {
-            match tx.send(outgoing) {
-                Ok(_) => {
-                    debug!("Queued broadcast message: {}", message);
-                }
-                Err(e) => {
-                    warn!("Failed to queue broadcast message: {}", e);
-                    return Err(anyhow!("Failed to queue broadcast: {}", e));
-                }
-            }
+    pub async fn send_broadcast(&mut self, message: &str) -> Result<()> {
+        if let Some(scheduler) = &self.scheduler {
+            let outgoing = OutgoingMessage { to_node: None, channel: 0, content: message.to_string(), priority: MessagePriority::Normal };
+            let env = crate::bbs::dispatch::MessageEnvelope::new(
+                crate::bbs::dispatch::MessageCategory::Broadcast,
+                crate::bbs::dispatch::Priority::Low,
+                Duration::from_millis(0),
+                outgoing
+            );
+            scheduler.enqueue(env);
+            Ok(())
         } else {
-            warn!("No outgoing channel available, cannot send broadcast");
-            return Err(anyhow!("Outgoing channel not available"));
+            let outgoing = OutgoingMessage { to_node: None, channel: 0, content: message.to_string(), priority: MessagePriority::Normal };
+            if let Some(ref tx) = self.outgoing_tx {
+                match tx.send(outgoing) { Ok(_) => { debug!("Queued broadcast message: {}", message); Ok(()) }, Err(e) => { warn!("Failed to queue broadcast message: {}", e); Err(anyhow!("Failed to queue broadcast: {}", e)) } }
+            } else {
+                // Mock/test mode: record broadcast for assertions
+                debug!("Mock broadcast (no device): {}", message);
+                self.test_messages.push(("BCAST".to_string(), message.to_string()));
+                Ok(())
+            }
         }
-        
-        Ok(())
     }
 
     /// Send a session-scoped reply, automatically appending a dynamic prompt unless suppressed.
@@ -1558,6 +1570,11 @@ impl BbsServer {
         } else { body.to_string() };
         self.send_message(node_key, &msg).await
     }
+
+    /// Expose collected test messages (DM + broadcast) for integration tests
+    pub fn exported_test_messages(&self) -> &Vec<(String,String)> { &self.test_messages }
+    #[cfg(feature = "meshtastic-proto")]
+    pub fn scheduler_handle(&self) -> Option<crate::bbs::dispatch::SchedulerHandle> { self.scheduler.clone() }
 
     /// Lightweight direct-message routing helper for tests (no meshtastic-proto TextEvent needed)
     #[allow(dead_code)]
