@@ -26,9 +26,8 @@ fn registration_welcome_is_chunked() {
 
         // Here we assume BbsServer has a method process_direct_message(node_id, content)
         // If not, this test may need adjustment; we'll gate compile by skipping if method absent.
-        #[allow(unused_mut)]
-        let node_id = "12345".to_string();
-        // Use reflection of existing tests; many integration tests interact through higher-level public API.
+    // NOTE: Earlier version created a dummy node_id here but it was unused; removed to avoid warning.
+    // Use reflection of existing tests; many integration tests interact through higher-level public API.
 
         // Since direct invocation path isn't exposed publicly in provided snippet, we limit this test to verifying chunker itself.
         let long = "Registered and logged in as user.\nWelcome, user you are now logged in.\nSome summary line here.\n🎉 Welcome to MeshBBS, user! Quick start:\n\nHELP - command list\nLIST - browse topics\nREAD <topic> - read messages\nPOST <topic> <msg> - post\nWHO - see users online\n\nType HELP+ for full guide.\n";

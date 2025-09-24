@@ -22,11 +22,14 @@ async fn ack_clears_pending() {
     let snap_before = meshbbs::metrics::snapshot();
     // Read individual fields to exercise struct usage (avoids dead_code field warnings when tests are compiled).
     let _tot = snap_before.reliable_sent
-        + snap_before.reliable_acked
-        + snap_before.reliable_failed
-        + snap_before.reliable_retries
-        + snap_before.ack_latency_avg_ms.unwrap_or(0);
-    assert!(snap_before.reliable_sent >= 0, "snapshot accessible (non-negative sentinel)");
+        .saturating_add(snap_before.reliable_acked)
+        .saturating_add(snap_before.reliable_failed)
+        .saturating_add(snap_before.reliable_retries)
+        .saturating_add(snap_before.ack_latency_avg_ms.unwrap_or(0));
+    // Basic invariants: no acks or failures should be recorded yet; ack latency absent; acked cannot exceed sent.
+    assert!(snap_before.reliable_acked <= snap_before.reliable_sent, "acked count exceeds sent count");
+    assert_eq!(snap_before.reliable_failed, 0, "no failures expected in smoke path");
+    assert!(snap_before.ack_latency_avg_ms.is_none(), "no ack latency expected without ack events");
 }
 
 #[cfg(not(feature = "meshtastic-proto"))]
