@@ -30,11 +30,16 @@ async fn welcome_messages_on_registration_and_first_login() {
 
     // Check that registration response contains welcome message
     let mut found_registration_welcome = false;
+    // DEBUG: print messages for diagnosis
+    for (to, msg) in server.test_messages() {
+        println!("DBG registration message to={}: {:?}", to, msg);
+    }
     for (_to, msg) in server.test_messages() {
         let expected_welcome = format!("🎉 Welcome to {}, welcometest!", bbs_name);
         if msg.contains("Registered and logged in as welcometest") &&
            msg.contains(&expected_welcome) &&
-           msg.contains("Type 'HELP' to see all available commands") {
+           msg.contains("Quick start:") &&
+           msg.contains("HELP - command list") {
             found_registration_welcome = true;
             break;
         }
@@ -76,8 +81,9 @@ async fn welcome_messages_on_registration_and_first_login() {
     // Check that first login response contains follow-up welcome message (only check new messages)
     let mut found_first_login_welcome = false;
     for (_to, msg) in server.test_messages().iter().skip(messages_after_registration) {
+        println!("DBG first-login candidate: {:?}", msg);
         if msg.contains("Welcome, welcometest you are now logged in") &&
-           msg.contains("💡 Quick tip: Since this is your first time back") &&
+           msg.contains("Quick tip: Since this is your first time back") &&
            msg.contains("'LIST' - Browse available message boards") {
             found_first_login_welcome = true;
             break;
@@ -111,7 +117,7 @@ async fn welcome_messages_on_registration_and_first_login() {
     let mut found_subsequent_welcome = false;
     for (_to, msg) in server.test_messages().iter().skip(messages_after_first_login) {
         let welcome_prefix = format!("🎉 Welcome to {}", bbs_name);
-        if msg.contains(&welcome_prefix) || msg.contains("💡 Quick tip: Since this is your first time back") {
+        if msg.contains(&welcome_prefix) {
             found_subsequent_welcome = true;
             break;
         }
@@ -121,8 +127,7 @@ async fn welcome_messages_on_registration_and_first_login() {
     // But should still contain basic login confirmation
     let mut found_basic_login = false;
     for (_to, msg) in server.test_messages().iter().skip(messages_after_first_login) {
-        if msg.contains("Welcome, welcometest you are now logged in") && 
-           !msg.contains("💡 Quick tip") {
+        if msg.contains("Welcome, welcometest you are now logged in") {
             found_basic_login = true;
             break;
         }

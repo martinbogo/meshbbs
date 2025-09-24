@@ -143,6 +143,33 @@ fn chunk_verbose_help() -> Vec<String> {
 }
 
 impl BbsServer {
+    /// Chunk a UTF-8 string into <= max_bytes segments without splitting codepoints.
+    /// Attempts to split on newline boundaries preferentially, then falls back to byte slicing.
+    pub fn chunk_utf8(&self, text: &str, max_bytes: usize) -> Vec<String> {
+        if text.as_bytes().len() <= max_bytes { return vec![text.to_string()]; }
+        let mut chunks = Vec::new();
+        let mut remaining = text;
+        while !remaining.is_empty() {
+            if remaining.as_bytes().len() <= max_bytes { chunks.push(remaining.to_string()); break; }
+            // Take up to max_bytes, then retreat to last newline or char boundary
+            let mut end = max_bytes;
+            let bytes = remaining.as_bytes();
+            if end > bytes.len() { end = bytes.len(); }
+            // Retreat until on UTF-8 boundary
+            while end > 0 && (bytes[end-1] & 0b1100_0000) == 0b1000_0000 { end -= 1; }
+            // Try newline preference within this slice (find last '\n')
+            let slice = &remaining[..end];
+            if let Some(pos) = slice.rfind('\n') { if pos > 0 && pos + 1 >= end / 2 { // keep heuristic simple
+                    let piece = &slice[..=pos];
+                    chunks.push(piece.to_string());
+                    remaining = &remaining[pos+1..];
+                    continue;
+                }}
+            chunks.push(slice.to_string());
+            remaining = &remaining[end..];
+        }
+        chunks
+    }
     #[inline]
     fn lookup_short_name_from_cache(&self, id: u32) -> Option<String> {
         #[derive(serde::Deserialize)]
@@ -800,6 +827,45 @@ impl BbsServer {
                 enum PostAction { None, Delete{area:String,id:String,actor:String}, Lock{area:String,actor:String}, Unlock{area:String,actor:String}, Broadcast{message:String,sender:String} }
                 let mut post_action = PostAction::None;
                 let mut deferred_reply: Option<String> = None;
+
+                // Handle REGISTER early without holding mutable borrow on session to simplify chunking logic.
+                if upper.starts_with("REGISTER ") {
+                    let parts: Vec<&str> = raw_content.split_whitespace().collect();
+                    if parts.len() < 3 { deferred_reply = Some("Usage: REGISTER <username> <password>\n".into()); }
+                    else {
+                        let user = parts[1]; let pass = parts[2];
+                        if pass.len() < 8 { deferred_reply = Some("Password too short (minimum 8 characters).\n".into()); }
+                        else {
+                            match self.storage.register_user(user, pass, Some(&node_key)).await {
+                                Ok(_) => {
+                                    if let Some(session) = self.sessions.get_mut(&node_key) { session.login(user.to_string(), 1).await?; }
+                                    let summary = Self::format_unread_line(0);
+                                    let full_welcome = format!(
+                                        "Registered and logged in as {}.\nWelcome, {} you are now logged in.\n{}\n🎉 Welcome to {}, {}! Quick start:\n\nHELP - command list\nLIST - browse topics\nREAD <topic> - read messages\nPOST <topic> <msg> - post\nWHO - see users online\n\nType HELP+ for full guide.\n",
+                                        user, user, summary, self.config.bbs.name, user
+                                    );
+                                    let max_bytes = self.config.storage.max_message_size;
+                                    let parts_vec = self.chunk_utf8(&full_welcome, max_bytes);
+                                    if parts_vec.len() > 1 { warn!("Registration welcome chunked into {} parts ({} bytes total)", parts_vec.len(), full_welcome.as_bytes().len()); }
+                                    if parts_vec.len() == 1 {
+                                        deferred_reply = Some(parts_vec[0].clone());
+                                    } else {
+                                        let total = parts_vec.len();
+                                        for (i, chunk) in parts_vec.into_iter().enumerate() {
+                                            let last = i + 1 == total; // only append prompt after final
+                                            self.send_session_message(&node_key, &chunk, last).await?;
+                                        }
+                                    }
+                                    if let Err(e) = self.storage.mark_welcome_shown(user, true, false).await {
+                                        eprintln!("Failed to mark welcome shown for {}: {}", user, e);
+                                    }
+                                }
+                                Err(e) => { deferred_reply = Some(format!("Register failed: {}\n", e)); }
+                            }
+                        }
+                    }
+                }
+
                 if let Some(session) = self.sessions.get_mut(&node_key) {
                     session.update_activity();
                     #[cfg(feature = "meshtastic-proto")]
@@ -814,28 +880,6 @@ impl BbsServer {
                             let last = i + 1 == total;
                             // For multi-part help, suppress prompt until final
                             self.send_session_message(&node_key, &chunk, last).await?;
-                        }
-                    } else if upper.starts_with("REGISTER ") {
-                        let parts: Vec<&str> = raw_content.split_whitespace().collect();
-                        if parts.len() < 3 { deferred_reply = Some("Usage: REGISTER <username> <password>\n".into()); }
-                        else {
-                            let user = parts[1]; let pass = parts[2];
-                            if pass.len() < 8 { deferred_reply = Some("Password too short (minimum 8 characters).\n".into()); }
-                            else {
-                                match self.storage.register_user(user, pass, Some(&node_key)).await {
-                                    Ok(_) => { 
-                                        session.login(user.to_string(), 1).await?; 
-                                        let summary = Self::format_unread_line(0); 
-                                        let welcome_msg = format!("\n🎉 Welcome to {}, {}! Here's a quick start guide:\n\n• Type 'HELP' to see all available commands\n• Type 'LIST' to browse message boards\n• Type 'POST <board_number> <subject>' to create a new post\n• Type 'READ <board_number>' to read messages\n• Type 'WHO' to see who else is online\n\nEnjoy exploring the mesh network BBS!\n", self.config.bbs.name, user);
-                                        deferred_reply = Some(format!("Registered and logged in as {}.\nWelcome, {} you are now logged in.\n{}{}", user, user, summary, welcome_msg));
-                                        // Mark welcome message as shown
-                                        if let Err(e) = self.storage.mark_welcome_shown(user, true, false).await {
-                                            eprintln!("Failed to mark welcome shown for {}: {}", user, e);
-                                        }
-                                    }
-                                    Err(e) => { deferred_reply = Some(format!("Register failed: {}\n", e)); }
-                                }
-                            }
                         }
                     } else if upper.starts_with("LOGIN ") {
                         // Enforce max_users only if this session is not yet logged in
@@ -1355,6 +1399,18 @@ impl BbsServer {
                     }
                 }
                 if let Some(msg) = deferred_reply { self.send_session_message(&node_key, &msg, true).await?; }
+                // After sending first registration chunk, check for queued extra welcome chunks
+                if let Some(session) = self.sessions.get_mut(&node_key) {
+                    if let Some(json) = session.take_extra("pending_welcome_chunks") {
+                        if let Ok(list) = serde_json::from_str::<Vec<String>>(&json) {
+                            let total = list.len();
+                            for (i, chunk) in list.into_iter().enumerate() {
+                                let last = i + 1 == total; // prompt only on last
+                                self.send_session_message(&node_key, &chunk, last).await?;
+                            }
+                        }
+                    }
+                }
             // end direct path handling (removed extra closing brace)
         } else {
             // Public channel event: parse lightweight commands
