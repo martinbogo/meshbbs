@@ -780,6 +780,16 @@ impl MeshtasticDevice {
         {
             debug!("(mock) Would send TextPacket to 0x{:08x}: '{}'", dest, text);
         }
+        
+        // For DMs, send a heartbeat immediately after to try to trigger radio transmission
+        if is_dm {
+            if let Err(e) = self.send_heartbeat() {
+                warn!("Failed to send heartbeat after DM: {}", e);
+            } else {
+                trace!("Sent heartbeat after DM to trigger radio activity");
+            }
+        }
+        
         Ok(())
     }
 }
