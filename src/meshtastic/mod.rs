@@ -71,6 +71,7 @@ use log::{info, debug, error, trace, warn};
 use tokio::time::{sleep, Duration};
 use tokio::sync::mpsc;
 use std::collections::VecDeque;
+use std::sync::{Arc, Mutex};
 
 /// Priority level for outgoing messages
 #[derive(Debug, Clone)]
@@ -92,9 +93,13 @@ pub struct OutgoingMessage {
 #[derive(Debug)]
 pub enum ControlMessage {
     Shutdown,
+    #[allow(dead_code)]
     DeviceStatus,
+    #[allow(dead_code)]
     ConfigRequest(u32),
+    #[allow(dead_code)]
     Heartbeat,
+    SetNodeId(u32),
 }
 
 #[cfg(feature = "meshtastic-proto")]
@@ -175,6 +180,7 @@ impl NodeCache {
         self.last_updated = now;
     }
 
+    #[allow(dead_code)]
     pub fn remove_stale_nodes(&mut self, max_age_days: u32) -> usize {
         let cutoff = Utc::now() - chrono::Duration::days(max_age_days as i64);
         let initial_count = self.nodes.len();
@@ -240,14 +246,13 @@ pub struct TextEvent {
 /// Reader task for continuous Meshtastic device reading
 #[cfg(feature = "meshtastic-proto")]
 pub struct MeshtasticReader {
-    port_name: String,
-    baud_rate: u32,
     #[cfg(feature = "serial")]
-    port: Option<Box<dyn SerialPort>>,
+    port: Arc<Mutex<Box<dyn SerialPort>>>,
     slip: slip::SlipDecoder,
     rx_buf: Vec<u8>,
     text_event_tx: mpsc::UnboundedSender<TextEvent>,
     control_rx: mpsc::UnboundedReceiver<ControlMessage>,
+    writer_control_tx: mpsc::UnboundedSender<ControlMessage>,
     node_cache: NodeCache,
     cache_file_path: String,
     nodes: std::collections::HashMap<u32, proto::NodeInfo>,
@@ -258,10 +263,8 @@ pub struct MeshtasticReader {
 /// Writer task for Meshtastic device writing
 #[cfg(feature = "meshtastic-proto")]
 pub struct MeshtasticWriter {
-    port_name: String,
-    baud_rate: u32,
     #[cfg(feature = "serial")]
-    port: Option<Box<dyn SerialPort>>,
+    port: Arc<Mutex<Box<dyn SerialPort>>>,
     outgoing_rx: mpsc::UnboundedReceiver<OutgoingMessage>,
     control_rx: mpsc::UnboundedReceiver<ControlMessage>,
     our_node_id: Option<u32>,
@@ -301,6 +304,7 @@ impl MeshtasticDevice {
     }
 
     #[cfg(feature = "meshtastic-proto")]
+    #[allow(dead_code)]
     pub fn our_node_id(&self) -> Option<u32> { self.our_node_id }
     // ---------- Public state accessors (read-only) ----------
     #[cfg(feature = "meshtastic-proto")]
@@ -320,6 +324,7 @@ impl MeshtasticDevice {
 
     /// Load node cache from persistent storage
     #[cfg(feature = "meshtastic-proto")]
+    #[allow(dead_code)]
     pub fn load_node_cache(&mut self) -> anyhow::Result<()> {
         if Path::new(&self.cache_file_path).exists() {
             match NodeCache::load_from_file(&self.cache_file_path) {
@@ -366,6 +371,7 @@ impl MeshtasticDevice {
 
     /// Clean up stale nodes from cache (nodes not seen for specified days)
     #[cfg(feature = "meshtastic-proto")]
+    #[allow(dead_code)]
     pub fn cleanup_stale_nodes(&mut self, max_age_days: u32) -> anyhow::Result<usize> {
         let removed = self.node_cache.remove_stale_nodes(max_age_days);
         if removed > 0 {
@@ -479,7 +485,7 @@ impl MeshtasticDevice {
                 match port.read(&mut buffer) {
                     Ok(bytes_read) if bytes_read > 0 => {
                         let raw_slice = &buffer[..bytes_read];
-                        debug!("RAW {} bytes: {}", bytes_read, hex_snippet(raw_slice, 64));
+                        trace!("RAW {} bytes: {}", bytes_read, hex_snippet(raw_slice, 64));
                         // Heuristic: if first byte looks like ASCII '{' or '[' we might be seeing JSON debug output - log it fully
                         if raw_slice[0] == b'{' || raw_slice[0] == b'[' { debug!("ASCII/JSON chunk: {}", String::from_utf8_lossy(raw_slice)); }
                         // First, try to interpret as protobuf (framed). Meshtastic typically uses
@@ -570,6 +576,7 @@ impl MeshtasticDevice {
     }
 
     /// Send a message to a specific node
+    #[allow(dead_code)]
     pub async fn send_message(&mut self, to_node: &str, message: &str) -> Result<()> {
         // When protobuf support is enabled we send a proper MeshPacket so real
         // Meshtastic nodes/app clients will display the reply. Fallback to the
@@ -684,6 +691,11 @@ impl MeshtasticDevice {
                 },
                 FRPayload::Config(_) => return Some("CONFIG".to_string()),
                 FRPayload::ModuleConfig(_) => return Some("MODULE_CONFIG".to_string()),
+                FRPayload::FileInfo(_) => return Some("FILE_INFO".to_string()),
+                FRPayload::QueueStatus(_) => return Some("QUEUE_STATUS".to_string()),
+                FRPayload::XmodemPacket(_) => return Some("XMODEM_PACKET".to_string()),
+                FRPayload::Metadata(_) => return Some("METADATA".to_string()),
+                FRPayload::MqttClientProxyMessage(_) => return Some("MQTT_PROXY".to_string()),
                 _ => {}
             }
         }
@@ -755,11 +767,13 @@ impl MeshtasticDevice {
 #[cfg(feature = "meshtastic-proto")]
 impl MeshtasticDevice {
     /// Retrieve next structured text event if available
+    #[allow(dead_code)]
     pub fn next_text_event(&mut self) -> Option<TextEvent> { self.text_events.pop_front() }
     /// Build and send a text message MeshPacket via ToRadio (feature gated).
     /// to: Some(node_id) for direct, None for broadcast
     /// channel: channel index (0 primary)
     #[cfg(feature = "meshtastic-proto")]
+    #[allow(dead_code)]
     pub fn send_text_packet(&mut self, to: Option<u32>, channel: u32, text: &str) -> Result<()> {
         use proto::{ToRadio, MeshPacket, Data, PortNum};
         use proto::to_radio::PayloadVariant as TRPayload;
@@ -829,7 +843,7 @@ impl MeshtasticDevice {
                 text.replace('\n', "\\n").replace('\r', "\\r")
             };
             let msg_type = if is_dm { "DM (reliable)" } else { "broadcast" };
-            info!("Sent TextPacket ({}): from=0x{:08x} to=0x{:08x} channel={} id={} want_ack={} priority={} ({} bytes payload) text='{}'", 
+            debug!("Sent TextPacket ({}): from=0x{:08x} to=0x{:08x} channel={} id={} want_ack={} priority={} ({} bytes payload) text='{}'", 
                   msg_type, self.our_node_id.unwrap_or(0), dest, channel, packet_id, is_dm, 
                   if is_dm { 70 } else { 0 }, payload.len(), display_text);
             if log::log_enabled!(log::Level::Trace) {
@@ -913,58 +927,81 @@ impl MeshtasticDevice {
     }
 }
 
+/// Create a shared serial port connection for both reader and writer
+#[cfg(feature = "serial")]
+async fn create_shared_serial_port(port_name: &str, baud_rate: u32) -> Result<Arc<Mutex<Box<dyn SerialPort>>>> {
+    info!("Opening shared serial port {} at {} baud", port_name, baud_rate);
+    
+    let mut builder = serialport::new(port_name, baud_rate)
+        .timeout(Duration::from_millis(500));
+    #[cfg(unix)] { 
+        builder = builder.data_bits(serialport::DataBits::Eight)
+            .stop_bits(serialport::StopBits::One)
+            .parity(serialport::Parity::None); 
+    }
+    let mut port = builder
+        .open()
+        .map_err(|e| anyhow!("Failed to open serial port {}: {}", port_name, e))?;
+    
+    // Toggle DTR/RTS to reset/ensure device wakes
+    let _ = port.write_data_terminal_ready(true);
+    let _ = port.write_request_to_send(true);
+    sleep(Duration::from_millis(150)).await;
+    
+    // Clear any existing buffered startup text
+    let mut purge_buf = [0u8; 512];
+    if let Ok(available) = port.bytes_to_read() { 
+        if available > 0 { 
+            let _ = port.read(&mut purge_buf); 
+        } 
+    }
+    
+    debug!("Shared serial port initialized successfully");
+    Ok(Arc::new(Mutex::new(port)))
+}
+
 #[cfg(feature = "meshtastic-proto")]
 impl MeshtasticReader {
-    /// Create a new reader task
+    /// Create a new reader task with shared port
     pub async fn new(
-        port_name: &str, 
-        baud_rate: u32,
+        shared_port: Arc<Mutex<Box<dyn SerialPort>>>,
         text_event_tx: mpsc::UnboundedSender<TextEvent>,
         control_rx: mpsc::UnboundedReceiver<ControlMessage>,
+        writer_control_tx: mpsc::UnboundedSender<ControlMessage>,
     ) -> Result<Self> {
-        info!("Initializing Meshtastic reader on {} at {} baud", port_name, baud_rate);
-        
-        #[cfg(feature = "serial")]
-        let port = {
-            let mut builder = serialport::new(port_name, baud_rate)
-                .timeout(Duration::from_millis(500));
-            #[cfg(unix)] { 
-                builder = builder.data_bits(serialport::DataBits::Eight)
-                    .stop_bits(serialport::StopBits::One)
-                    .parity(serialport::Parity::None); 
-            }
-            let mut port = builder
-                .open()
-                .map_err(|e| anyhow!("Failed to open serial port {}: {}", port_name, e))?;
-            
-            // Toggle DTR/RTS to reset/ensure device wakes
-            let _ = port.write_data_terminal_ready(true);
-            let _ = port.write_request_to_send(true);
-            sleep(Duration::from_millis(150)).await;
-            
-            // Clear any existing buffered startup text
-            let mut purge_buf = [0u8; 512];
-            if let Ok(available) = port.bytes_to_read() { 
-                if available > 0 { 
-                    let _ = port.read(&mut purge_buf); 
-                } 
-            }
-            debug!("Serial port initialized for reading, flushed {} bytes", purge_buf.len());
-            Some(port)
-        };
-        
-        #[cfg(not(feature = "serial"))]
-        let port = None;
+        info!("Initializing Meshtastic reader with shared port");
         
         Ok(MeshtasticReader {
-            port_name: port_name.to_string(),
-            baud_rate,
             #[cfg(feature = "serial")]
-            port,
+            port: shared_port,
             slip: slip::SlipDecoder::new(),
             rx_buf: Vec::new(),
             text_event_tx,
             control_rx,
+            writer_control_tx,
+            node_cache: NodeCache::new(),
+            cache_file_path: "data/node_cache.json".to_string(),
+            nodes: std::collections::HashMap::new(),
+            our_node_id: None,
+            binary_frames_seen: false,
+        })
+    }
+    
+    /// Create a mock reader for non-serial builds
+    #[cfg(not(feature = "serial"))]
+    pub async fn new_mock(
+        text_event_tx: mpsc::UnboundedSender<TextEvent>,
+        control_rx: mpsc::UnboundedReceiver<ControlMessage>,
+        writer_control_tx: mpsc::UnboundedSender<ControlMessage>,
+    ) -> Result<Self> {
+        info!("Initializing mock Meshtastic reader");
+        
+        Ok(MeshtasticReader {
+            slip: slip::SlipDecoder::new(),
+            rx_buf: Vec::new(),
+            text_event_tx,
+            control_rx,
+            writer_control_tx,
             node_cache: NodeCache::new(),
             cache_file_path: "data/node_cache.json".to_string(),
             nodes: std::collections::HashMap::new(),
@@ -1032,46 +1069,49 @@ impl MeshtasticReader {
     async fn read_and_process(&mut self) -> Result<()> {
         #[cfg(feature = "serial")]
         {
-            if let Some(ref mut port) = self.port {
-                let mut buffer = [0; 1024];
-                match port.read(&mut buffer) {
-                    Ok(bytes_read) if bytes_read > 0 => {
-                        let raw_slice = &buffer[..bytes_read];
-                        debug!("RAW {} bytes: {}", bytes_read, hex_snippet(raw_slice, 64));
-                        
-                        // Try length-prefixed framing first: 0x94 0xC3 len_hi len_lo
-                        self.rx_buf.extend_from_slice(raw_slice);
-                        self.process_framed_messages().await?;
-                        
-                        // Try SLIP framing
-                        let frames = self.slip.push(raw_slice);
-                        if !frames.is_empty() { 
-                            self.binary_frames_seen = true; 
+            let mut buffer = [0; 1024];
+            let read_result = {
+                let mut port = self.port.lock().unwrap();
+                port.read(&mut buffer)
+            };
+            
+            match read_result {
+                Ok(bytes_read) if bytes_read > 0 => {
+                    let raw_slice = &buffer[..bytes_read];
+                    trace!("RAW {} bytes: {}", bytes_read, hex_snippet(raw_slice, 64));
+                    
+                    // Try length-prefixed framing first: 0x94 0xC3 len_hi len_lo
+                    self.rx_buf.extend_from_slice(raw_slice);
+                    self.process_framed_messages().await?;
+                    
+                    // Try SLIP framing
+                    let frames = self.slip.push(raw_slice);
+                    if !frames.is_empty() { 
+                        self.binary_frames_seen = true; 
+                    }
+                    for frame in frames {
+                        debug!("SLIP frame {} bytes", frame.len());
+                        self.process_protobuf_frame(&frame).await?;
+                    }
+                    
+                    // Fallback: treat as text for legacy compatibility
+                    let message = String::from_utf8_lossy(raw_slice);
+                    if let Some(parsed) = self.parse_legacy_text(&message) {
+                        debug!("Legacy text message: {}", parsed);
+                        // Convert to TextEvent if possible
+                        if let Some(event) = self.text_to_event(&parsed) {
+                            let _ = self.text_event_tx.send(event);
                         }
-                        for frame in frames {
-                            debug!("SLIP frame {} bytes", frame.len());
-                            self.process_protobuf_frame(&frame).await?;
-                        }
-                        
-                        // Fallback: treat as text for legacy compatibility
-                        let message = String::from_utf8_lossy(raw_slice);
-                        if let Some(parsed) = self.parse_legacy_text(&message) {
-                            debug!("Legacy text message: {}", parsed);
-                            // Convert to TextEvent if possible
-                            if let Some(event) = self.text_to_event(&parsed) {
-                                let _ = self.text_event_tx.send(event);
-                            }
-                        }
                     }
-                    Ok(_) => {
-                        // No data available, normal
-                    }
-                    Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => {
-                        // Timeout is normal
-                    }
-                    Err(e) => {
-                        return Err(anyhow!("Serial read error: {}", e));
-                    }
+                }
+                Ok(_) => {
+                    // No data available, normal
+                }
+                Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => {
+                    // Timeout is normal
+                }
+                Err(e) => {
+                    return Err(anyhow!("Serial read error: {}", e));
                 }
             }
         }
@@ -1129,7 +1169,7 @@ impl MeshtasticReader {
         if let Ok(msg) = FromRadio::decode(&mut bytes.freeze()) {
             match msg.payload_variant.as_ref() {
                 Some(FRPayload::ConfigCompleteId(_id)) => {
-                    debug!("Config complete received");
+                    debug!("Received config_complete_id");
                 }
                 Some(FRPayload::Packet(pkt)) => {
                     if let Some(MPPayload::Decoded(data_msg)) = &pkt.payload_variant {
@@ -1189,8 +1229,21 @@ impl MeshtasticReader {
                     }
                 }
                 Some(FRPayload::MyInfo(info)) => {
-                    self.our_node_id = Some(info.my_node_num);
-                    debug!("Got our node ID: {}", info.my_node_num);
+                    // Only send node ID to writer if we don't already know it
+                    if self.our_node_id.is_none() {
+                        self.our_node_id = Some(info.my_node_num);
+                        debug!("Got our node ID: {}", info.my_node_num);
+                        
+                        // Notify the writer about our node ID (first time only)
+                        if let Err(e) = self.writer_control_tx.send(ControlMessage::SetNodeId(info.my_node_num)) {
+                            warn!("Failed to send node ID to writer: {}", e);
+                        } else {
+                            debug!("Sent node ID {} to writer", info.my_node_num);
+                        }
+                    } else {
+                        // We already know our node ID, no need to spam the writer
+                        trace!("Received duplicate MyInfo, ignoring (node ID already known)");
+                    }
                 }
                 Some(FRPayload::NodeInfo(n)) => {
                     if let Some(user) = &n.user {
@@ -1209,13 +1262,46 @@ impl MeshtasticReader {
                     }
                 }
                 Some(FRPayload::Config(_)) => {
-                    debug!("Received radio config");
+                    debug!("Received config");
+                }
+                Some(FRPayload::LogRecord(log)) => {
+                    debug!("Received log_record: {}", log.message);
+                }
+                Some(FRPayload::Rebooted(_)) => {
+                    debug!("Received rebooted");
                 }
                 Some(FRPayload::ModuleConfig(_)) => {
-                    debug!("Received module config");
+                    debug!("Received moduleConfig");
+                }
+                Some(FRPayload::Channel(_)) => {
+                    debug!("Received channel");
+                }
+                Some(FRPayload::FileInfo(_)) => {
+                    debug!("Received fileInfo");
+                }
+                Some(FRPayload::QueueStatus(_)) => {
+                    debug!("Received queueStatus");
+                }
+                Some(FRPayload::XmodemPacket(_)) => {
+                    debug!("Received xmodemPacket");
+                }
+                Some(FRPayload::Metadata(_)) => {
+                    debug!("Received metadata");
+                }
+                Some(FRPayload::MqttClientProxyMessage(_)) => {
+                    debug!("Received mqttClientProxyMessage");
+                }
+                Some(FRPayload::ClientNotification(_)) => {
+                    debug!("Received clientNotification");
+                }
+                Some(FRPayload::DeviceuiConfig(_)) => {
+                    debug!("Received deviceuiConfig");
+                }
+                None => {
+                    debug!("FromRadio message with no payload");
                 }
                 _ => {
-                    debug!("Unhandled FromRadio message variant");
+                    debug!("Unhandled FromRadio message variant: {:?}", msg.payload_variant);
                 }
             }
         }
@@ -1303,45 +1389,34 @@ impl MeshtasticReader {
 
 #[cfg(feature = "meshtastic-proto")]
 impl MeshtasticWriter {
-    /// Create a new writer task
+    /// Create a new writer task with shared port
     pub async fn new(
-        port_name: &str,
-        baud_rate: u32,
+        shared_port: Arc<Mutex<Box<dyn SerialPort>>>,
         outgoing_rx: mpsc::UnboundedReceiver<OutgoingMessage>,
         control_rx: mpsc::UnboundedReceiver<ControlMessage>,
     ) -> Result<Self> {
-        info!("Initializing Meshtastic writer on {} at {} baud", port_name, baud_rate);
-        
-        #[cfg(feature = "serial")]
-        let port = {
-            let mut builder = serialport::new(port_name, baud_rate)
-                .timeout(Duration::from_millis(500));
-            #[cfg(unix)] { 
-                builder = builder.data_bits(serialport::DataBits::Eight)
-                    .stop_bits(serialport::StopBits::One)
-                    .parity(serialport::Parity::None); 
-            }
-            let mut port = builder
-                .open()
-                .map_err(|e| anyhow!("Failed to open serial port {}: {}", port_name, e))?;
-            
-            // Toggle DTR/RTS to reset/ensure device wakes
-            let _ = port.write_data_terminal_ready(true);
-            let _ = port.write_request_to_send(true);
-            sleep(Duration::from_millis(150)).await;
-            
-            debug!("Serial port initialized for writing");
-            Some(port)
-        };
-        
-        #[cfg(not(feature = "serial"))]
-        let port = None;
+        info!("Initializing Meshtastic writer with shared port");
         
         Ok(MeshtasticWriter {
-            port_name: port_name.to_string(),
-            baud_rate,
             #[cfg(feature = "serial")]
-            port,
+            port: shared_port,
+            outgoing_rx,
+            control_rx,
+            our_node_id: None,
+            config_request_id: None,
+            last_want_config_sent: None,
+        })
+    }
+    
+    /// Create a mock writer for non-serial builds
+    #[cfg(not(feature = "serial"))]
+    pub async fn new_mock(
+        outgoing_rx: mpsc::UnboundedReceiver<OutgoingMessage>,
+        control_rx: mpsc::UnboundedReceiver<ControlMessage>,
+    ) -> Result<Self> {
+        info!("Initializing mock Meshtastic writer");
+        
+        Ok(MeshtasticWriter {
             outgoing_rx,
             control_rx,
             our_node_id: None,
@@ -1391,6 +1466,10 @@ impl MeshtasticWriter {
                             if let Err(e) = self.send_heartbeat() {
                                 error!("Failed to send heartbeat: {}", e);
                             }
+                        }
+                        Some(ControlMessage::SetNodeId(node_id)) => {
+                            self.our_node_id = Some(node_id);
+                            debug!("Writer: received node ID {}", node_id);
                         }
                         Some(_) => {
                             // Other control messages
@@ -1478,7 +1557,7 @@ impl MeshtasticWriter {
         let toradio = ToRadio { payload_variant: Some(TRPayload::Packet(pkt)) };
         
         #[cfg(feature = "serial")]
-        if let Some(ref mut port) = self.port {
+        {
             let mut payload = Vec::with_capacity(128);
             toradio.encode(&mut payload)?;
             let mut hdr = [0u8; 4];
@@ -1487,9 +1566,12 @@ impl MeshtasticWriter {
             hdr[2] = ((payload.len() >> 8) & 0xFF) as u8;
             hdr[3] = (payload.len() & 0xFF) as u8;
             
-            port.write_all(&hdr)?;
-            port.write_all(&payload)?;
-            port.flush()?;
+            {
+                let mut port = self.port.lock().unwrap();
+                port.write_all(&hdr)?;
+                port.write_all(&payload)?;
+                port.flush()?;
+            }
             
             // Small delay to allow OS to flush the serial buffer
             sleep(Duration::from_millis(50)).await;
@@ -1501,7 +1583,7 @@ impl MeshtasticWriter {
             };
             
             let msg_type = if is_dm { "DM (reliable)" } else { "broadcast" };
-            info!("Sent TextPacket ({}): to=0x{:08x} channel={} priority={} ({} bytes) text='{}'", 
+            debug!("Sent TextPacket ({}): to=0x{:08x} channel={} priority={} ({} bytes) text='{}'", 
                   msg_type, dest, msg.channel, priority, payload.len(), display_text);
         }
         
@@ -1535,7 +1617,7 @@ impl MeshtasticWriter {
         use prost::Message;
         
         #[cfg(feature = "serial")]
-        if let Some(ref mut port) = self.port {
+        {
             let mut payload = Vec::with_capacity(256);
             msg.encode(&mut payload)?;
             if payload.len() > u16::MAX as usize { 
@@ -1547,6 +1629,7 @@ impl MeshtasticWriter {
             hdr[2] = ((payload.len() >> 8) & 0xFF) as u8;
             hdr[3] = (payload.len() & 0xFF) as u8;
             
+            let mut port = self.port.lock().unwrap();
             port.write_all(&hdr)?;
             port.write_all(&payload)?;
             port.flush()?;
@@ -1576,6 +1659,7 @@ impl MeshtasticWriter {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn set_our_node_id(&mut self, node_id: u32) {
         self.our_node_id = Some(node_id);
         debug!("Writer: set our_node_id to {}", node_id);
@@ -1595,15 +1679,31 @@ pub async fn create_reader_writer_system(
     mpsc::UnboundedSender<ControlMessage>,
     mpsc::UnboundedSender<ControlMessage>,
 )> {
+    // Create shared serial port
+    #[cfg(feature = "serial")]
+    let shared_port = create_shared_serial_port(port_name, baud_rate).await?;
+    
     // Create channels
     let (text_event_tx, text_event_rx) = mpsc::unbounded_channel::<TextEvent>();
     let (outgoing_tx, outgoing_rx) = mpsc::unbounded_channel::<OutgoingMessage>();
     let (reader_control_tx, reader_control_rx) = mpsc::unbounded_channel::<ControlMessage>();
     let (writer_control_tx, writer_control_rx) = mpsc::unbounded_channel::<ControlMessage>();
 
-    // Create reader and writer
-    let reader = MeshtasticReader::new(port_name, baud_rate, text_event_tx, reader_control_rx).await?;
-    let writer = MeshtasticWriter::new(port_name, baud_rate, outgoing_rx, writer_control_rx).await?;
+    // Create reader and writer with shared port
+    #[cfg(feature = "serial")]
+    let reader = MeshtasticReader::new(shared_port.clone(), text_event_tx, reader_control_rx, writer_control_tx.clone()).await?;
+    #[cfg(feature = "serial")]
+    let writer = MeshtasticWriter::new(shared_port, outgoing_rx, writer_control_rx).await?;
+    
+    #[cfg(not(feature = "serial"))]
+    let (reader, writer) = {
+        // For non-serial builds, create mock reader/writer
+        warn!("Serial not available, using mock reader/writer");
+        (
+            MeshtasticReader::new_mock(text_event_tx, reader_control_rx, writer_control_tx.clone()).await?,
+            MeshtasticWriter::new_mock(outgoing_rx, writer_control_rx).await?,
+        )
+    };
 
     Ok((reader, writer, text_event_rx, outgoing_tx, reader_control_tx, writer_control_tx))
 }

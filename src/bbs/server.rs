@@ -384,8 +384,6 @@ impl BbsServer {
         let (tx, mut rx) = mpsc::unbounded_channel();
         self.message_tx = Some(tx);
         
-        let mut interval = tokio::time::interval(Duration::from_millis(50));
-        
         // Main message processing loop
         loop {
             // Proactive weather refresh every 5 minutes
@@ -1374,30 +1372,22 @@ impl BbsServer {
                         #[cfg(not(feature = "meshtastic-proto"))]
                         let friendly = node_key.clone();
                         let public_notice = format!("[{}] - please check your DM's for {} help", friendly, self.config.bbs.name);
-                        #[cfg(feature = "meshtastic-proto")]
-                        {
-                            if let Some(dev) = &mut self.device {
-                                if let Err(e) = dev.send_text_packet(None, 0, &public_notice) { warn!("Public HELP broadcast failed: {e:?}"); }
-                            }
+                        
+                        // Send public notice using channel-based system
+                        match self.send_broadcast(&public_notice).await {
+                            Ok(_) => debug!("Sent help public notice"),
+                            Err(e) => warn!("Public HELP broadcast failed: {}", e),
                         }
-                        // Always attempt to DM help - use direct protobuf with original channel
+                        
+                        // Always attempt to DM help
                         info!("Processing HELP DM for node {} (0x{:08x}). Raw ev.source={}, node_key='{}'", node_key, ev.source, ev.source, node_key);
                         
-                        // Send comprehensive help DM using the same mechanism as direct message help
+                        // Send comprehensive help DM using the channel-based system
                         let help_text = "Welcome to MeshBBS! Type HELP for commands.\nA bulletin board system for mesh networks.\n\nTo get started:\n- REGISTER <user> <pass>\n- LOGIN <user> <pass>\n\nOnce logged in, type HELP for a full list of commands.".to_string();
                         
-                        // DMs must always go to channel 0, not the original message channel
-                        let dm_channel = 0;
-                        
-                        #[cfg(feature = "meshtastic-proto")]
-                        if let Some(dev) = &mut self.device {
-                            if dev.our_node_id().is_some() {
-                                if let Err(e) = dev.send_text_packet(Some(ev.source), dm_channel, &help_text) {
-                                    warn!("Failed to send HELP DM: {e:?}");
-                                } else {
-                                    info!("Sent HELP DM to {}", ev.source);
-                                }
-                            }
+                        match self.send_message(&node_key, &help_text).await {
+                            Ok(_) => info!("Sent HELP DM to {}", ev.source),
+                            Err(e) => warn!("Failed to send HELP DM to {}: {}", ev.source, e),
                         }
                     }
                 }
