@@ -107,7 +107,7 @@ pub struct SchedulerStats {
     pub escalations: u64,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SchedulerHandle {
     tx: mpsc::UnboundedSender<ScheduleCommand>,
 }

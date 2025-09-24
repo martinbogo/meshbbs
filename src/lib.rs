@@ -72,3 +72,4 @@ pub mod config;
 pub mod storage;
 pub mod validation;
 pub mod protobuf; // always declare; internal stubs handle feature gating
+pub mod metrics; // new metrics module (Phase 3 scaffold)

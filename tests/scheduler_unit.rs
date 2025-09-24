@@ -16,7 +16,7 @@ fn base_cfg() -> SchedulerConfig {
 }
 
 fn mk_msg(content: &str) -> OutgoingMessage {
-    OutgoingMessage { to_node: None, channel: 0, content: content.to_string(), priority: meshbbs::meshtastic::MessagePriority::Normal }
+    OutgoingMessage { to_node: None, channel: 0, content: content.to_string(), priority: meshbbs::meshtastic::MessagePriority::Normal, kind: meshbbs::meshtastic::OutgoingKind::Normal }
 }
 
 #[tokio::test]

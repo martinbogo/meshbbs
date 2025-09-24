@@ -80,6 +80,16 @@ pub enum MessagePriority {
     Normal,  // Regular broadcasts
 }
 
+/// Kind of outgoing message (normal vs internally generated retry)
+#[derive(Debug, Clone)]
+pub enum OutgoingKind {
+    Normal,
+    /// Retry of a previously sent reliable DM (identified by original packet id)
+    Retry { id: u32 },
+}
+
+impl Default for OutgoingKind { fn default() -> Self { OutgoingKind::Normal } }
+
 /// Outgoing message structure for the writer task
 #[derive(Debug, Clone)]
 pub struct OutgoingMessage {
@@ -87,6 +97,7 @@ pub struct OutgoingMessage {
     pub channel: u32,          // Channel index (0 = primary)
     pub content: String,       // Message content
     pub priority: MessagePriority,
+    pub kind: OutgoingKind,    // Normal or Retry
 }
 
 /// Writer tuning parameters, typically sourced from Config
@@ -128,6 +139,9 @@ pub enum ControlMessage {
     AckReceived(u32),
     /// Routing error reported by radio for a particular request/reply id (value per proto::routing::Error)
     RoutingError { id: u32, reason: i32 },
+    /// Provide scheduler handle to writer after creation (avoids circular ownership at construction)
+    #[allow(dead_code)]
+    SetSchedulerHandle(crate::bbs::dispatch::SchedulerHandle),
 }
 
 #[cfg(feature = "meshtastic-proto")]
@@ -387,6 +401,8 @@ pub struct MeshtasticWriter {
     last_text_send: Option<std::time::Instant>,
     // Configuration tuning
     tuning: WriterTuning,
+    // Optional scheduler handle for enqueuing retry envelopes
+    scheduler: Option<crate::bbs::dispatch::SchedulerHandle>,
 }
 
 #[derive(Debug, Clone)]
@@ -1666,6 +1682,7 @@ impl MeshtasticWriter {
             last_high_priority_sent: None,
             last_text_send: None,
             tuning,
+            scheduler: None,
         })
     }
     
@@ -1688,6 +1705,7 @@ impl MeshtasticWriter {
             last_high_priority_sent: None,
             last_text_send: None,
             tuning,
+            scheduler: None,
         })
     }
 
@@ -1714,8 +1732,71 @@ impl MeshtasticWriter {
                 msg = self.outgoing_rx.recv() => {
                     match msg {
                         Some(outgoing) => {
-                            if let Err(e) = self.send_message(&outgoing).await {
-                                error!("Failed to send message: {}", e);
+                            match outgoing.kind.clone() {
+                                OutgoingKind::Normal => {
+                                    if let Err(e) = self.send_message(&outgoing).await { error!("Failed to send message: {}", e); }
+                                }
+                                OutgoingKind::Retry { id } => {
+                                    // Only act if still pending and due
+                                    if let Some(ready) = self.pending.get(&id).cloned() {
+                                        let now = std::time::Instant::now();
+                                        if now >= ready.next_due {
+                                            const MAX_ATTEMPTS: u8 = 3;
+                                            if ready.attempts >= MAX_ATTEMPTS {
+                                                let expired = self.pending.remove(&id).unwrap();
+                                                metrics::inc_reliable_failed();
+                                                warn!("Failed id={} to=0x{:08x} ({}): max attempts reached (scheduler retry)", id, expired.to, expired.content_preview);
+                                            } else {
+                                                // perform resend
+                                                let full = ready.full_content.clone();
+                                                let to = ready.to; let channel = ready.channel;
+                                                if let Err(e) = self.resend_text_packet(id, to, channel, &full).await {
+                                                    warn!("Resend failed id={} to=0x{:08x}: {}", id, to, e);
+                                                } else {
+                                                    // Advance backoff index and schedule next retry if still under attempt limit
+                                                    let backoffs = &self.tuning.dm_resend_backoff_seconds;
+                                                    if let Some(pmut) = self.pending.get_mut(&id) {
+                                                        let max_idx = (backoffs.len().saturating_sub(1)) as u8;
+                                                        pmut.attempts += 1; // increment after successful resend
+                                                        if pmut.backoff_idx < max_idx { pmut.backoff_idx += 1; }
+                                                        let next_delay = std::time::Duration::from_secs(backoffs[pmut.backoff_idx as usize]);
+                                                        pmut.next_due = std::time::Instant::now() + next_delay;
+                                                        metrics::inc_reliable_retries();
+                                                        info!("Resent id={} to=0x{:08x} (attempt {})", id, to, pmut.attempts);
+                                                        // Enqueue next retry if we haven't exhausted attempts
+                                                        if pmut.attempts < MAX_ATTEMPTS {
+                                                            if let Some(sched) = &self.scheduler {
+                                                                use crate::bbs::dispatch::{MessageEnvelope, MessageCategory, Priority};
+                                                                let retry_env = MessageEnvelope::new(
+                                                                    MessageCategory::Retry,
+                                                                    Priority::High,
+                                                                    next_delay,
+                                                                    OutgoingMessage { to_node: Some(to), channel, content: String::new(), priority: MessagePriority::High, kind: OutgoingKind::Retry { id } }
+                                                                );
+                                                                sched.enqueue(retry_env);
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        } else {
+                                            // Not yet due; re-enqueue adjusted delay
+                                            if let Some(sched) = &self.scheduler {
+                                                use crate::bbs::dispatch::{MessageEnvelope, MessageCategory, Priority};
+                                                let remaining = ready.next_due.saturating_duration_since(now);
+                                                let retry_env = MessageEnvelope::new(
+                                                    MessageCategory::Retry,
+                                                    Priority::High,
+                                                    remaining,
+                                                    OutgoingMessage { to_node: Some(ready.to), channel: ready.channel, content: String::new(), priority: MessagePriority::High, kind: OutgoingKind::Retry { id } }
+                                                );
+                                                sched.enqueue(retry_env);
+                                            }
+                                        }
+                                    } else {
+                                        debug!("Retry envelope for id={} ignored (no longer pending)", id);
+                                    }
+                                }
                             }
                         }
                         None => {
@@ -1793,6 +1874,10 @@ impl MeshtasticWriter {
                             self.our_node_id = Some(node_id);
                             debug!("Writer: received node ID {}", node_id);
                         }
+                        Some(ControlMessage::SetSchedulerHandle(handle)) => {
+                            self.scheduler = Some(handle);
+                            debug!("Writer: scheduler handle attached for retry scheduling");
+                        }
                         Some(_) => {
                             // Other control messages
                         }
@@ -1807,48 +1892,6 @@ impl MeshtasticWriter {
                 _ = heartbeat_interval.tick() => {
                     // periodic heartbeat
                     if let Err(e) = self.send_heartbeat() { debug!("Heartbeat send error: {:?}", e); }
-
-                    // scan pending for resends
-                    const MAX_ATTEMPTS: u8 = 3;
-                    let now = std::time::Instant::now();
-                    // collect ids to resend or expire
-                    let mut to_resend: Vec<u32> = Vec::new();
-                    let mut to_expire: Vec<(u32, PendingSend)> = Vec::new();
-                    for (id, p) in self.pending.iter_mut() {
-                        if p.next_due <= now {
-                            if p.attempts < MAX_ATTEMPTS {
-                                p.attempts += 1;
-                                to_resend.push(*id);
-                            } else {
-                                to_expire.push((*id, p.clone()));
-                            }
-                        }
-                    }
-                    for id in to_resend.into_iter() {
-                        if let Some(p) = self.pending.get(&id).cloned() {
-                            let to = p.to; let channel = p.channel; let content = p.full_content.clone();
-                            // Re-send with same id and same full content
-                            if let Err(e) = self.resend_text_packet(id, to, channel, &content).await {
-                                warn!("Resend failed id={} to=0x{:08x}: {}", id, p.to, e);
-                            } else {
-                                // After a resend, increase backoff step and schedule next_due
-                                if let Some(pp) = self.pending.get_mut(&id) {
-                                    let backoffs = &self.tuning.dm_resend_backoff_seconds;
-                                    let max_idx = (backoffs.len().saturating_sub(1)) as u8;
-                                    let new_idx = std::cmp::min(pp.backoff_idx.saturating_add(1), max_idx);
-                                    pp.backoff_idx = new_idx;
-                                    let delay = std::time::Duration::from_secs(backoffs[new_idx as usize]);
-                                    pp.next_due = std::time::Instant::now() + delay;
-                                }
-                                info!("Resent id={} to=0x{:08x} (attempt {})", id, p.to, self.pending.get(&id).map(|p| p.attempts).unwrap_or(0));
-                            }
-                        }
-                    }
-                    for (id, p) in to_expire.into_iter() {
-                        self.pending.remove(&id);
-                        metrics::inc_reliable_failed();
-                        warn!("Failed id={} to=0x{:08x} ({}): max attempts reached", id, p.to, p.content_preview);
-                    }
                 }
                 
             }
@@ -1995,6 +2038,24 @@ impl MeshtasticWriter {
                     sent_at: now,
                 });
                 metrics::inc_reliable_sent();
+                // Schedule first retry envelope via central scheduler (Retry category) if handle attached
+                if let Some(sched) = &self.scheduler {
+                    use crate::bbs::dispatch::{MessageEnvelope, MessageCategory, Priority};
+                    let delay = std::time::Duration::from_secs(*self.tuning.dm_resend_backoff_seconds.first().unwrap_or(&4));
+                    let retry_env = MessageEnvelope::new(
+                        MessageCategory::Retry,
+                        Priority::High, // treat retries as high to avoid starvation (can revisit fairness)
+                        delay,
+                        OutgoingMessage {
+                            to_node: Some(dest),
+                            channel: msg.channel,
+                            content: String::new(), // content not needed (will lookup pending)
+                            priority: MessagePriority::High,
+                            kind: OutgoingKind::Retry { id: packet_id },
+                        }
+                    );
+                    sched.enqueue(retry_env);
+                }
                 if let Err(e) = self.send_heartbeat() {
                     warn!("Failed to send heartbeat after DM: {}", e);
                 } else {
