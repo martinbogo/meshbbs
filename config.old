@@ -1,0 +1,43 @@
+[bbs]
+name = "MeshBBS Station"
+sysop = "sysop"
+location = "Portland"
+description = "A bulletin board system for mesh networks"
+max_users = 100
+session_timeout = 10
+welcome_message = "Welcome to MeshBBS! Type HELP for commands."
+sysop_password_hash = "$argon2id$v=19$m=19456,t=2,p=1$BwbpEWBeWNGsgDQK5HPjsw$mmZYFS53vDloK4/b1By566Uu1cRVCcC2osI1anKLRRs"
+
+[meshtastic]
+port = "/dev/cu.usbserial-0001"
+baud_rate = 115200
+node_id = ""
+channel = 0
+
+[storage]
+data_dir = "./data"
+max_message_size = 230
+message_retention_days = 30
+max_messages_per_area = 1000
+
+[message_areas.general]
+name = "General Discussion"
+description = "General chat and discussion"
+read_level = 0
+post_level = 0
+
+[message_areas.announcements]
+name = "Announcements"
+description = "Important announcements"
+read_level = 0
+post_level = 10
+
+[message_areas.technical]
+name = "Technical Support"
+description = "Technical help and support"
+read_level = 0
+post_level = 0
+
+[logging]
+level = "info"
+file = "meshbbs.log"

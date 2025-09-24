@@ -1316,7 +1316,14 @@ impl BbsServer {
                             } else if let Some(hex) = node_key.strip_prefix("0x").or_else(|| node_key.strip_prefix("0X")) {
                                 u32::from_str_radix(hex, 16).ok()
                             } else { None };
-                            if let Some(id) = id_opt { dev.format_node_short_label(id) } else { node_key.clone() }
+                            if let Some(id) = id_opt { 
+                                let friendly_name = dev.format_node_short_label(id);
+                                info!("Help request from node {} (0x{:08x}): using friendly name '{}'", id, id, friendly_name);
+                                friendly_name
+                            } else { 
+                                info!("Help request from unparseable node key: '{}'", node_key);
+                                node_key.clone() 
+                            }
                         } else { node_key.clone() };
                         #[cfg(not(feature = "meshtastic-proto"))]
                         let friendly = node_key.clone();
@@ -1369,7 +1376,7 @@ impl BbsServer {
                 }
                 PublicCommand::Weather => {
                     if self.public_state.should_reply(&node_key) {
-                        let weather = self.fetch_weather().await.unwrap_or_else(|| "Weather unavailable".to_string());
+                        let weather = self.fetch_weather().await.unwrap_or_else(|| "Error fetching weather. Please try again later.".to_string());
                         let mut broadcasted = false;
                         #[cfg(feature = "meshtastic-proto")]
                         {
@@ -1504,13 +1511,27 @@ impl BbsServer {
         let location = self.config.bbs.location.trim();
         let encoded_location = location.replace(" ", "%20");
         let url = format!("https://wttr.in/{}?format=%l:+%C+%t", encoded_location);
-        debug!("Fetching weather from URL: {}", url);
+        info!("Fetching weather from URL: {}", url);
         let fut = async {
             let client = reqwest::Client::new();
             match client.get(&url).send().await {
                 Ok(resp) => {
                     if !resp.status().is_success() { return None; }
-                    match resp.text().await { Ok(txt) => Some(Self::sanitize_weather(&txt)), Err(_) => None }
+                    match resp.text().await { 
+                        Ok(txt) => {
+                            let sanitized = Self::sanitize_weather(&txt);
+                            // Check if the response indicates an error condition
+                            if sanitized.to_lowercase().contains("unknown location") || 
+                               sanitized.to_lowercase().contains("error") ||
+                               sanitized.starts_with("ERROR") ||
+                               sanitized.len() < 5 {  // Very short responses are likely errors
+                                debug!("Weather service returned error response: {}", sanitized);
+                                return None;
+                            }
+                            Some(sanitized)
+                        },
+                        Err(_) => None 
+                    }
                 },
                 Err(e) => { debug!("weather fetch error from {}: {e:?}", url); None }
             }
@@ -1526,6 +1547,7 @@ impl BbsServer {
                 Some(v) 
             },
             None => {
+                warn!("Weather fetch failed from URL: {}", url);
                 // If refresh failed but we have a stale cached value, check if it's not too old
                 if let Some((ts, val)) = &self.weather_cache {
                     let age = ts.elapsed();
@@ -1559,7 +1581,7 @@ impl BbsServer {
             if ch.is_ascii() && !ch.is_control() { out.push(ch); }
         }
         let trimmed = out.trim();
-        if trimmed.is_empty() { "Weather unavailable".to_string() } else { format!("Weather: {}", trimmed) }
+        if trimmed.is_empty() { "Weather: Service temporarily unavailable".to_string() } else { format!("Weather: {}", trimmed) }
     }
 
     /// Show BBS status and statistics

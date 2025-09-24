@@ -617,7 +617,13 @@ impl MeshtasticDevice {
                     }
                 }
                 FRPayload::MyInfo(info) => return Some(format!("MYINFO:{}", info.my_node_num)),
-                FRPayload::NodeInfo(n) => return Some(format!("NODE:{}:{}", n.num, n.user.as_ref().map(|u| u.long_name.clone()).unwrap_or_default())),
+                FRPayload::NodeInfo(n) => {
+                    if let Some(user) = &n.user {
+                        return Some(format!("NODE:{}:{}:{}", n.num, user.long_name, user.short_name));
+                    } else {
+                        return Some(format!("NODE:{}:", n.num));
+                    }
+                },
                 FRPayload::Config(_) => return Some("CONFIG".to_string()),
                 FRPayload::ModuleConfig(_) => return Some("MODULE_CONFIG".to_string()),
                 _ => {}
@@ -633,9 +639,17 @@ impl MeshtasticDevice {
             let parts: Vec<&str> = summary.split(':').collect();
             if parts.len() >= 2 { if let Ok(id) = parts[1].parse::<u32>() {
                 let long_name = if parts.len() >= 3 { parts[2].to_string() } else { String::new() };
-                let short_name = if !long_name.is_empty() { 
+                let network_short_name = if parts.len() >= 4 { parts[3].to_string() } else { String::new() };
+                
+                // Prefer network short name if available and non-empty
+                let short_name = if !network_short_name.trim().is_empty() {
+                    info!("Using network short name '{}' for node {} ({})", network_short_name.trim(), id, long_name);
+                    network_short_name.trim().to_string()
+                } else if !long_name.is_empty() { 
                     // Generate short name from long name (first 4 chars or similar)
-                    long_name.chars().take(4).collect::<String>().to_uppercase()
+                    let generated = long_name.chars().take(4).collect::<String>().to_uppercase();
+                    info!("Generated short name '{}' from long name '{}' for node {}", generated, long_name, id);
+                    generated
                 } else { 
                     format!("{:04X}", id & 0xFFFF) 
                 };
