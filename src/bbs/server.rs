@@ -111,9 +111,6 @@ pub struct BbsServer {
     #[allow(dead_code)]
     #[doc(hidden)]
     pub(crate) test_messages: Vec<(String,String)>, // collected outbound messages (testing)
-    // Track the last login banner for test assertions only.
-    #[cfg(any(test, feature = "meshtastic-proto"))]
-    last_banner: Option<String>,
 }
 
 // Verbose HELP material & chunker (outside impl so usable without Self scoping issues during compilation ordering)
@@ -144,6 +141,19 @@ fn chunk_verbose_help() -> Vec<String> {
 }
 
 impl BbsServer {
+    #[inline]
+    fn lookup_short_name_from_cache(&self, id: u32) -> Option<String> {
+        #[derive(serde::Deserialize)]
+        struct CachedNodeInfo { short_name: String, #[allow(dead_code)] long_name: String }
+        #[derive(serde::Deserialize)]
+        struct NodeCache { nodes: std::collections::HashMap<u32, CachedNodeInfo> }
+        let path = "data/node_cache.json";
+        let content = std::fs::read_to_string(path).ok()?;
+        let cache: NodeCache = serde_json::from_str(&content).ok()?;
+        cache.nodes.get(&id)
+            .and_then(|n| { let sn = n.short_name.trim(); if sn.is_empty() { None } else { Some(sn.to_string()) } })
+    }
+
     /// Creates a new BBS server instance with the provided configuration.
     ///
     /// This function initializes all components of the BBS system including storage,
@@ -268,8 +278,6 @@ impl BbsServer {
             #[cfg(feature = "meshtastic-proto")]
             node_cache_last_cleanup: Instant::now() - Duration::from_secs(3601), // trigger cleanup on first run
             test_messages: Vec::new(),
-            #[cfg(any(test, feature = "meshtastic-proto"))]
-            last_banner: None,
         })
     }
 
@@ -278,9 +286,28 @@ impl BbsServer {
     pub async fn connect_device(&mut self, port: &str) -> Result<()> {
         info!("Connecting to Meshtastic device on {} using reader/writer pattern", port);
         
+        // Build writer tuning from config (with enforced 2s minimum)
+        let mcfg = &self.config.meshtastic;
+        let mut min_send_gap_ms = mcfg.min_send_gap_ms.unwrap_or(2000);
+        if min_send_gap_ms < 2000 {
+            warn!("Configured min_send_gap_ms={}ms is below 2000ms; clamping to 2000ms", min_send_gap_ms);
+            min_send_gap_ms = 2000;
+        }
+        let mut backoffs = mcfg.dm_resend_backoff_seconds.clone().unwrap_or_else(|| vec![4, 8, 16]);
+        if backoffs.is_empty() { backoffs = vec![4, 8, 16]; }
+        // sanitize non-positive entries
+        backoffs.retain(|&s| s > 0);
+        if backoffs.is_empty() { backoffs = vec![4, 8, 16]; }
+        let tuning = crate::meshtastic::WriterTuning {
+            min_send_gap_ms,
+            dm_resend_backoff_seconds: backoffs,
+            post_dm_broadcast_gap_ms: mcfg.post_dm_broadcast_gap_ms.unwrap_or(1200),
+            dm_to_dm_gap_ms: mcfg.dm_to_dm_gap_ms.unwrap_or(600),
+        };
+
         // Create the reader/writer system
         let (reader, writer, text_event_rx, outgoing_tx, reader_control_tx, writer_control_tx) = 
-            crate::meshtastic::create_reader_writer_system(port, self.config.meshtastic.baud_rate).await?;
+            crate::meshtastic::create_reader_writer_system(port, self.config.meshtastic.baud_rate, tuning).await?;
         
         // Store the channels in the server
         self.text_event_rx = Some(text_event_rx);
@@ -305,33 +332,12 @@ impl BbsServer {
         Ok(())
     }
 
-    /// Fallback connect method for when meshtastic-proto feature is disabled
-    #[cfg(not(feature = "meshtastic-proto"))]
-    pub async fn connect_device(&mut self, port: &str) -> Result<()> {
-        info!("Connecting to Meshtastic device on {}", port);
-        
-        let mut device = MeshtasticDevice::new(port, self.config.meshtastic.baud_rate).await?;
-        self.device = Some(device);
-        Ok(())
-    }
-
-    /// Starts the main BBS server event loop.
-    ///
-    /// This is the core method that runs the BBS server. It initializes the sysop account,
-    /// starts the message processing loop, and handles all incoming events from the
-    /// Meshtastic device until the server is shut down.
-    ///
-    /// # Returns
-    ///
-    /// Returns `Ok(())` on clean shutdown, or an error if a fatal condition occurs
-    /// that prevents the server from continuing operation.
-    ///
-    /// # Behavior
-    ///
-    /// The run loop performs the following operations:
-    /// 1. **Sysop Initialization**: Ensures the sysop account exists and is properly configured
-    /// 2. **Device Connection**: Establishes communication with the Meshtastic device
-    /// 3. **Event Processing**: Processes incoming messages, commands, and system events
+    #[allow(dead_code)]
+    #[doc(hidden)]
+    pub fn test_messages(&self) -> &Vec<(String,String)> { &self.test_messages }
+    #[allow(dead_code)]
+    #[doc(hidden)]
+    pub fn test_insert_session(&mut self, session: Session) { self.sessions.insert(session.node_id.clone(), session); }
     /// 4. **Session Management**: Handles user session lifecycle and timeouts
     /// 5. **Weather Updates**: Provides proactive weather information (if enabled)
     /// 6. **Audit Logging**: Records security and administrative events
@@ -575,33 +581,7 @@ impl BbsServer {
         info!("Broadcast message sent to {} users by {}", sent_count, sender);
         Ok(sent_count)
     }
-    #[cfg(any(test, feature = "meshtastic-proto"))]
-    #[allow(dead_code)]
-    pub fn last_banner(&self) -> Option<&String> { self.last_banner.as_ref() }
-    #[allow(dead_code)]
-    #[doc(hidden)]
-    pub fn test_messages(&self) -> &Vec<(String,String)> { &self.test_messages }
-    #[allow(dead_code)]
-    #[doc(hidden)]
-    pub fn test_insert_session(&mut self, session: Session) { self.sessions.insert(session.node_id.clone(), session); }
-
-        fn build_banner(&self) -> String {
-            let mut banner = format!("{}\n{}", self.config.bbs.welcome_message, self.config.bbs.description);
-            if banner.as_bytes().len() > 230 { let mut truncated = banner.into_bytes(); truncated.truncate(230); banner = String::from_utf8_lossy(&truncated).to_string(); }
-            if !banner.ends_with('\n') { banner.push('\n'); }
-            banner
-        }
-
-        /// Prepare the login banner, recording the base (without unread line) to `last_banner`.
-        /// If `unread > 0`, appends the unread message count line.
-        fn prepare_login_banner(&mut self, unread: u32) -> String {
-            let mut banner = self.build_banner();
-            // Store the base banner before mutation so tests can assert core content
-            #[cfg(any(test, feature = "meshtastic-proto"))]
-            { self.last_banner = Some(banner.clone()); }
-            if unread > 0 { banner.push_str(&format!("{} new messages since your last login.\n", unread)); }
-            banner
-        }
+    // test helpers declared earlier
         /// Format the unread summary line according to spec.
         /// When unread == 0 -> "There are no new messages.\n"
         /// When unread == 1 -> "1 new message since your last login.\n"
@@ -769,9 +749,12 @@ impl BbsServer {
                     let first = ev.content.trim();
                     let upper_first = first.to_uppercase();
                     if !(upper_first.starts_with("LOGIN ") || upper_first.starts_with("REGISTER ")) {
-                        let banner = self.prepare_login_banner(0);
-                        let guidance = "Use REGISTER <name> <pass> to create an account or LOGIN <name> <pass>. Type HELP for basics.";
-                        let _ = self.send_message(&node_key, &format!("{}{}\n", banner, guidance)).await;
+                        // Simple first-contact guidance (no banner/description)
+                        let guidance = format!(
+                            "[{}] Use REGISTER <name> <pass> to create an account or LOGIN <name> <pass>. Type HELP for basics.",
+                            self.config.bbs.name
+                        );
+                        let _ = self.send_message(&node_key, &format!("{}\n", guidance)).await;
                     }
                 }
                 self.sessions.insert(node_key.clone(), session);
@@ -811,7 +794,7 @@ impl BbsServer {
                                     Ok(_) => { 
                                         session.login(user.to_string(), 1).await?; 
                                         let summary = Self::format_unread_line(0); 
-                                        let welcome_msg = format!("\n🎉 Welcome to MeshBBS, {}! Here's a quick start guide:\n\n• Type 'HELP' to see all available commands\n• Type 'LIST' to browse message boards\n• Type 'POST <board_number> <subject>' to create a new post\n• Type 'READ <board_number>' to read messages\n• Type 'WHO' to see who else is online\n\nEnjoy exploring the mesh network BBS!\n", user);
+                                        let welcome_msg = format!("\n🎉 Welcome to {}, {}! Here's a quick start guide:\n\n• Type 'HELP' to see all available commands\n• Type 'LIST' to browse message boards\n• Type 'POST <board_number> <subject>' to create a new post\n• Type 'READ <board_number>' to read messages\n• Type 'WHO' to see who else is online\n\nEnjoy exploring the mesh network BBS!\n", self.config.bbs.name, user);
                                         deferred_reply = Some(format!("Registered and logged in as {}.\nWelcome, {} you are now logged in.\n{}{}", user, user, summary, welcome_msg));
                                         // Mark welcome message as shown
                                         if let Err(e) = self.storage.mark_welcome_shown(user, true, false).await {
@@ -1352,42 +1335,48 @@ impl BbsServer {
                         // Compose public notice and detailed DM help
                         // Prefer a friendly node label (short label) if the protobuf node catalog knows it.
                         // Support node keys provided either as plain decimal or hex with 0x prefix.
-                        #[cfg(feature = "meshtastic-proto")]
-                        let friendly = if let Some(dev) = &self.device {
-                            // Attempt to parse node id in decimal first, then hex (0x...)
+                        // Prefer short name from node cache; fallback to hex/id
+                        let friendly = {
                             let id_opt = if let Ok(id_dec) = node_key.parse::<u32>() {
                                 Some(id_dec)
                             } else if let Some(hex) = node_key.strip_prefix("0x").or_else(|| node_key.strip_prefix("0X")) {
                                 u32::from_str_radix(hex, 16).ok()
                             } else { None };
-                            if let Some(id) = id_opt { 
-                                let friendly_name = dev.format_node_short_label(id);
-                                info!("Help request from node {} (0x{:08x}): using friendly name '{}'", id, id, friendly_name);
-                                friendly_name
-                            } else { 
+                            if let Some(id) = id_opt {
+                                if let Some(sn) = self.lookup_short_name_from_cache(id) {
+                                    info!("Help request from node {} (0x{:08x}): using short name '{}'", id, id, sn);
+                                    sn
+                                } else {
+                                    // Fallback to compact hex label like Meshtastic short style
+                                    let fallback = format!("0x{:06X}", id & 0xFFFFFF);
+                                    info!("Help request from node {} (0x{:08x}): no short name in cache, using '{}'", id, id, fallback);
+                                    fallback
+                                }
+                            } else {
                                 info!("Help request from unparseable node key: '{}'", node_key);
-                                node_key.clone() 
+                                node_key.clone()
                             }
-                        } else { node_key.clone() };
-                        #[cfg(not(feature = "meshtastic-proto"))]
-                        let friendly = node_key.clone();
+                        };
                         let public_notice = format!("[{}] - please check your DM's for {} help", friendly, self.config.bbs.name);
-                        
-                        // Send public notice using channel-based system
-                        match self.send_broadcast(&public_notice).await {
-                            Ok(_) => debug!("Sent help public notice"),
-                            Err(e) => warn!("Public HELP broadcast failed: {}", e),
-                        }
-                        
-                        // Always attempt to DM help
+
+                        // Send DM first, then public notice. This reduces the chance of a transient rate limit
+                        // affecting the DM, since the DM is more time-sensitive for onboarding.
                         info!("Processing HELP DM for node {} (0x{:08x}). Raw ev.source={}, node_key='{}'", node_key, ev.source, ev.source, node_key);
-                        
-                        // Send comprehensive help DM using the channel-based system
-                        let help_text = "Welcome to MeshBBS! Type HELP for commands.\nA bulletin board system for mesh networks.\n\nTo get started:\n- REGISTER <user> <pass>\n- LOGIN <user> <pass>\n\nOnce logged in, type HELP for a full list of commands.".to_string();
-                        
+
+                        let help_text = format!(
+                            "[{}] HELP: REGISTER <user> <pass>; then LOGIN <user> <pass>. Type HELP in DM for more.",
+                            self.config.bbs.name
+                        );
+
                         match self.send_message(&node_key, &help_text).await {
                             Ok(_) => info!("Sent HELP DM to {}", ev.source),
                             Err(e) => warn!("Failed to send HELP DM to {}: {}", ev.source, e),
+                        }
+
+                        // After attempting DM, send the public notice using channel-based system
+                        match self.send_broadcast(&public_notice).await {
+                            Ok(_) => debug!("Sent help public notice"),
+                            Err(e) => warn!("Public HELP broadcast failed: {}", e),
                         }
                     }
                 }
@@ -1439,22 +1428,23 @@ impl BbsServer {
     async fn send_message(&mut self, to_node: &str, message: &str) -> Result<()> {
         #[cfg(feature = "meshtastic-proto")]
         {
-            // Parse node ID from string
-            let node_id = if to_node.starts_with("0x") {
-                u32::from_str_radix(&to_node[2..], 16).ok()
-            } else {
-                to_node.parse::<u32>().ok()
-            };
-            
-            if let Some(id) = node_id {
-                let outgoing = OutgoingMessage {
-                    to_node: Some(id),
-                    channel: 0, // Primary channel
-                    content: message.to_string(),
-                    priority: MessagePriority::High, // DMs are high priority
+            // If we have an active outgoing channel (device connected), enforce numeric node IDs
+            if let Some(ref tx) = self.outgoing_tx {
+                // Parse node ID from string when actually sending to radio
+                let node_id = if to_node.starts_with("0x") {
+                    u32::from_str_radix(&to_node[2..], 16).ok()
+                } else {
+                    to_node.parse::<u32>().ok()
                 };
-                
-                if let Some(ref tx) = self.outgoing_tx {
+
+                if let Some(id) = node_id {
+                    let outgoing = OutgoingMessage {
+                        to_node: Some(id),
+                        channel: 0, // Primary channel
+                        content: message.to_string(),
+                        priority: MessagePriority::High, // DMs are high priority
+                    };
+
                     match tx.send(outgoing) {
                         Ok(_) => {
                             debug!("Queued message to {}: {}", to_node, message);
@@ -1465,12 +1455,12 @@ impl BbsServer {
                         }
                     }
                 } else {
-                    warn!("No outgoing channel available, cannot send message");
-                    return Err(anyhow!("Outgoing channel not available"));
+                    warn!("Invalid node ID format: {}", to_node);
+                    return Err(anyhow!("Invalid node ID format: {}", to_node));
                 }
             } else {
-                warn!("Invalid node ID format: {}", to_node);
-                return Err(anyhow!("Invalid node ID format: {}", to_node));
+                // No device connected; operate in mock/test mode and just record the message
+                debug!("Mock send (no device) to {}: {}", to_node, message);
             }
         }
         
@@ -1481,7 +1471,8 @@ impl BbsServer {
                 device.send_message(to_node, message).await?;
                 debug!("Sent message to {}: {}", to_node, message);
             } else {
-                warn!("No device connected, cannot send message");
+                // No device connected in non-proto mode either; treat as mock send for tests
+                debug!("Mock send (no device) to {}: {}", to_node, message);
             }
         }
         

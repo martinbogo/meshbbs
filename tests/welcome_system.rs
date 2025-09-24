@@ -8,6 +8,7 @@ async fn welcome_messages_on_registration_and_first_login() {
     let mut cfg = Config::default();
     cfg.bbs.sysop = "sysop".to_string(); // Use a valid sysop name that's allowed for sysop role
     cfg.storage.data_dir = tempfile::tempdir().unwrap().path().to_str().unwrap().into();
+    let bbs_name = cfg.bbs.name.clone();
     let mut server = BbsServer::new(cfg).await.unwrap();
 
     let node_id: u32 = 0x1234;
@@ -30,8 +31,9 @@ async fn welcome_messages_on_registration_and_first_login() {
     // Check that registration response contains welcome message
     let mut found_registration_welcome = false;
     for (_to, msg) in server.test_messages() {
+        let expected_welcome = format!("🎉 Welcome to {}, welcometest!", bbs_name);
         if msg.contains("Registered and logged in as welcometest") &&
-           msg.contains("🎉 Welcome to MeshBBS, welcometest!") &&
+           msg.contains(&expected_welcome) &&
            msg.contains("Type 'HELP' to see all available commands") {
             found_registration_welcome = true;
             break;
@@ -108,7 +110,8 @@ async fn welcome_messages_on_registration_and_first_login() {
     // Check that subsequent login does NOT contain welcome messages (only check newest messages)
     let mut found_subsequent_welcome = false;
     for (_to, msg) in server.test_messages().iter().skip(messages_after_first_login) {
-        if msg.contains("🎉 Welcome to MeshBBS") || msg.contains("💡 Quick tip: Since this is your first time back") {
+        let welcome_prefix = format!("🎉 Welcome to {}", bbs_name);
+        if msg.contains(&welcome_prefix) || msg.contains("💡 Quick tip: Since this is your first time back") {
             found_subsequent_welcome = true;
             break;
         }

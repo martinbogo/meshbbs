@@ -5,7 +5,7 @@
   
   **A modern Bulletin Board System for Meshtastic mesh networks**
   
-  [![Version](https://img.shields.io/badge/version-0.9.70-blue.svg)](https://github.com/martinbogo/meshbbs/releases)
+   [![Version](https://img.shields.io/badge/version-0.9.90-blue.svg)](https://github.com/martinbogo/meshbbs/releases)
   [![License](https://img.shields.io/badge/license-CC--BY--NC--4.0-green.svg)](LICENSE)
   [![Language](https://img.shields.io/badge/language-Rust-orange.svg)](https://www.rust-lang.org/)
   [![Platform](https://img.shields.io/badge/platform-Meshtastic-purple.svg)](https://meshtastic.org/)
@@ -155,18 +155,15 @@ port = "/dev/ttyUSB0"
 baud_rate = 115200
 node_id = ""
 channel = 0
+min_send_gap_ms = 2000                  # Enforced minimum between sends (ms)
+dm_resend_backoff_seconds = [4, 8, 16]  # Reliable DM retry schedule (s)
+post_dm_broadcast_gap_ms = 1200         # Delay broadcast after DM (ms)
+dm_to_dm_gap_ms = 600                   # Gap between DMs (ms)
 
 [storage]
 data_dir = "./data"
 max_message_size = 230        # Protocol hard cap
-message_retention_days = 30
-max_messages_per_topic = 1000
 
-[message_topics.general]
-name = "General Discussion"
-description = "General chat and discussion"
-read_level = 0    # Minimum user level to read
-post_level = 0    # Minimum user level to post
 
 [logging]
 level = "info"
@@ -180,8 +177,8 @@ file = "meshbbs.log"
 |---------|---------|--------------|
 | `[bbs]` | Basic BBS settings | `name`, `sysop`, `max_users`, `session_timeout` |
 | `[meshtastic]` | Device connection | `port`, `baud_rate`, `channel` |
-| `[storage]` | Data management | `max_message_size`, `retention_days` |
-| `[message_topics.*]` | Forum topics | `read_level`, `post_level` |
+| `[storage]` | Data management | `max_message_size` |
+| `topics.json` | Forum topics (runtime) | Create/manage interactively; persisted to `data/topics.json` |
 
 ## 📖 Usage
 

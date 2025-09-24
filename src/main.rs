@@ -142,16 +142,14 @@ async fn main() -> Result<()> {
                 let mut last_hb = Instant::now();
                 let start = Instant::now();
                 let deadline = start + Duration::from_secs(timeout);
-                // initial want_config request generation handled in ensure_want_config
+                // Send initial want_config request once, then periodic heartbeats with retries
+                let _ = device.ensure_want_config();
                 while Instant::now() < deadline {
-                    // Periodic heartbeat
-                    if last_hb.elapsed() >= Duration::from_secs(3) {
+                    // Periodic heartbeat and config retry every 10 seconds (less aggressive)
+                    if last_hb.elapsed() >= Duration::from_secs(10) {
                         let _ = device.send_heartbeat();
                         let _ = device.ensure_want_config();
                         last_hb = Instant::now();
-                    } else {
-                        // still make sure initial want_config was sent promptly
-                        let _ = device.ensure_want_config();
                     }
                     if let Some(_summary) = device.receive_message().await? {
                         if device.initial_sync_complete() { break; }

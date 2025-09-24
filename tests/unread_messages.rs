@@ -11,7 +11,7 @@ async fn unread_message_count_on_login() {
     std::fs::create_dir_all(&data_dir).unwrap();
     let cfg = Config {
         bbs: BbsConfig { name: "Test".into(), sysop: "sysop".into(), location: "Loc".into(), description: "Desc".into(), max_users: 10, session_timeout: 5, welcome_message: "Welcome".into(), sysop_password_hash: None },
-        meshtastic: MeshtasticConfig { port: "".into(), baud_rate: 115200, node_id: "".into(), channel: 0 },
+    meshtastic: MeshtasticConfig { port: "".into(), baud_rate: 115200, node_id: "".into(), channel: 0, min_send_gap_ms: None, dm_resend_backoff_seconds: None, post_dm_broadcast_gap_ms: None, dm_to_dm_gap_ms: None },
         storage: StorageConfig { data_dir: data_dir.to_string_lossy().to_string(), max_message_size: 230 },
         message_topics: {
             let mut m = HashMap::new();

@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.90] - 2025-09-24
+### Changed
+- Configuration: `message_topics` in `config.toml` is now optional. If omitted, MeshBBS starts with no pre-defined topics and expects runtime topic management. Any TOML-defined topics (if present) are merged into the runtime store at startup for backward compatibility.
+- Documentation: README updated to reflect runtime topics persistence in `data/topics.json` and added writer tuning options in `[meshtastic]`.
+
+### Added
+- Meshtastic writer tuning (with enforced fairness):
+  - Global minimum send gate (`min_send_gap_ms`), hard-clamped to ≥2000 ms.
+  - Reliable DM retransmit backoff schedule (`dm_resend_backoff_seconds`, default [4,8,16]).
+  - Pacing delays: `post_dm_broadcast_gap_ms` and `dm_to_dm_gap_ms`.
+- Runtime topic management persisted to `data/topics.json` with interactive create/modify/delete.
+
+### Fixed
+- Startup failure when `message_topics` is missing from `config.toml`.
+
 ## [0.9.70] - 2025-09-23
 ### Changed
 - **Major Architecture Refactor**: Implemented reader/writer pattern to resolve asynchronous I/O deadlock

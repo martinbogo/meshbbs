@@ -143,10 +143,11 @@ impl CommandProcessor {
         Ok(None)
     }
 
-    async fn handle_initial_connection(&self, session: &mut Session, _cmd: &str, _storage: &mut Storage, _config: &Config) -> Result<String> {
+    async fn handle_initial_connection(&self, session: &mut Session, _cmd: &str, _storage: &mut Storage, config: &Config) -> Result<String> {
         session.state = SessionState::MainMenu;
         Ok(format!(
-            "Welcome to MeshBBS!\nNode: {}\nAuth: REGISTER <user> <pass> or LOGIN <user> [pass]\nType HELP for commands\nMain Menu:\n[M]essages [U]ser [Q]uit\n",
+            "[{}]\nNode: {}\nAuth: REGISTER <user> <pass> or LOGIN <user> [pass]\nType HELP for commands\nMain Menu:\n[M]essages [U]ser [Q]uit\n",
+            config.bbs.name,
             session.node_id
         ))
     }

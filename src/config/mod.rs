@@ -104,6 +104,7 @@ pub struct Config {
     pub bbs: BbsConfig,
     pub meshtastic: MeshtasticConfig,
     pub storage: StorageConfig,
+    #[serde(default)]
     pub message_topics: HashMap<String, MessageTopicConfig>,
     pub logging: LoggingConfig,
     pub security: Option<SecurityConfig>,
@@ -115,6 +116,18 @@ pub struct MeshtasticConfig {
     pub baud_rate: u32,
     pub node_id: String,
     pub channel: u8,
+    /// Minimum gap between consecutive text sends (ms). Must be >= 2000ms.
+    #[serde(default)]
+    pub min_send_gap_ms: Option<u64>,
+    /// Retransmit backoff schedule in seconds, e.g. [4, 8, 16]
+    #[serde(default)]
+    pub dm_resend_backoff_seconds: Option<Vec<u64>>,
+    /// Additional pacing delay for a broadcast sent immediately after a reliable DM (ms)
+    #[serde(default)]
+    pub post_dm_broadcast_gap_ms: Option<u64>,
+    /// Minimum gap between two consecutive reliable DMs (ms)
+    #[serde(default)]
+    pub dm_to_dm_gap_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -213,7 +226,7 @@ impl Default for Config {
                 description: "A bulletin board system for mesh networks".to_string(),
                 max_users: 100,
                 session_timeout: 10,
-                welcome_message: "Welcome to MeshBBS! Type HELP for commands.".to_string(),
+                welcome_message: "".to_string(),
                 sysop_password_hash: None,
             },
             meshtastic: MeshtasticConfig {
@@ -221,6 +234,10 @@ impl Default for Config {
                 baud_rate: 115200,
                 node_id: "".to_string(),
                 channel: 0,
+                min_send_gap_ms: Some(2000),
+                dm_resend_backoff_seconds: Some(vec![4, 8, 16]),
+                post_dm_broadcast_gap_ms: Some(1200),
+                dm_to_dm_gap_ms: Some(600),
             },
             storage: StorageConfig {
                 data_dir: "./data".to_string(),

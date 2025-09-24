@@ -19,6 +19,16 @@ node_id = ""
 # Channel to monitor (0 = primary channel)
 channel = 0
 
+# Writer tuning (optional). Defaults follow Meshtastic fairness. The 2s minimum is enforced.
+# Minimum time between any text sends (ms). Values below 2000 will be clamped to 2000.
+min_send_gap_ms = 2000
+# Retransmit backoff schedule in seconds for reliable DMs
+dm_resend_backoff_seconds = [4, 8, 16]
+# Extra delay before a broadcast immediately after a reliable DM (ms)
+post_dm_broadcast_gap_ms = 1200
+# Gap between consecutive reliable DMs (ms)
+dm_to_dm_gap_ms = 600
+
 [storage]
 # Directory to store BBS data
 data_dir = "./data"
@@ -26,24 +36,6 @@ data_dir = "./data"
 # Maximum payload allowed by Meshtastic practical text frame size is 230 bytes.
 # Values above 230 will be clamped internally.
 max_message_size = 230
-
-[message_topics.general]
-name = "General"
-description = "General discussions"
-read_level = 0
-post_level = 0
-
-[message_topics.community]
-name = "Community"
-description = "Events, meet-ups, and community discussions"
-read_level = 0
-post_level = 0
-
-[message_topics.technical]
-name = "Technical"
-description = "Tech, hardware, and administrative discussions"
-read_level = 0
-post_level = 0
 
 [logging]
 level = "info"
