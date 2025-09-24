@@ -2,7 +2,6 @@ use anyhow::Result;
 use log::debug;
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
-use std::collections::HashMap;
 
 use crate::storage::Storage;
 use super::commands::CommandProcessor;
@@ -71,8 +70,6 @@ pub struct Session {
     pub login_time: DateTime<Utc>,
     pub last_activity: DateTime<Utc>,
     pub state: SessionState,
-    /// Arbitrary ephemeral key/value storage for transient multi-step interactions (e.g. pending chunk lists)
-    extras: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -104,7 +101,6 @@ impl Session {
             login_time: now,
             last_activity: now,
             state: SessionState::Connected,
-            extras: HashMap::new(),
         }
     }
 
@@ -226,14 +222,4 @@ impl Session {
         if topic.len() <= MAX { topic.to_string() } else { format!("{}…", &topic[..MAX-1]) }
     }
 
-    /// Store a transient value scoped to the session lifecycle.
-    /// Overwrites existing key if present.
-    pub fn set_extra<S: Into<String>>(&mut self, key: S, value: String) {
-        self.extras.insert(key.into(), value);
-    }
-
-    /// Take and remove a transient value. Returns None if key absent.
-    pub fn take_extra(&mut self, key: &str) -> Option<String> {
-        self.extras.remove(key)
-    }
 }

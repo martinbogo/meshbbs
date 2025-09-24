@@ -1399,18 +1399,6 @@ impl BbsServer {
                     }
                 }
                 if let Some(msg) = deferred_reply { self.send_session_message(&node_key, &msg, true).await?; }
-                // After sending first registration chunk, check for queued extra welcome chunks
-                if let Some(session) = self.sessions.get_mut(&node_key) {
-                    if let Some(json) = session.take_extra("pending_welcome_chunks") {
-                        if let Ok(list) = serde_json::from_str::<Vec<String>>(&json) {
-                            let total = list.len();
-                            for (i, chunk) in list.into_iter().enumerate() {
-                                let last = i + 1 == total; // prompt only on last
-                                self.send_session_message(&node_key, &chunk, last).await?;
-                            }
-                        }
-                    }
-                }
             // end direct path handling (removed extra closing brace)
         } else {
             // Public channel event: parse lightweight commands
