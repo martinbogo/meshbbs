@@ -98,7 +98,7 @@ pub struct BbsServer {
     #[cfg(feature = "weather")]
     weather_last_poll: Instant, // track when we last attempted proactive weather refresh
     #[cfg(feature = "meshtastic-proto")]
-    pending_direct: Vec<(u32, String)>, // queue of (dest_node_id, message) awaiting our node id
+    pending_direct: Vec<(u32, u32, String)>, // queue of (dest_node_id, channel, message) awaiting our node id
     #[cfg(feature = "meshtastic-proto")]
     node_cache_last_cleanup: Instant, // track when we last cleaned up stale nodes
     #[allow(dead_code)]
@@ -418,10 +418,10 @@ impl BbsServer {
                 if let Some(dev_mut) = &mut self.device {
                     if dev_mut.our_node_id().is_some() && !self.pending_direct.is_empty() {
                         let mut still_pending = Vec::new();
-                        for (dest, msg) in self.pending_direct.drain(..) {
-                            match dev_mut.send_text_packet(Some(dest), 0, &msg) {
-                                Ok(_) => debug!("Flushed pending DM to {dest}"),
-                                Err(e) => { warn!("Pending DM send to {dest} failed: {e:?}"); still_pending.push((dest, msg)); }
+                        for (dest, channel, msg) in self.pending_direct.drain(..) {
+                            match dev_mut.send_text_packet(Some(dest), channel, &msg) {
+                                Ok(_) => debug!("Flushed pending DM to {dest} on channel {channel}"),
+                                Err(e) => { warn!("Pending DM send to {dest} on channel {channel} failed: {e:?}"); still_pending.push((dest, channel, msg)); }
                             }
                         }
                         self.pending_direct = still_pending;
@@ -1334,35 +1334,23 @@ impl BbsServer {
                                 if let Err(e) = dev.send_text_packet(None, 0, &public_notice) { warn!("Public HELP broadcast failed: {e:?}"); }
                             }
                         }
-                        // Always attempt to DM help (direct reply) so user gets instructions
-                        let dm_help = "Help: LOGIN <name> to begin. After login via DM you can: LIST AREAS | READ <area> | POST <area>. Type HELP anytime.";
-                        let mut dm_ok = false;
+                        // Always attempt to DM help - use direct protobuf with original channel
                         info!("Processing HELP DM for node {} (0x{:08x}). Raw ev.source={}, node_key='{}'", node_key, ev.source, ev.source, node_key);
-                        // Prefer direct protobuf send if device present
+                        
+                        // Send comprehensive help DM using the same mechanism as direct message help
+                        let help_text = format!("Welcome to MeshBBS! Type HELP for commands.\nA bulletin board system for mesh networks.\n\nNode: {}\nAuth: REGISTER <user> <pass> or LOGIN <user> <pass>", ev.source);
+                        
+                        // DMs must always go to channel 0, not the original message channel
+                        let dm_channel = 0;
+                        
                         #[cfg(feature = "meshtastic-proto")]
                         if let Some(dev) = &mut self.device {
                             if dev.our_node_id().is_some() {
-                                info!("Attempting direct protobuf DM to {} (our_node_id available)", ev.source);
-                                if let Err(e) = dev.send_text_packet(Some(ev.source), 0, dm_help) {
-                                    warn!("Direct DM help send failed via protobuf path: {e:?}");
-                                } else { 
-                                    info!("Successfully sent HELP DM via protobuf to {}", ev.source);
-                                    dm_ok = true; 
+                                if let Err(e) = dev.send_text_packet(Some(ev.source), dm_channel, &help_text) {
+                                    warn!("Failed to send HELP DM: {e:?}");
+                                } else {
+                                    info!("Sent HELP DM to {}", ev.source);
                                 }
-                            } else {
-                                info!("our_node_id not available, queuing DM for {} and trying fallback", ev.source);
-                                // Queue until our node id known to ensure proper from field
-                                self.pending_direct.push((ev.source, dm_help.to_string()));
-                                debug!("Queued HELP DM for {} until our node id known", ev.source);
-                                // Don't set dm_ok = true here, let fallback handle it immediately
-                            }
-                        }
-                        if !dm_ok {
-                            info!("Attempting fallback DM send to node_key: '{}'", node_key);
-                            if let Err(e) = self.send_message(&node_key, dm_help).await {
-                                warn!("Fallback DM help send failed: {e:?}");
-                            } else {
-                                info!("Successfully sent HELP DM via fallback path to {}", node_key);
                             }
                         }
                     }

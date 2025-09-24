@@ -643,7 +643,7 @@ impl MeshtasticDevice {
                 
                 // Prefer network short name if available and non-empty
                 let short_name = if !network_short_name.trim().is_empty() {
-                    info!("Using network short name '{}' for node {} ({})", network_short_name.trim(), id, long_name);
+                    debug!("Using network short name '{}' for node {} ({})", network_short_name.trim(), id, long_name);
                     network_short_name.trim().to_string()
                 } else if !long_name.is_empty() { 
                     // Generate short name from long name (first 4 chars or similar)
@@ -722,19 +722,37 @@ impl MeshtasticDevice {
             bitfield: None,
             ..Default::default()
         };
+        let from_node = self.our_node_id.ok_or_else(|| 
+            anyhow!("Cannot send message: our_node_id not yet known (device may not have provided MYINFO)")
+        )?;
+        
+        // For direct messages (DMs), use reliable delivery to try to force immediate transmission
+        let is_dm = to.is_some() && dest != 0xffffffff;
+        let packet_id = if is_dm { 
+            // Generate unique ID for reliable packets (required for want_ack)
+            use std::time::{SystemTime, UNIX_EPOCH};
+            let since_epoch = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
+            (since_epoch.as_secs() as u32) ^ (since_epoch.subsec_nanos()) // Simple ID generation
+        } else { 
+            0 // Broadcast packets don't need ID
+        };
+        
         let pkt = MeshPacket {
-            from: self.our_node_id.unwrap_or(0),
+            from: from_node,
             to: dest,
             channel,
             payload_variant: Some(MPPayload::Decoded(data_msg)),
-            id: 0, // non-reliable (no ack)
+            id: packet_id,
             rx_time: 0,
             rx_snr: 0.0,
             hop_limit: 3, // Allow routing through mesh
-            want_ack: false,
-            priority: 0, // DEFAULT internal
+            want_ack: is_dm, // Request ACK for DMs to trigger immediate transmission
+            priority: if is_dm { 70 } else { 0 }, // Use RELIABLE priority (70) for DMs, DEFAULT (0) for broadcasts
             ..Default::default()
         };
+        
+
+        
         let toradio = ToRadio { payload_variant: Some(TRPayload::Packet(pkt)) };
         // Encode and send using existing framing helper
         #[cfg(feature = "serial")]
@@ -743,8 +761,15 @@ impl MeshtasticDevice {
             toradio.encode(&mut payload)?;
             let mut hdr = [0u8;4]; hdr[0]=0x94; hdr[1]=0xC3; hdr[2]=((payload.len()>>8)&0xFF) as u8; hdr[3]=(payload.len()&0xFF) as u8;
             port.write_all(&hdr)?; port.write_all(&payload)?; port.flush()?;
-            info!("Sent TextPacket: from=0x{:08x} to=0x{:08x} channel={} ({} bytes payload) text='{}'", 
-                  self.our_node_id.unwrap_or(0), dest, channel, payload.len(), text);
+            let display_text = if text.len() > 80 { 
+                format!("{}...", &text[..77])
+            } else { 
+                text.replace('\n', "\\n").replace('\r', "\\r")
+            };
+            let msg_type = if is_dm { "DM (reliable)" } else { "broadcast" };
+            info!("Sent TextPacket ({}): from=0x{:08x} to=0x{:08x} channel={} id={} want_ack={} priority={} ({} bytes payload) text='{}'", 
+                  msg_type, self.our_node_id.unwrap_or(0), dest, channel, packet_id, is_dm, 
+                  if is_dm { 70 } else { 0 }, payload.len(), display_text);
             if log::log_enabled!(log::Level::Trace) {
                 let mut hex = String::with_capacity(payload.len()*2);
                 for b in &payload { use std::fmt::Write; let _=write!(&mut hex, "{:02x}", b); }
