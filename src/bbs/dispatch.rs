@@ -56,6 +56,7 @@ pub enum Priority { High, Normal, Low, Background }
 
 #[derive(Debug)]
 pub struct MessageEnvelope {
+    #[allow(dead_code)] // retained for future category-specific analytics
     pub category: MessageCategory,
     pub priority: Priority,
     pub earliest: Instant,
@@ -72,7 +73,9 @@ impl MessageEnvelope {
 
 pub struct SchedulerConfig {
     pub min_send_gap_ms: u64,
+    #[allow(dead_code)] // may drive category pacing later
     pub post_dm_broadcast_gap_ms: u64,
+    #[allow(dead_code)] // still used conceptually for HELP delay interplay
     pub help_broadcast_delay_ms: u64,
     pub max_queue: usize,
     pub aging_threshold_ms: u64,
@@ -80,6 +83,7 @@ pub struct SchedulerConfig {
 }
 
 impl SchedulerConfig {
+    #[allow(dead_code)]
     pub fn effective_help_delay(&self) -> Duration {
         let composite = self.min_send_gap_ms + self.post_dm_broadcast_gap_ms;
         Duration::from_millis(self.help_broadcast_delay_ms.max(composite))
@@ -90,13 +94,13 @@ impl SchedulerConfig {
 
 pub enum ScheduleCommand {
     Enqueue(MessageEnvelope),
-    Snapshot(oneshot::Sender<SchedulerStats>),
-    Shutdown(oneshot::Sender<()>),
+    #[allow(dead_code)] Snapshot(oneshot::Sender<SchedulerStats>),
+    #[allow(dead_code)] Shutdown(oneshot::Sender<()>),
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct SchedulerStats {
-    pub queued: usize,
+    #[allow(dead_code)] pub queued: usize,
     pub dispatched_total: u64,
     pub dropped_total: u64,
     pub dropped_overflow: u64,
@@ -110,8 +114,8 @@ pub struct SchedulerHandle {
 
 impl SchedulerHandle {
     pub fn enqueue(&self, env: MessageEnvelope) { let _ = self.tx.send(ScheduleCommand::Enqueue(env)); }
-    pub async fn shutdown(&self) { let (tx, rx) = oneshot::channel(); let _ = self.tx.send(ScheduleCommand::Shutdown(tx)); let _ = rx.await; }
-    pub async fn snapshot(&self) -> Option<SchedulerStats> { let (tx, rx) = oneshot::channel(); if self.tx.send(ScheduleCommand::Snapshot(tx)).is_ok() { rx.await.ok() } else { None } }
+    #[allow(dead_code)] pub async fn shutdown(&self) { let (tx, rx) = oneshot::channel(); let _ = self.tx.send(ScheduleCommand::Shutdown(tx)); let _ = rx.await; }
+    #[allow(dead_code)] pub async fn snapshot(&self) -> Option<SchedulerStats> { let (tx, rx) = oneshot::channel(); if self.tx.send(ScheduleCommand::Snapshot(tx)).is_ok() { rx.await.ok() } else { None } }
 }
 
 pub fn start_scheduler(

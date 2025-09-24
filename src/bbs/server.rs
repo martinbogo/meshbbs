@@ -1572,8 +1572,9 @@ impl BbsServer {
     }
 
     /// Expose collected test messages (DM + broadcast) for integration tests
+    #[cfg(test)]
     pub fn exported_test_messages(&self) -> &Vec<(String,String)> { &self.test_messages }
-    #[cfg(feature = "meshtastic-proto")]
+    #[cfg(all(test, feature = "meshtastic-proto"))]
     pub fn scheduler_handle(&self) -> Option<crate::bbs::dispatch::SchedulerHandle> { self.scheduler.clone() }
 
     /// Lightweight direct-message routing helper for tests (no meshtastic-proto TextEvent needed)

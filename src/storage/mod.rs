@@ -231,8 +231,10 @@ impl Storage {
         Ok(Storage { data_dir: data_dir.to_string(), argon2, locked_topics: locked, topic_levels: HashMap::new(), max_message_bytes: 230, runtime_topics })
     }
 
+    #[allow(dead_code)]
     pub fn set_topic_levels(&mut self, map: std::collections::HashMap<String,(u8,u8)>) { self.topic_levels = map; }
     pub fn get_topic_levels(&self, topic: &str) -> Option<(u8,u8)> { self.topic_levels.get(topic).copied() }
+    #[allow(dead_code)]
     pub fn set_max_message_bytes(&mut self, max: usize) { self.max_message_bytes = max.min(230); }
 
     async fn load_locked_topics(data_dir: &str) -> Result<HashSet<String>> {
