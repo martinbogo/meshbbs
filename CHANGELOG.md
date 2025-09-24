@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- Configuration: `help_broadcast_delay_ms` (under `[meshtastic]`) adds a higher-level scheduling cushion for the public HELP broadcast after the DM help reply. Default `3500ms` (the effective delay is `max(help_broadcast_delay_ms, min_send_gap_ms + post_dm_broadcast_gap_ms)`).
+
+### Changed
+- Public HELP flow: The public help notice is now scheduled instead of sent immediately, reducing `RateLimitExceeded` occurrences right after a reliable DM.
+
+### Testing
+- New integration test `help_broadcast_delay` verifies DM help reply is queued immediately and public broadcast is deferred by the configured delay.
 
 ## [0.9.90] - 2025-09-24
 ### Changed

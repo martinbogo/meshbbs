@@ -128,6 +128,11 @@ pub struct MeshtasticConfig {
     /// Minimum gap between two consecutive reliable DMs (ms)
     #[serde(default)]
     pub dm_to_dm_gap_ms: Option<u64>,
+    /// Delay before sending the public HELP broadcast after the DM is queued (ms). This is a higher-level
+    /// scheduling cushion to avoid immediate RateLimitExceeded following a reliable DM. If unset, defaults
+    /// to 3500ms. Must be >= post_dm_broadcast_gap_ms.
+    #[serde(default)]
+    pub help_broadcast_delay_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -238,6 +243,7 @@ impl Default for Config {
                 dm_resend_backoff_seconds: Some(vec![4, 8, 16]),
                 post_dm_broadcast_gap_ms: Some(1200),
                 dm_to_dm_gap_ms: Some(600),
+                help_broadcast_delay_ms: Some(3500),
             },
             storage: StorageConfig {
                 data_dir: "./data".to_string(),

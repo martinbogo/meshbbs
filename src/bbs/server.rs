@@ -338,6 +338,9 @@ impl BbsServer {
     #[allow(dead_code)]
     #[doc(hidden)]
     pub fn test_insert_session(&mut self, session: Session) { self.sessions.insert(session.node_id.clone(), session); }
+    #[doc(hidden)]
+    #[allow(dead_code)] // Used only by integration tests (help_broadcast_delay) to inject an outgoing channel
+    pub fn test_set_outgoing(&mut self, tx: tokio::sync::mpsc::UnboundedSender<crate::meshtastic::OutgoingMessage>) { self.outgoing_tx = Some(tx); }
     /// 4. **Session Management**: Handles user session lifecycle and timeouts
     /// 5. **Weather Updates**: Provides proactive weather information (if enabled)
     /// 6. **Audit Logging**: Records security and administrative events
@@ -1372,11 +1375,36 @@ impl BbsServer {
                             Ok(_) => info!("Sent HELP DM to {}", ev.source),
                             Err(e) => warn!("Failed to send HELP DM to {}: {}", ev.source, e),
                         }
-
-                        // After attempting DM, send the public notice using channel-based system
-                        match self.send_broadcast(&public_notice).await {
-                            Ok(_) => debug!("Sent help public notice"),
-                            Err(e) => warn!("Public HELP broadcast failed: {}", e),
+                        // Schedule the public notice after a configurable delay instead of immediate send
+                        // to reduce chance of RateLimitExceeded right after a reliable DM.
+                        let delay_ms = {
+                            let cfg = &self.config.meshtastic;
+                            let base = cfg.help_broadcast_delay_ms.unwrap_or(3500);
+                            // Ensure it's at least the low-level post_dm_broadcast_gap_ms plus min send gap
+                            let post_gap = cfg.post_dm_broadcast_gap_ms.unwrap_or(1200);
+                            let min_gap = cfg.min_send_gap_ms.unwrap_or(2000);
+                            let required = post_gap.saturating_add(min_gap);
+                            if base < required { required } else { base }
+                        };
+                        if let Some(tx) = self.outgoing_tx.clone() {
+                            let notice = public_notice.clone();
+                            info!("Scheduling HELP public notice in {}ms (text='{}')", delay_ms, notice);
+                            tokio::spawn(async move {
+                                tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
+                                let outgoing = crate::meshtastic::OutgoingMessage {
+                                    to_node: None,
+                                    channel: 0,
+                                    content: notice.clone(),
+                                    priority: crate::meshtastic::MessagePriority::Normal,
+                                };
+                                if let Err(e) = tx.send(outgoing) {
+                                    log::warn!("Failed to queue scheduled HELP public notice: {}", e);
+                                } else {
+                                    log::debug!("Queued scheduled HELP public notice after delay");
+                                }
+                            });
+                        } else {
+                            warn!("Cannot schedule HELP public notice: no outgoing channel");
                         }
                     }
                 }

@@ -159,6 +159,7 @@ min_send_gap_ms = 2000                  # Enforced minimum between sends (ms)
 dm_resend_backoff_seconds = [4, 8, 16]  # Reliable DM retry schedule (s)
 post_dm_broadcast_gap_ms = 1200         # Delay broadcast after DM (ms)
 dm_to_dm_gap_ms = 600                   # Gap between DMs (ms)
+help_broadcast_delay_ms = 3500          # Delay HELP public broadcast after DM (ms)
 
 [storage]
 data_dir = "./data"
@@ -177,6 +178,16 @@ file = "meshbbs.log"
 |---------|---------|--------------|
 | `[bbs]` | Basic BBS settings | `name`, `sysop`, `max_users`, `session_timeout` |
 | `[meshtastic]` | Device connection | `port`, `baud_rate`, `channel` |
+### Fairness / Writer Tuning Fields
+
+These pacing controls reduce airtime contention and avoid triggering device / network rate limits:
+
+* `min_send_gap_ms` – Global enforced minimum between any two text sends (hard floor 2000ms)
+* `dm_resend_backoff_seconds` – Retry schedule for reliable DM ACKs (default `[4,8,16]` seconds)
+* `post_dm_broadcast_gap_ms` – Additional gap before a broadcast that immediately follows a reliable DM
+* `dm_to_dm_gap_ms` – Gap enforced between consecutive reliable DMs
+* `help_broadcast_delay_ms` – Higher-level scheduling delay for the public HELP notice after its DM reply; effective delay is `max(help_broadcast_delay_ms, min_send_gap_ms + post_dm_broadcast_gap_ms)` (default 3500ms) to prevent an immediate broadcast rate-limit right after a DM
+
 | `[storage]` | Data management | `max_message_size` |
 | `topics.json` | Forum topics (runtime) | Create/manage interactively; persisted to `data/topics.json` |
 
