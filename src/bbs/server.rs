@@ -352,6 +352,7 @@ impl BbsServer {
     #[doc(hidden)]
     pub fn test_messages(&self) -> &Vec<(String,String)> { &self.test_messages }
     // Expose scheduler handle for tests (used by scheduler_overflow.rs). Keep public until a dedicated test API is introduced.
+    #[allow(dead_code)] // Used only in tests (scheduler_overflow); suppress warning in release builds.
     pub fn scheduler_handle(&self) -> Option<crate::bbs::dispatch::SchedulerHandle> { self.scheduler.clone() }
     #[allow(dead_code)]
     #[doc(hidden)]
