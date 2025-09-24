@@ -1,16 +1,29 @@
 use anyhow::Result;
 // use log::{debug}; // retained for future detailed command tracing
 
+use crate::config::Config;
 use crate::storage::Storage;
 use crate::validation::{validate_user_name, validate_topic_name, sanitize_message_content};
 use super::session::{Session, SessionState};
 
 fn self_topic_can_read(user_level: u8, topic: &str, storage: &Storage) -> bool {
-    if let Some((r,_)) = storage.get_topic_levels(topic) { user_level >= r } else { true }
+    // Use runtime topic configuration for permission checks
+    if let Some(topic_config) = storage.get_topic_config(topic) {
+        user_level >= topic_config.read_level
+    } else {
+        // Fallback to old topic_levels system for backwards compatibility
+        if let Some((r,_)) = storage.get_topic_levels(topic) { user_level >= r } else { true }
+    }
 }
 
 fn self_topic_can_post(user_level: u8, topic: &str, storage: &Storage) -> bool {
-    if let Some((_,p)) = storage.get_topic_levels(topic) { user_level >= p } else { true }
+    // Use runtime topic configuration for permission checks
+    if let Some(topic_config) = storage.get_topic_config(topic) {
+        user_level >= topic_config.post_level
+    } else {
+        // Fallback to old topic_levels system for backwards compatibility
+        if let Some((_,p)) = storage.get_topic_levels(topic) { user_level >= p } else { true }
+    }
 }
 
 /// Processes BBS commands from users
@@ -20,28 +33,28 @@ impl CommandProcessor {
     pub fn new() -> Self { CommandProcessor }
 
     /// Process a command and return a response
-    pub async fn process(&self, session: &mut Session, command: &str, storage: &mut Storage) -> Result<String> {
+    pub async fn process(&self, session: &mut Session, command: &str, storage: &mut Storage, config: &Config) -> Result<String> {
         let raw = command.trim();
         let cmd_upper = raw.to_uppercase();
         match session.state {
-            SessionState::Connected => self.handle_initial_connection(session, &cmd_upper, storage).await,
-            SessionState::LoggingIn => self.handle_login(session, &cmd_upper, storage).await,
+            SessionState::Connected => self.handle_initial_connection(session, &cmd_upper, storage, config).await,
+            SessionState::LoggingIn => self.handle_login(session, &cmd_upper, storage, config).await,
             SessionState::MainMenu => {
-                if let Some(resp) = self.try_inline_message_command(session, raw, &cmd_upper, storage).await? { return Ok(resp); }
-                self.handle_main_menu(session, &cmd_upper, storage).await
+                if let Some(resp) = self.try_inline_message_command(session, raw, &cmd_upper, storage, config).await? { return Ok(resp); }
+                self.handle_main_menu(session, &cmd_upper, storage, config).await
             }
             SessionState::MessageTopics => {
-                if let Some(resp) = self.try_inline_message_command(session, raw, &cmd_upper, storage).await? { return Ok(resp); }
-                self.handle_message_topics(session, &cmd_upper, storage).await
+                if let Some(resp) = self.try_inline_message_command(session, raw, &cmd_upper, storage, config).await? { return Ok(resp); }
+                self.handle_message_topics(session, &cmd_upper, storage, config).await
             }
-            SessionState::ReadingMessages => self.handle_reading_messages(session, &cmd_upper, storage).await,
-            SessionState::PostingMessage => self.handle_posting_message(session, &cmd_upper, storage).await,
-            SessionState::UserMenu => self.handle_user_menu(session, &cmd_upper, storage).await,
+            SessionState::ReadingMessages => self.handle_reading_messages(session, &cmd_upper, storage, config).await,
+            SessionState::PostingMessage => self.handle_posting_message(session, &cmd_upper, storage, config).await,
+            SessionState::UserMenu => self.handle_user_menu(session, &cmd_upper, storage, config).await,
             SessionState::Disconnected => Ok("Session disconnected.".to_string()),
         }
     }
 
-    async fn try_inline_message_command(&self, session: &mut Session, raw: &str, upper: &str, storage: &mut Storage) -> Result<Option<String>> {
+    async fn try_inline_message_command(&self, session: &mut Session, raw: &str, upper: &str, storage: &mut Storage, config: &Config) -> Result<Option<String>> {
         if upper.starts_with("READ") {
             let raw_topic = raw.split_whitespace().nth(1).unwrap_or("general");
             
@@ -115,14 +128,22 @@ impl CommandProcessor {
         if upper == "TOPICS" || upper == "LIST" {
             let topics = storage.list_message_topics().await?;
             let mut response = "Topics:\n".to_string();
-            for t in topics { if self_topic_can_read(session.user_level, &t, storage) { response.push_str(&format!("- {}\n", t)); } }
+            for t in topics { 
+                if self_topic_can_read(session.user_level, &t, storage) { 
+                    if let Some(topic_config) = config.message_topics.get(&t) {
+                        response.push_str(&format!("- {} - {}\n", t, topic_config.description));
+                    } else {
+                        response.push_str(&format!("- {}\n", t));
+                    }
+                }
+            }
             response.push_str(">\n");
             return Ok(Some(response));
         }
         Ok(None)
     }
 
-    async fn handle_initial_connection(&self, session: &mut Session, _cmd: &str, _storage: &mut Storage) -> Result<String> {
+    async fn handle_initial_connection(&self, session: &mut Session, _cmd: &str, _storage: &mut Storage, _config: &Config) -> Result<String> {
         session.state = SessionState::MainMenu;
         Ok(format!(
             "Welcome to MeshBBS!\nNode: {}\nAuth: REGISTER <user> <pass> or LOGIN <user> [pass]\nType HELP for commands\nMain Menu:\n[M]essages [U]ser [Q]uit\n",
@@ -130,7 +151,7 @@ impl CommandProcessor {
         ))
     }
 
-    async fn handle_login(&self, session: &mut Session, cmd: &str, storage: &mut Storage) -> Result<String> {
+    async fn handle_login(&self, session: &mut Session, cmd: &str, storage: &mut Storage, _config: &Config) -> Result<String> {
         if cmd.starts_with("LOGIN ") {
             let raw_username = cmd.strip_prefix("LOGIN ").unwrap_or("").trim();
             
@@ -160,13 +181,19 @@ impl CommandProcessor {
         }
     }
 
-    async fn handle_main_menu(&self, session: &mut Session, cmd: &str, storage: &mut Storage) -> Result<String> {
+    async fn handle_main_menu(&self, session: &mut Session, cmd: &str, storage: &mut Storage, config: &Config) -> Result<String> {
         match &cmd[..] {
             "M" | "MESSAGES" => {
                 session.state = SessionState::MessageTopics;
                 let topics = storage.list_message_topics().await?;
                 let mut response = "Message Topics:\n".to_string();
-                for (i, topic) in topics.iter().enumerate() { response.push_str(&format!("{}. {}\n", i + 1, topic)); }
+                for (i, topic) in topics.iter().enumerate() { 
+                    if let Some(topic_config) = config.message_topics.get(topic) {
+                        response.push_str(&format!("{}. {} - {}\n", i + 1, topic, topic_config.description));
+                    } else {
+                        response.push_str(&format!("{}. {}\n", i + 1, topic));
+                    }
+                }
                 response.push_str("Type number to select topic, or [R]ead [P]ost [L]ist [B]ack\n");
                 Ok(response)
             }
@@ -316,7 +343,7 @@ impl CommandProcessor {
         }
     }
 
-    async fn handle_message_topics(&self, session: &mut Session, cmd: &str, storage: &mut Storage) -> Result<String> {
+    async fn handle_message_topics(&self, session: &mut Session, cmd: &str, storage: &mut Storage, config: &Config) -> Result<String> {
         // Check if command is a number for topic selection
         if let Ok(num) = cmd.parse::<usize>() {
             if num >= 1 {
@@ -353,7 +380,13 @@ impl CommandProcessor {
             "L" | "LIST" => {
                 let topics = storage.list_message_topics().await?;
                 let mut response = "Available topics:\n".to_string();
-                for topic in topics { response.push_str(&format!("- {}\n", topic)); }
+                for topic in topics { 
+                    if let Some(topic_config) = config.message_topics.get(&topic) {
+                        response.push_str(&format!("- {} - {}\n", topic, topic_config.description));
+                    } else {
+                        response.push_str(&format!("- {}\n", topic));
+                    }
+                }
                 response.push_str("\n");
                 Ok(response)
             }
@@ -362,14 +395,14 @@ impl CommandProcessor {
         }
     }
 
-    async fn handle_reading_messages(&self, session: &mut Session, cmd: &str, _storage: &mut Storage) -> Result<String> {
+    async fn handle_reading_messages(&self, session: &mut Session, cmd: &str, _storage: &mut Storage, _config: &Config) -> Result<String> {
         match &cmd[..] {
             "B" | "BACK" => { session.state = SessionState::MessageTopics; Ok("Message Topics:\n[R]ead [P]ost [L]ist [B]ack\n".to_string()) }
             _ => Ok("Commands: [N]ext [P]rev [R]eply [B]ack\n".to_string())
         }
     }
 
-    async fn handle_posting_message(&self, session: &mut Session, cmd: &str, storage: &mut Storage) -> Result<String> {
+    async fn handle_posting_message(&self, session: &mut Session, cmd: &str, storage: &mut Storage, _config: &Config) -> Result<String> {
         if cmd == "." {
             session.state = SessionState::MessageTopics;
             Ok("Message posted!\nMessage Topics:\n[R]ead [P]ost [L]ist [B]ack\n".to_string())
@@ -393,7 +426,7 @@ impl CommandProcessor {
         }
     }
 
-    async fn handle_user_menu(&self, session: &mut Session, cmd: &str, storage: &mut Storage) -> Result<String> {
+    async fn handle_user_menu(&self, session: &mut Session, cmd: &str, storage: &mut Storage, _config: &Config) -> Result<String> {
         match &cmd[..] {
             "I" | "INFO" => Ok(format!(
                 "User Information:\nUsername: {}\nNode ID: {}\nAccess Level: {}\nSession Duration: {} minutes\n",

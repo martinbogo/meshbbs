@@ -121,8 +121,6 @@ pub struct MeshtasticConfig {
 pub struct StorageConfig {
     pub data_dir: String,
     pub max_message_size: usize,
-    pub message_retention_days: u32,
-    pub max_messages_per_area: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -227,8 +225,6 @@ impl Default for Config {
             storage: StorageConfig {
                 data_dir: "./data".to_string(),
                 max_message_size: 230,
-                message_retention_days: 30,
-                max_messages_per_area: 1000,
             },
             message_topics,
             logging: LoggingConfig {

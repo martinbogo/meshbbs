@@ -105,13 +105,13 @@ impl Session {
     }
 
     /// Process a command from the user
-    pub async fn process_command(&mut self, command: &str, storage: &mut Storage) -> Result<String> {
+    pub async fn process_command(&mut self, command: &str, storage: &mut Storage, config: &crate::config::Config) -> Result<String> {
         self.update_activity();
         
         debug!("Session {}: Processing command: {}", self.id, command);
         
         let processor = CommandProcessor::new();
-        let response = processor.process(self, command, storage).await?;
+        let response = processor.process(self, command, storage, config).await?;
         
         Ok(response)
     }

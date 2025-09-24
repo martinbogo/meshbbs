@@ -99,6 +99,8 @@ pub struct BbsServer {
     weather_last_poll: Instant, // track when we last attempted proactive weather refresh
     #[cfg(feature = "meshtastic-proto")]
     pending_direct: Vec<(u32, String)>, // queue of (dest_node_id, message) awaiting our node id
+    #[cfg(feature = "meshtastic-proto")]
+    node_cache_last_cleanup: Instant, // track when we last cleaned up stale nodes
     #[allow(dead_code)]
     #[doc(hidden)]
     pub(crate) test_messages: Vec<(String,String)>, // collected outbound messages (testing)
@@ -113,7 +115,7 @@ const VERBOSE_HELP: &str = concat!(
     "Authentication:\n  REGISTER <name> <pass>  Create account\n  LOGIN <name> <pass>     Log in\n  SETPASS <new>           Set first password\n  CHPASS <old> <new>      Change password\n  LOGOUT                  End session\n\n",
     "Messages & Topics:\n  TOPICS / LIST           List topics\n  READ <topic>            Read recent messages\n  POST <topic> <text>     Post inline\n  POST then multiline '.' End with '.' line\n  DELETE <topic> <id>     (mod) Delete message\n  LOCK/UNLOCK <topic>     (mod) Lock topic\n\n",
     "Navigation Shortcuts:\n  M   Message topics menu\n  U   User menu\n  Q   Quit\n  B   Back to previous menu\n\n",
-    "User Info / Admin:\n  PROMOTE <user>          (sysop) Raise to moderator\n  DEMOTE <user>           (sysop) Lower to base user\n  DELLOG [page]           (mod) Deletion log\n  ADMINLOG [page]         (mod) Admin audit log\n  USERS [pattern]         (mod) List users, optional search\n  WHO                     (mod) Show logged in users\n  USERINFO <user>         (mod) Detailed user info\n  SESSIONS                (mod) List all sessions\n  KICK <user>             (mod) Force logout user\n  BROADCAST <msg>         (mod) Message all users\n  ADMIN/DASHBOARD         (mod) System overview\n\n",
+    "User Info / Admin:\n  PROMOTE <user>          (sysop) Raise to moderator\n  DEMOTE <user>           (sysop) Lower to base user\n  CREATETOPIC <id> <name> <desc>  (sysop) Create topic\n  MODIFYTOPIC <id> key=val        (sysop) Modify topic\n  DELETETOPIC <id>        (sysop) Delete topic\n  DELLOG [page]           (mod) Deletion log\n  ADMINLOG [page]         (mod) Admin audit log\n  USERS [pattern]         (mod) List users, optional search\n  WHO                     (mod) Show logged in users\n  USERINFO <user>         (mod) Detailed user info\n  SESSIONS                (mod) List all sessions\n  KICK <user>             (mod) Force logout user\n  BROADCAST <msg>         (mod) Message all users\n  ADMIN/DASHBOARD         (mod) System overview\n\n",
     "Misc:\n  HELP        Compact help\n  HELP+ / HELP V  Verbose help (this)\n  Weather (public)  Send WEATHER on public channel\n\n",
     "Limits:\n  Max frame ~230 bytes; verbose help auto-splits.\n"
 );
@@ -221,7 +223,10 @@ impl BbsServer {
             }
         };
         
-        // Populate topic level map from config.message_topics
+        // Merge TOML topic configurations into runtime storage
+        Self::merge_toml_topics_to_runtime(&mut storage, &config).await?;
+        
+        // Populate topic level map from config.message_topics (for backwards compatibility)
         let mut level_map = std::collections::HashMap::new();
         for (k,v) in &config.message_topics { level_map.insert(k.clone(), (v.read_level, v.post_level)); }
         storage.set_topic_levels(level_map);
@@ -245,6 +250,8 @@ impl BbsServer {
             weather_last_poll: Instant::now() - Duration::from_secs(301), // trigger immediate initial refresh
             #[cfg(feature = "meshtastic-proto")]
             pending_direct: Vec::new(),
+            #[cfg(feature = "meshtastic-proto")]
+            node_cache_last_cleanup: Instant::now() - Duration::from_secs(3601), // trigger cleanup on first run
             test_messages: Vec::new(),
             #[cfg(any(test, feature = "meshtastic-proto"))]
             last_banner: None,
@@ -255,7 +262,14 @@ impl BbsServer {
     pub async fn connect_device(&mut self, port: &str) -> Result<()> {
         info!("Connecting to Meshtastic device on {}", port);
         
-        let device = MeshtasticDevice::new(port, self.config.meshtastic.baud_rate).await?;
+        let mut device = MeshtasticDevice::new(port, self.config.meshtastic.baud_rate).await?;
+        
+        // Load cached nodes
+        #[cfg(feature = "meshtastic-proto")]
+        if let Err(e) = device.load_node_cache() {
+            warn!("Failed to load node cache: {}", e);
+        }
+        
         self.device = Some(device);
         
         Ok(())
@@ -369,6 +383,17 @@ impl BbsServer {
             if self.weather_last_poll.elapsed() >= Duration::from_secs(300) {
                 let _ = self.fetch_weather().await;
                 self.weather_last_poll = Instant::now();
+            }
+
+            // Node cache cleanup every hour - remove nodes not seen for 7 days
+            #[cfg(feature = "meshtastic-proto")]
+            if self.node_cache_last_cleanup.elapsed() >= Duration::from_secs(3600) {
+                if let Some(dev) = &mut self.device {
+                    if let Err(e) = dev.cleanup_stale_nodes(7) {
+                        warn!("Node cache cleanup failed: {}", e);
+                    }
+                }
+                self.node_cache_last_cleanup = Instant::now();
             }
 
             tokio::select! {
@@ -575,6 +600,24 @@ impl BbsServer {
         Ok(())
     }
 
+    /// Merge TOML topic configurations into runtime storage (for backwards compatibility)
+    async fn merge_toml_topics_to_runtime(storage: &mut Storage, config: &Config) -> Result<()> {
+        for (topic_id, topic_config) in &config.message_topics {
+            // Only create topics that don't already exist in runtime config
+            if !storage.topic_exists(topic_id) {
+                storage.create_topic(
+                    topic_id,
+                    &topic_config.name,
+                    &topic_config.description,
+                    topic_config.read_level,
+                    topic_config.post_level,
+                    "system" // Creator for TOML-migrated topics
+                ).await?;
+            }
+        }
+        Ok(())
+    }
+
     /// Test/helper accessor: fetch user record
     #[allow(dead_code)]
     pub async fn get_user(&self, username: &str) -> Result<Option<crate::storage::User>> {
@@ -586,6 +629,8 @@ impl BbsServer {
     pub async fn test_register(&mut self, username: &str, pass: &str) -> Result<()> { self.storage.register_user(username, pass, None).await }
     #[allow(dead_code)]
     pub async fn test_update_level(&mut self, username: &str, lvl: u8) -> Result<()> { if username == self.config.bbs.sysop { return Err(anyhow::anyhow!("Cannot modify sysop level")); } self.storage.update_user_level(username, lvl, "test").await.map(|_| ()) }
+    #[allow(dead_code)]
+    pub async fn test_create_topic(&mut self, topic_id: &str, name: &str, description: &str, read_level: u8, post_level: u8, creator: &str) -> Result<()> { self.storage.create_topic(topic_id, name, description, read_level, post_level, creator).await }
     #[allow(dead_code)]
     pub async fn test_store_message(&mut self, topic: &str, author: &str, content: &str) -> Result<String> { self.storage.store_message(topic, author, content).await }
     #[allow(dead_code)]
@@ -891,6 +936,70 @@ impl BbsServer {
                                 }
                             }
                         }
+                    } else if upper.starts_with("CREATETOPIC ") {
+                        if session.username.as_deref() != Some(&self.config.bbs.sysop) { deferred_reply = Some("Permission denied.\n".into()); }
+                        else {
+                            let parts: Vec<&str> = raw_content.split_whitespace().collect();
+                            if parts.len() < 4 { deferred_reply = Some("Usage: CREATETOPIC <id> <name> <description> [read_level] [post_level]\n".into()); }
+                            else {
+                                let topic_id = parts[1].to_lowercase();
+                                let name = parts[2];
+                                let description = parts[3..].join(" ");
+                                let read_level = 0u8; // Default read level
+                                let post_level = 0u8; // Default post level
+                                let creator = session.username.as_deref().unwrap_or("sysop");
+                                
+                                match self.storage.create_topic(&topic_id, name, &description, read_level, post_level, creator).await {
+                                    Ok(()) => deferred_reply = Some(format!("Topic '{}' created successfully.\n", topic_id)),
+                                    Err(e) => deferred_reply = Some(format!("Failed to create topic: {}\n", e)),
+                                }
+                            }
+                        }
+                    } else if upper.starts_with("MODIFYTOPIC ") {
+                        if session.username.as_deref() != Some(&self.config.bbs.sysop) { deferred_reply = Some("Permission denied.\n".into()); }
+                        else {
+                            let parts: Vec<&str> = raw_content.split_whitespace().collect();
+                            if parts.len() < 3 { deferred_reply = Some("Usage: MODIFYTOPIC <id> name=<name> | desc=<desc> | read=<level> | post=<level>\n".into()); }
+                            else {
+                                let topic_id = parts[1].to_lowercase();
+                                let mut name: Option<&str> = None;
+                                let mut description: Option<String> = None;
+                                let mut read_level: Option<u8> = None;
+                                let mut post_level: Option<u8> = None;
+                                
+                                // Parse key=value pairs
+                                for part in &parts[2..] {
+                                    if let Some((key, value)) = part.split_once('=') {
+                                        match key.to_lowercase().as_str() {
+                                            "name" => name = Some(value),
+                                            "desc" | "description" => description = Some(value.to_string()),
+                                            "read" => read_level = value.parse().ok(),
+                                            "post" => post_level = value.parse().ok(),
+                                            _ => {}
+                                        }
+                                    }
+                                }
+                                
+                                match self.storage.modify_topic(&topic_id, name, description.as_deref(), read_level, post_level).await {
+                                    Ok(()) => deferred_reply = Some(format!("Topic '{}' modified successfully.\n", topic_id)),
+                                    Err(e) => deferred_reply = Some(format!("Failed to modify topic: {}\n", e)),
+                                }
+                            }
+                        }
+                    } else if upper.starts_with("DELETETOPIC ") {
+                        if session.username.as_deref() != Some(&self.config.bbs.sysop) { deferred_reply = Some("Permission denied.\n".into()); }
+                        else {
+                            let parts: Vec<&str> = raw_content.split_whitespace().collect();
+                            if parts.len() < 2 { deferred_reply = Some("Usage: DELETETOPIC <id>\n".into()); }
+                            else {
+                                let topic_id = parts[1].to_lowercase();
+                                
+                                match self.storage.delete_topic(&topic_id).await {
+                                    Ok(()) => deferred_reply = Some(format!("Topic '{}' deleted successfully.\n", topic_id)),
+                                    Err(e) => deferred_reply = Some(format!("Failed to delete topic: {}\n", e)),
+                                }
+                            }
+                        }
                     } else if upper.starts_with("DELETE ") {
                         if session.user_level < LEVEL_MODERATOR { deferred_reply = Some("Permission denied.\n".into()); }
                         else {
@@ -1143,7 +1252,7 @@ impl BbsServer {
                         else { deferred_reply = Some("Not logged in.\n".into()); }
                     } else if upper == "HELP" || upper == "?" || upper == "H" {
                         // Use existing abbreviated help via command processor (ensures consistent text) and include shortcuts line first time
-                        let mut help_text = session.process_command("HELP", &mut self.storage).await?;
+                        let mut help_text = session.process_command("HELP", &mut self.storage, &self.config).await?;
                         if !session.help_seen {
                             session.help_seen = true;
                             help_text.push_str("Shortcuts: M=areas U=user Q=quit\n");
@@ -1153,7 +1262,7 @@ impl BbsServer {
                         let redact = ["REGISTER ", "LOGIN ", "SETPASS ", "CHPASS "];
                         let log_snippet = if redact.iter().any(|p| upper.starts_with(p)) { "<redacted>" } else { raw_content.as_str() };
                         trace!("Session {} generic command '{}'", node_key, log_snippet);
-                        let response = session.process_command(&raw_content, &mut self.storage).await?;
+                        let response = session.process_command(&raw_content, &mut self.storage, &self.config).await?;
                         if !response.is_empty() { deferred_reply = Some(response); }
                     }
                 }
@@ -1221,28 +1330,33 @@ impl BbsServer {
                         // Always attempt to DM help (direct reply) so user gets instructions
                         let dm_help = "Help: LOGIN <name> to begin. After login via DM you can: LIST AREAS | READ <area> | POST <area>. Type HELP anytime.";
                         let mut dm_ok = false;
+                        info!("Processing HELP DM for node {} (0x{:08x}). Raw ev.source={}, node_key='{}'", node_key, ev.source, ev.source, node_key);
                         // Prefer direct protobuf send if device present
                         #[cfg(feature = "meshtastic-proto")]
                         if let Some(dev) = &mut self.device {
                             if dev.our_node_id().is_some() {
+                                info!("Attempting direct protobuf DM to {} (our_node_id available)", ev.source);
                                 if let Err(e) = dev.send_text_packet(Some(ev.source), 0, dm_help) {
                                     warn!("Direct DM help send failed via protobuf path: {e:?}");
-                                } else { dm_ok = true; }
+                                } else { 
+                                    info!("Successfully sent HELP DM via protobuf to {}", ev.source);
+                                    dm_ok = true; 
+                                }
                             } else {
+                                info!("our_node_id not available, queuing DM for {} and trying fallback", ev.source);
                                 // Queue until our node id known to ensure proper from field
                                 self.pending_direct.push((ev.source, dm_help.to_string()));
                                 debug!("Queued HELP DM for {} until our node id known", ev.source);
-                                dm_ok = true; // treat as handled (queued)
+                                // Don't set dm_ok = true here, let fallback handle it immediately
                             }
                         }
                         if !dm_ok {
+                            info!("Attempting fallback DM send to node_key: '{}'", node_key);
                             if let Err(e) = self.send_message(&node_key, dm_help).await {
                                 warn!("Fallback DM help send failed: {e:?}");
                             } else {
-                                debug!("Sent HELP DM to {} via fallback path", node_key);
+                                info!("Successfully sent HELP DM via fallback path to {}", node_key);
                             }
-                        } else {
-                            debug!("Sent HELP DM to {} via protobuf path", node_key);
                         }
                     }
                 }
@@ -1342,7 +1456,7 @@ impl BbsServer {
                 for (i, chunk) in chunks.into_iter().enumerate() { let last = i + 1 == total; self.send_session_message(node_key, &chunk, last).await?; }
                 return Ok(());
             } else if upper == "HELP" || upper == "?" || upper == "H" {
-                let mut help_text = session.process_command("HELP", &mut self.storage).await?;
+                let mut help_text = session.process_command("HELP", &mut self.storage, &self.config).await?;
                 if !session.help_seen { session.help_seen = true; help_text.push_str("Shortcuts: M=areas U=user Q=quit\n"); }
                 self.send_session_message(node_key, &help_text, true).await?;
                 return Ok(());
@@ -1354,7 +1468,7 @@ impl BbsServer {
                     if parts.len() >= 2 { let user = parts[1]; session.login(user.to_string(), 1).await?; deferred_reply = Some(format!("Welcome, {} you are now logged in.\n{}", user, Self::format_unread_line(0))); }
                 }
             } else {
-                let response = session.process_command(&raw_content, &mut self.storage).await?;
+                let response = session.process_command(&raw_content, &mut self.storage, &self.config).await?;
                 if !response.is_empty() { deferred_reply = Some(response); }
             }
         }
@@ -1390,7 +1504,7 @@ impl BbsServer {
         let location = self.config.bbs.location.trim();
         let encoded_location = location.replace(" ", "%20");
         let url = format!("https://wttr.in/{}?format=%l:+%C+%t", encoded_location);
-        trace!("Fetching weather from {} (refresh)", url);
+        debug!("Fetching weather from URL: {}", url);
         let fut = async {
             let client = reqwest::Client::new();
             match client.get(&url).send().await {
@@ -1398,10 +1512,13 @@ impl BbsServer {
                     if !resp.status().is_success() { return None; }
                     match resp.text().await { Ok(txt) => Some(Self::sanitize_weather(&txt)), Err(_) => None }
                 },
-                Err(e) => { debug!("weather fetch error: {e:?}"); None }
+                Err(e) => { debug!("weather fetch error from {}: {e:?}", url); None }
             }
         };
-        let result = match timeout(Duration::from_secs(4), fut).await { Ok(v) => v, Err(_) => None };
+        let result = match timeout(Duration::from_secs(4), fut).await { 
+            Ok(v) => v, 
+            Err(_) => { debug!("weather fetch timeout from URL: {}", url); None }
+        };
         match result {
             Some(v) => { 
                 info!("Weather fetched successfully: {}", v.chars().take(50).collect::<String>());

@@ -1,6 +1,6 @@
 [package]
 name = "meshbbs"
-version = "0.9.55"
+version = "0.9.60"
 edition = "2021"
 authors = ["Martin Bogomolni <martinbogo@gmail.com>"]
 description = "A Bulletin Board System (BBS) for Meshtastic mesh networks"

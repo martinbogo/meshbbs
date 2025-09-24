@@ -26,32 +26,35 @@ data_dir = "./data"
 # Maximum payload allowed by Meshtastic practical text frame size is 230 bytes.
 # Values above 230 will be clamped internally.
 max_message_size = 230
-# How long to keep messages (days)
-message_retention_days = 30
-# Maximum number of messages per area
-max_messages_per_area = 1000
 
-[message_areas]
-# Define message areas/forums
-[message_areas.general]
-name = "General Discussion"
-description = "General chat and discussion"
+[message_topics.general]
+name = "General"
+description = "General discussions"
 read_level = 0
 post_level = 0
 
-[message_areas.technical]
-name = "Technical Support"
-description = "Technical help and support"
+[message_topics.community]
+name = "Community"
+description = "Events, meet-ups, and community discussions"
 read_level = 0
 post_level = 0
 
-[message_areas.announcements]
-name = "Announcements"
-description = "Important announcements"
+[message_topics.technical]
+name = "Technical"
+description = "Tech, hardware, and administrative discussions"
 read_level = 0
-post_level = 10  # Higher level required to post
+post_level = 0
 
 [logging]
 level = "info"
 # Log file path (optional)
 file = "meshbbs.log"
+# Security log file (optional)
+security_file = "meshbbs-security.log"
+
+[security]
+# Optional Argon2 password hashing parameters
+# [security.argon2]
+# memory_kib = 19456
+# time_cost = 2
+# parallelism = 1

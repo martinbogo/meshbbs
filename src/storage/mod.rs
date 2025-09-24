@@ -72,8 +72,6 @@
 //! [storage]
 //! data_dir = "./data"
 //! max_message_size = 230
-//! message_retention_days = 30
-//! max_messages_per_topic = 1000
 //! ```
 //!
 //! ## Error Handling
@@ -108,6 +106,7 @@ pub struct Storage {
     #[allow(dead_code)]
     topic_levels: std::collections::HashMap<String, (u8,u8)>, // topic -> (read_level, post_level)
     max_message_bytes: usize,
+    runtime_topics: RuntimeTopicsConfig, // Runtime-managed topic configurations
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -170,6 +169,24 @@ pub struct BbsStatistics {
     pub recent_registrations: u32, // Users registered in last 7 days
 }
 
+/// Runtime topic configuration - persisted in topics.json
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RuntimeTopicConfig {
+    pub name: String,
+    pub description: String,
+    pub read_level: u8,
+    pub post_level: u8,
+    pub created_by: String,
+    pub created_at: DateTime<Utc>,
+}
+
+/// Collection of all runtime topic configurations
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct RuntimeTopicsConfig {
+    #[serde(default)]
+    pub topics: HashMap<String, RuntimeTopicConfig>,
+}
+
 impl Storage {
     /// Initialize storage with the given data directory
     pub async fn new(data_dir: &str) -> Result<Self> {
@@ -187,12 +204,14 @@ impl Storage {
         fs::create_dir_all(&files_dir).await?;
         
         let locked = Self::load_locked_topics(data_dir).await?;
+        let runtime_topics = Self::load_runtime_topics(data_dir).await?;
         Ok(Storage {
             data_dir: data_dir.to_string(),
             argon2: Argon2::default(),
             locked_topics: locked,
             topic_levels: HashMap::new(),
             max_message_bytes: 230,
+            runtime_topics,
         })
     }
 
@@ -208,7 +227,8 @@ impl Storage {
         fs::create_dir_all(&files_dir).await?;
         let argon2 = if let Some(p) = params { Argon2::new(Algorithm::Argon2id, Version::V0x13, p) } else { Argon2::default() };
         let locked = Self::load_locked_topics(data_dir).await?;
-        Ok(Storage { data_dir: data_dir.to_string(), argon2, locked_topics: locked, topic_levels: HashMap::new(), max_message_bytes: 230 })
+        let runtime_topics = Self::load_runtime_topics(data_dir).await?;
+        Ok(Storage { data_dir: data_dir.to_string(), argon2, locked_topics: locked, topic_levels: HashMap::new(), max_message_bytes: 230, runtime_topics })
     }
 
     pub fn set_topic_levels(&mut self, map: std::collections::HashMap<String,(u8,u8)>) { self.topic_levels = map; }
@@ -225,6 +245,28 @@ impl Storage {
             Err(e) if e.kind() == ErrorKind::NotFound => Ok(HashSet::new()),
             Err(e) => Err(anyhow!("Failed reading locked topics: {e}")),
         }
+    }
+
+    /// Load runtime topic configurations from topics.json
+    async fn load_runtime_topics(data_dir: &str) -> Result<RuntimeTopicsConfig> {
+        let path = Path::new(data_dir).join("topics.json");
+        match fs::read_to_string(&path).await {
+            Ok(data) => {
+                let config: RuntimeTopicsConfig = serde_json::from_str(&data)
+                    .map_err(|e| anyhow!("Failed to parse topics.json: {}", e))?;
+                Ok(config)
+            }
+            Err(e) if e.kind() == ErrorKind::NotFound => Ok(RuntimeTopicsConfig::default()),
+            Err(e) => Err(anyhow!("Failed reading topics.json: {}", e)),
+        }
+    }
+
+    /// Save runtime topic configurations to topics.json
+    async fn save_runtime_topics(&self) -> Result<()> {
+        let path = Path::new(&self.data_dir).join("topics.json");
+        let content = serde_json::to_string_pretty(&self.runtime_topics)
+            .map_err(|e| anyhow!("Failed to serialize topics: {}", e))?;
+        Self::write_file_locked(&path, &content).await
     }
 
     /// Helper function to write content to a file with exclusive locking
@@ -426,15 +468,22 @@ impl Storage {
         
         let sanitized_content = sanitize_message_content(content, self.max_message_bytes)
             .map_err(|e| anyhow!("Invalid message content: {}", e))?;
+
+        // Gate topic creation: Only allow posting to explicitly created topics
+        if !self.topic_exists(&validated_topic) {
+            return Err(anyhow!("Topic '{}' does not exist. Topics must be created by a sysop.", validated_topic));
+        }
         
         if self.locked_topics.contains(&validated_topic) { 
             return Err(anyhow!("Topic locked")); 
         }
         
-        if let Some((_, post_level)) = self.get_topic_levels(&validated_topic) {
-            // Determine author level (missing user defaults to 0/1?) default user level is 1 but config might use 0; use 0 baseline
+        // Check posting permission using runtime topic config
+        if let Some(topic_config) = self.get_topic_config(&validated_topic) {
             let author_level = if let Some(user) = self.get_user(author).await? { user.user_level } else { 0 };
-            if author_level < post_level { return Err(anyhow!("Insufficient level to post")); }
+            if author_level < topic_config.post_level { 
+                return Err(anyhow!("Insufficient privileges to post to this topic (required level: {})", topic_config.post_level)); 
+            }
         }
 
         let message = Message {
@@ -446,10 +495,13 @@ impl Storage {
             replies: Vec::new(),
         };
         
-        // Use secure path construction
+        // Topic directory should already exist (created by create_topic)
         let topic_dir = secure_topic_path(&self.data_dir, &validated_topic)
             .map_err(|e| anyhow!("Path validation failed: {}", e))?;
-        fs::create_dir_all(&topic_dir).await?;
+        
+        if !topic_dir.exists() {
+            return Err(anyhow!("Topic directory missing - topic may need to be recreated by sysop"));
+        }
         
         let message_file = secure_message_path(&self.data_dir, &validated_topic, &message.id)
             .map_err(|e| anyhow!("Message path validation failed: {}", e))?;
@@ -670,36 +722,109 @@ impl Storage {
         Ok(messages)
     }
 
-    /// List available message topics
+    /// List available message topics (now uses runtime configuration instead of directory scanning)
     pub async fn list_message_topics(&self) -> Result<Vec<String>> {
-        let messages_dir = Path::new(&self.data_dir).join("messages");
+        // Use configured topics instead of scanning directories
+        let topics = self.list_configured_topics();
         
-        if !messages_dir.exists() {
-            return Ok(vec!["general".to_string()]);
-        }
-        
-        let mut topics = Vec::new();
-        let mut entries = fs::read_dir(&messages_dir).await?;
-        
-        while let Some(entry) = entries.next_entry().await? {
-            if entry.file_type().await?.is_dir() {
-                if let Some(topic_name) = entry.file_name().to_str() {
-                    // Validate topic name to only include legitimate topics
-                    if validate_topic_name(topic_name).is_ok() {
-                        topics.push(topic_name.to_string());
-                    } else {
-                        warn!("Skipping invalid topic directory: {}", topic_name);
-                    }
-                }
-            }
-        }
-        
-        if topics.is_empty() {
-            topics.push("general".to_string());
-        }
-        
-        topics.sort();
+        // Return empty list if no topics are configured (sysop must create them)
         Ok(topics)
+    }
+
+    /// Create a new topic (sysop only)
+    pub async fn create_topic(&mut self, topic_id: &str, name: &str, description: &str, read_level: u8, post_level: u8, creator: &str) -> Result<()> {
+        // Validate topic name
+        validate_topic_name(topic_id)
+            .map_err(|e| anyhow!("Invalid topic name: {}", e))?;
+
+        // Check if topic already exists
+        if self.runtime_topics.topics.contains_key(topic_id) {
+            return Err(anyhow!("Topic '{}' already exists", topic_id));
+        }
+
+        // Create the topic directory
+        let topic_dir = Path::new(&self.data_dir).join("messages").join(topic_id);
+        fs::create_dir_all(&topic_dir).await?;
+
+        // Create runtime config
+        let topic_config = RuntimeTopicConfig {
+            name: name.to_string(),
+            description: description.to_string(),
+            read_level,
+            post_level,
+            created_by: creator.to_string(),
+            created_at: Utc::now(),
+        };
+
+        // Add to runtime topics
+        self.runtime_topics.topics.insert(topic_id.to_string(), topic_config);
+
+        // Persist to disk
+        self.save_runtime_topics().await?;
+
+        Ok(())
+    }
+
+    /// Modify an existing topic (sysop only)
+    pub async fn modify_topic(&mut self, topic_id: &str, name: Option<&str>, description: Option<&str>, read_level: Option<u8>, post_level: Option<u8>) -> Result<()> {
+        // Check if topic exists
+        let mut topic_config = self.runtime_topics.topics.get(topic_id)
+            .ok_or_else(|| anyhow!("Topic '{}' not found", topic_id))?
+            .clone();
+
+        // Update fields if provided
+        if let Some(n) = name { topic_config.name = n.to_string(); }
+        if let Some(d) = description { topic_config.description = d.to_string(); }
+        if let Some(r) = read_level { topic_config.read_level = r; }
+        if let Some(p) = post_level { topic_config.post_level = p; }
+
+        // Update runtime topics
+        self.runtime_topics.topics.insert(topic_id.to_string(), topic_config);
+
+        // Persist to disk
+        self.save_runtime_topics().await?;
+
+        Ok(())
+    }
+
+    /// Delete a topic (sysop only)
+    pub async fn delete_topic(&mut self, topic_id: &str) -> Result<()> {
+        // Check if topic exists
+        if !self.runtime_topics.topics.contains_key(topic_id) {
+            return Err(anyhow!("Topic '{}' not found", topic_id));
+        }
+
+        // Remove from runtime topics
+        self.runtime_topics.topics.remove(topic_id);
+
+        // Remove the topic directory and all messages
+        let topic_dir = Path::new(&self.data_dir).join("messages").join(topic_id);
+        if topic_dir.exists() {
+            fs::remove_dir_all(&topic_dir).await
+                .map_err(|e| anyhow!("Failed to remove topic directory: {}", e))?;
+        }
+
+        // Persist to disk
+        self.save_runtime_topics().await?;
+
+        Ok(())
+    }
+
+    /// Get topic configuration (from runtime or fallback to defaults)
+    pub fn get_topic_config(&self, topic_id: &str) -> Option<&RuntimeTopicConfig> {
+        self.runtime_topics.topics.get(topic_id)
+    }
+
+    /// List all configured topics (runtime only - no automatic directory scanning)
+    pub fn list_configured_topics(&self) -> Vec<String> {
+        let mut topics: Vec<String> = self.runtime_topics.topics.keys().cloned().collect();
+        topics.sort();
+        topics
+    }
+
+    /// Check if a topic exists in runtime configuration
+    pub fn topic_exists(&self, topic_id: &str) -> bool {
+        self.runtime_topics.topics.contains_key(topic_id)
     }
 
     /// Create or update a user

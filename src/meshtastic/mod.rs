@@ -67,7 +67,7 @@
 //! ```
 
 use anyhow::{Result, anyhow};
-use log::{info, debug, error, trace};
+use log::{info, debug, error, trace, warn};
 use tokio::time::{sleep, Duration};
 use std::collections::VecDeque;
 
@@ -89,6 +89,77 @@ pub mod slip; // restore SLIP decoder (Meshtastic uses SLIP over some transports
 
 #[cfg(feature = "serial")]
 use serialport::SerialPort;
+
+use serde::{Deserialize, Serialize};
+use std::path::Path;
+use chrono::{DateTime, Utc};
+
+/// Cached node information with timestamp for persistence
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CachedNodeInfo {
+    pub node_id: u32,
+    pub long_name: String,
+    pub short_name: String,
+    pub last_seen: DateTime<Utc>,
+    pub first_seen: DateTime<Utc>,
+}
+
+/// Node cache for persistent storage
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NodeCache {
+    pub nodes: std::collections::HashMap<u32, CachedNodeInfo>,
+    pub last_updated: DateTime<Utc>,
+}
+
+impl NodeCache {
+    pub fn new() -> Self {
+        Self {
+            nodes: std::collections::HashMap::new(),
+            last_updated: Utc::now(),
+        }
+    }
+
+    pub fn load_from_file<P: AsRef<Path>>(path: P) -> anyhow::Result<Self> {
+        let content = std::fs::read_to_string(path)?;
+        let cache: NodeCache = serde_json::from_str(&content)?;
+        Ok(cache)
+    }
+
+    pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> anyhow::Result<()> {
+        let content = serde_json::to_string_pretty(self)?;
+        std::fs::write(path, content)?;
+        Ok(())
+    }
+
+    pub fn update_node(&mut self, node_id: u32, long_name: String, short_name: String) {
+        let now = Utc::now();
+        self.nodes.entry(node_id)
+            .and_modify(|n| {
+                n.long_name = long_name.clone();
+                n.short_name = short_name.clone();
+                n.last_seen = now;
+            })
+            .or_insert(CachedNodeInfo {
+                node_id,
+                long_name,
+                short_name,
+                last_seen: now,
+                first_seen: now,
+            });
+        self.last_updated = now;
+    }
+
+    pub fn remove_stale_nodes(&mut self, max_age_days: u32) -> usize {
+        let cutoff = Utc::now() - chrono::Duration::days(max_age_days as i64);
+        let initial_count = self.nodes.len();
+        self.nodes.retain(|_, node| node.last_seen > cutoff);
+        let removed = initial_count - self.nodes.len();
+        if removed > 0 {
+            self.last_updated = Utc::now();
+        }
+        removed
+    }
+}
 
 /// Represents a connection to a Meshtastic device
 pub struct MeshtasticDevice {
@@ -112,6 +183,10 @@ pub struct MeshtasticDevice {
     config_complete: bool,
     #[cfg(feature = "meshtastic-proto")]
     nodes: std::collections::HashMap<u32, proto::NodeInfo>,
+    #[cfg(feature = "meshtastic-proto")]
+    node_cache: NodeCache,
+    #[cfg(feature = "meshtastic-proto")]
+    cache_file_path: String,
     #[cfg(feature = "meshtastic-proto")]
     binary_frames_seen: bool,
     #[cfg(feature = "meshtastic-proto")]
@@ -184,6 +259,64 @@ impl MeshtasticDevice {
     pub fn node_count(&self) -> usize { self.nodes.len() }
     #[cfg(feature = "meshtastic-proto")]
     pub fn config_request_id_hex(&self) -> Option<String> { self.config_request_id.map(|id| format!("0x{:08x}", id)) }
+
+    /// Load node cache from persistent storage
+    #[cfg(feature = "meshtastic-proto")]
+    pub fn load_node_cache(&mut self) -> anyhow::Result<()> {
+        if Path::new(&self.cache_file_path).exists() {
+            match NodeCache::load_from_file(&self.cache_file_path) {
+                Ok(cache) => {
+                    info!("Loaded {} cached nodes from {}", cache.nodes.len(), self.cache_file_path);
+                    // Merge cached nodes into runtime nodes
+                    for (node_id, cached_node) in &cache.nodes {
+                        if !self.nodes.contains_key(node_id) {
+                            let mut node_info = proto::NodeInfo {
+                                num: *node_id,
+                                ..Default::default()
+                            };
+                            node_info.user = Some(proto::User {
+                                long_name: cached_node.long_name.clone(),
+                                short_name: cached_node.short_name.clone(),
+                                ..Default::default()
+                            });
+                            self.nodes.insert(*node_id, node_info);
+                        }
+                    }
+                    self.node_cache = cache;
+                    Ok(())
+                },
+                Err(e) => {
+                    warn!("Failed to load node cache: {}", e);
+                    Ok(()) // Continue without cache
+                }
+            }
+        } else {
+            info!("No node cache file found at {}, starting fresh", self.cache_file_path);
+            Ok(())
+        }
+    }
+
+    /// Save node cache to persistent storage
+    #[cfg(feature = "meshtastic-proto")]
+    pub fn save_node_cache(&self) -> anyhow::Result<()> {
+        // Ensure directory exists
+        if let Some(parent) = Path::new(&self.cache_file_path).parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        self.node_cache.save_to_file(&self.cache_file_path)
+    }
+
+    /// Clean up stale nodes from cache (nodes not seen for specified days)
+    #[cfg(feature = "meshtastic-proto")]
+    pub fn cleanup_stale_nodes(&mut self, max_age_days: u32) -> anyhow::Result<usize> {
+        let removed = self.node_cache.remove_stale_nodes(max_age_days);
+        if removed > 0 {
+            info!("Cleaned up {} stale nodes from cache", removed);
+            self.save_node_cache()?;
+        }
+        Ok(removed)
+    }
+
     /// Create a new Meshtastic device connection
     pub async fn new(port_name: &str, baud_rate: u32) -> Result<Self> {
         info!("Initializing Meshtastic device on {} at {} baud", port_name, baud_rate);
@@ -225,6 +358,10 @@ impl MeshtasticDevice {
             #[cfg(feature = "meshtastic-proto")]
             nodes: std::collections::HashMap::new(),
             #[cfg(feature = "meshtastic-proto")]
+            node_cache: NodeCache::new(),
+            #[cfg(feature = "meshtastic-proto")]
+            cache_file_path: "data/node_cache.json".to_string(),
+            #[cfg(feature = "meshtastic-proto")]
             binary_frames_seen: false,
             #[cfg(feature = "meshtastic-proto")]
             last_want_config_sent: None,
@@ -257,6 +394,10 @@ impl MeshtasticDevice {
                 config_complete: false,
                 #[cfg(feature = "meshtastic-proto")]
                 nodes: std::collections::HashMap::new(),
+                #[cfg(feature = "meshtastic-proto")]
+                node_cache: NodeCache::new(),
+                #[cfg(feature = "meshtastic-proto")]
+                cache_file_path: "data/node_cache.json".to_string(),
                 #[cfg(feature = "meshtastic-proto")]
                 binary_frames_seen: false,
                 #[cfg(feature = "meshtastic-proto")]
@@ -491,9 +632,30 @@ impl MeshtasticDevice {
         else if summary.starts_with("NODE:") {
             let parts: Vec<&str> = summary.split(':').collect();
             if parts.len() >= 2 { if let Ok(id) = parts[1].parse::<u32>() {
+                let long_name = if parts.len() >= 3 { parts[2].to_string() } else { String::new() };
+                let short_name = if !long_name.is_empty() { 
+                    // Generate short name from long name (first 4 chars or similar)
+                    long_name.chars().take(4).collect::<String>().to_uppercase()
+                } else { 
+                    format!("{:04X}", id & 0xFFFF) 
+                };
+                
                 let mut ni = proto::NodeInfo { num: id, ..Default::default() };
-                if parts.len() >=3 { let nm = parts[2].to_string(); if !nm.is_empty() { ni.user = Some(proto::User{ long_name: nm, ..Default::default()}); }}
+                if !long_name.is_empty() { 
+                    ni.user = Some(proto::User{ 
+                        long_name: long_name.clone(), 
+                        short_name: short_name.clone(),
+                        ..Default::default()
+                    }); 
+                }
                 self.nodes.insert(id, ni);
+                
+                // Update cache
+                self.node_cache.update_node(id, long_name, short_name);
+                // Save cache asynchronously (best effort, don't block on failure)
+                if let Err(e) = self.save_node_cache() {
+                    debug!("Failed to save node cache: {}", e);
+                }
             }}
         }
         else if summary == "CONFIG" { self.have_radio_config = true; }
@@ -554,7 +716,7 @@ impl MeshtasticDevice {
             id: 0, // non-reliable (no ack)
             rx_time: 0,
             rx_snr: 0.0,
-            hop_limit: 0,
+            hop_limit: 3, // Allow routing through mesh
             want_ack: false,
             priority: 0, // DEFAULT internal
             ..Default::default()
@@ -567,7 +729,8 @@ impl MeshtasticDevice {
             toradio.encode(&mut payload)?;
             let mut hdr = [0u8;4]; hdr[0]=0x94; hdr[1]=0xC3; hdr[2]=((payload.len()>>8)&0xFF) as u8; hdr[3]=(payload.len()&0xFF) as u8;
             port.write_all(&hdr)?; port.write_all(&payload)?; port.flush()?;
-            debug!("Sent TextPacket to 0x{:08x} ({} bytes payload) text='{}'", dest, payload.len(), text);
+            info!("Sent TextPacket: from=0x{:08x} to=0x{:08x} channel={} ({} bytes payload) text='{}'", 
+                  self.our_node_id.unwrap_or(0), dest, channel, payload.len(), text);
             if log::log_enabled!(log::Level::Trace) {
                 let mut hex = String::with_capacity(payload.len()*2);
                 for b in &payload { use std::fmt::Write; let _=write!(&mut hex, "{:02x}", b); }

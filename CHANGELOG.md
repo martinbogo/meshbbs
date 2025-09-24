@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.60] - 2025-09-23
+### Added
+- **Enhanced Weather Debug Logging**: Weather queries now include full URL in debug output
+  - Main weather fetch log now shows complete wttr.in URL being used
+  - Error messages include the specific URL that failed
+  - Timeout scenarios now log the URL that timed out
+  - Changed from trace! to debug! level for better visibility
+
+### Fixed  
+- **DM Delivery Improvements**: Fixed help command DM regression and routing issues
+  - Enhanced logging for DM operations with detailed from/to/channel information
+  - Fixed hop_limit from 0 to 3 hops for proper mesh routing
+  - Node ID mismatch discovery and resolution (0x132BEE vs 0x0a132bee format)
+- **Persistent Node Cache System**: Complete node management overhaul
+  - JSON-based persistent storage with timestamps for each node
+  - Automatic loading on device connection and periodic cleanup of stale nodes (7+ days)
+  - Thread-safe operation with proper error handling
+- **Integration Test Fixes**: Updated all tests for gated topic creation system
+  - Fixed config usage by removing obsolete fields (message_retention_days, max_messages_per_area)
+  - Added proper topic creation in tests that use POST commands
+  - All 56+ tests now passing successfully
+
 ## [0.9.55] - 2025-09-23
 ### Changed
 - **Complete AREA → TOPIC terminology refactor**: Comprehensive update across the entire codebase

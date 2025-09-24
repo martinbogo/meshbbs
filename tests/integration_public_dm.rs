@@ -16,6 +16,11 @@ async fn public_login_then_dm_session_inline_commands() {
     // Initialize server (without actual device)
     let mut server = BbsServer::new(config).await.expect("server");
 
+    // Create the topic that will be used in the POST command, ignore if it already exists
+    if let Err(_) = server.test_create_topic("hello", "Hello Topic", "A test topic for hello messages", 0, 0, "sysop").await {
+        // Topic already exists, which is fine for this test
+    }
+
     // Simulate a public LOGIN (would normally arrive via TextEvent)
     use meshbbs::meshtastic::TextEvent; // re-export not present, path adjust if needed
     let public_event = TextEvent { source: 123, dest: None, is_direct: false, channel: None, content: "^LOGIN alice".into() };
