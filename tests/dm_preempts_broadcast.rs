@@ -21,7 +21,7 @@ async fn dm_preempts_broadcast() {
     tokio::time::sleep(std::time::Duration::from_millis(120)).await;
 
     // Collected messages: ensure DM appears before at least last broadcast (preemption)
-    let msgs = server.exported_test_messages();
+    let msgs = server.test_messages();
     let dm_pos = msgs.iter().position(|(_,m)| m.contains("HELLO DM"));
     let bcast_positions: Vec<_> = msgs.iter().enumerate().filter(|(_,(_,m))| m.starts_with("BCAST")).map(|(i,_)| i).collect();
 

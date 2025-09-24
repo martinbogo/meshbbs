@@ -346,6 +346,8 @@ impl BbsServer {
     #[allow(dead_code)]
     #[doc(hidden)]
     pub fn test_messages(&self) -> &Vec<(String,String)> { &self.test_messages }
+    // Expose scheduler handle for tests (un-gated so integration tests see it)
+    pub fn scheduler_handle(&self) -> Option<crate::bbs::dispatch::SchedulerHandle> { self.scheduler.clone() }
     #[allow(dead_code)]
     #[doc(hidden)]
     pub fn test_insert_session(&mut self, session: Session) { self.sessions.insert(session.node_id.clone(), session); }
@@ -1571,11 +1573,9 @@ impl BbsServer {
         self.send_message(node_key, &msg).await
     }
 
-    /// Expose collected test messages (DM + broadcast) for integration tests
+    // (legacy) exported_test_messages retained for backwards compatibility in tests
     #[cfg(test)]
     pub fn exported_test_messages(&self) -> &Vec<(String,String)> { &self.test_messages }
-    #[cfg(all(test, feature = "meshtastic-proto"))]
-    pub fn scheduler_handle(&self) -> Option<crate::bbs::dispatch::SchedulerHandle> { self.scheduler.clone() }
 
     /// Lightweight direct-message routing helper for tests (no meshtastic-proto TextEvent needed)
     #[allow(dead_code)]

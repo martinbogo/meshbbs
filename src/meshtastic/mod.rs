@@ -134,6 +134,7 @@ pub enum ControlMessage {
 use bytes::BytesMut;
 #[cfg(feature = "meshtastic-proto")]
 use crate::protobuf::meshtastic_generated as proto;
+use crate::metrics; // metrics module
 
 // Provide hex_snippet early so it is in scope for receive_message (always available)
 fn hex_snippet(data: &[u8], max: usize) -> String {
@@ -399,6 +400,8 @@ struct PendingSend {
     next_due: std::time::Instant,
     // Index into BACKOFF_SECONDS for next scheduling step (capped at last)
     backoff_idx: u8,
+    // Original send timestamp for latency metrics
+    sent_at: std::time::Instant,
 }
 
 impl MeshtasticDevice {
@@ -1731,7 +1734,9 @@ impl MeshtasticWriter {
                         }
                         Some(ControlMessage::AckReceived(id)) => {
                             if let Some(p) = self.pending.remove(&id) {
-                                info!("Delivered id={} to=0x{:08x} ({}), attempts={}", id, p.to, p.content_preview, p.attempts);
+                                metrics::observe_ack_latency(p.sent_at);
+                                metrics::inc_reliable_acked();
+                                info!("Delivered id={} to=0x{:08x} ({}), attempts={} latency_ms={}", id, p.to, p.content_preview, p.attempts, p.sent_at.elapsed().as_millis());
                             } else {
                                 debug!("Delivered id={} (no pending entry)", id);
                             }
@@ -1760,11 +1765,13 @@ impl MeshtasticWriter {
                                         "Transient routing error (reason={}) for id={} to=0x{:08x} ({}); will retry in {}s (stage {})",
                                         reason, id, p.to, p.content_preview, stage, p.backoff_idx
                                     );
+                                    metrics::inc_reliable_retries();
                                 } else {
                                     warn!("Transient routing error for id={} (no pending entry): reason={}", id, reason);
                                 }
                             } else {
                                 if let Some(p) = self.pending.remove(&id) {
+                                    metrics::inc_reliable_failed();
                                     warn!("Failed id={} to=0x{:08x} ({}): reason={}", id, p.to, p.content_preview, reason);
                                 } else {
                                     warn!("Failed id={} (routing error, no pending entry): reason={}", id, reason);
@@ -1839,6 +1846,7 @@ impl MeshtasticWriter {
                     }
                     for (id, p) in to_expire.into_iter() {
                         self.pending.remove(&id);
+                        metrics::inc_reliable_failed();
                         warn!("Failed id={} to=0x{:08x} ({}): max attempts reached", id, p.to, p.content_preview);
                     }
                 }
@@ -1984,7 +1992,9 @@ impl MeshtasticWriter {
                     // First retry scheduled after the first configured backoff stage
                     next_due: now + std::time::Duration::from_secs(*self.tuning.dm_resend_backoff_seconds.first().unwrap_or(&4)),
                     backoff_idx: 0,
+                    sent_at: now,
                 });
+                metrics::inc_reliable_sent();
                 if let Err(e) = self.send_heartbeat() {
                     warn!("Failed to send heartbeat after DM: {}", e);
                 } else {

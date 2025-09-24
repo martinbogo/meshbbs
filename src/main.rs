@@ -8,6 +8,7 @@ mod config;
 mod storage;
 mod validation;
 mod protobuf; // for meshtastic-proto feature generated code
+mod metrics; // metrics module (shared with lib)
 
 use crate::bbs::BbsServer;
 use crate::config::Config;
