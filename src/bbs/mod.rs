@@ -68,6 +68,7 @@ pub mod session;
 pub mod commands;
 pub mod public;
 pub mod roles;
+pub mod dispatch;
 
 pub use server::BbsServer;
 

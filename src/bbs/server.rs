@@ -95,6 +95,8 @@ pub struct BbsServer {
     #[cfg(feature = "meshtastic-proto")]
     outgoing_tx: Option<mpsc::UnboundedSender<OutgoingMessage>>,
     #[cfg(feature = "meshtastic-proto")]
+    scheduler: Option<crate::bbs::dispatch::SchedulerHandle>,
+    #[cfg(feature = "meshtastic-proto")]
     reader_control_tx: Option<mpsc::UnboundedSender<ControlMessage>>,
     #[cfg(feature = "meshtastic-proto")]
     writer_control_tx: Option<mpsc::UnboundedSender<ControlMessage>>,
@@ -221,36 +223,25 @@ impl BbsServer {
         }
 
         // Build optional Argon2 params from config
-        let mut storage = {
+        let storage = {
             use argon2::Params;
             if let Some(sec) = &config.security {
                 if let Some(a) = &sec.argon2 {
-                let builder = Params::DEFAULT;
-                // Params::new(memory, time, parallelism, output_length) -> Result
-                let mem = a.memory_kib.unwrap_or(builder.m_cost());
-                let time = a.time_cost.unwrap_or(builder.t_cost());
-                let para = a.parallelism.unwrap_or(builder.p_cost());
-                let params = Params::new(mem, time, para, None).ok();
-                Storage::new_with_params(&config.storage.data_dir, params).await?
+                    let builder = Params::DEFAULT;
+                    let mem = a.memory_kib.unwrap_or(builder.m_cost());
+                    let time = a.time_cost.unwrap_or(builder.t_cost());
+                    let para = a.parallelism.unwrap_or(builder.p_cost());
+                    let params = Params::new(mem, time, para, None).ok();
+                    Storage::new_with_params(&config.storage.data_dir, params).await?
                 } else {
-                Storage::new(&config.storage.data_dir).await?
+                    Storage::new(&config.storage.data_dir).await?
                 }
             } else {
                 Storage::new(&config.storage.data_dir).await?
             }
         };
-        
-        // Merge TOML topic configurations into runtime storage
-        Self::merge_toml_topics_to_runtime(&mut storage, &config).await?;
-        
-        // Populate topic level map from config.message_topics (for backwards compatibility)
-        let mut level_map = std::collections::HashMap::new();
-        for (k,v) in &config.message_topics { level_map.insert(k.clone(), (v.read_level, v.post_level)); }
-        storage.set_topic_levels(level_map);
-    // Apply max message size clamp (protocol cap 230 bytes)
-    storage.set_max_message_bytes(config.storage.max_message_size);
 
-        Ok(BbsServer {
+        let mut server = Self {
             config,
             storage,
             device: None,
@@ -260,6 +251,8 @@ impl BbsServer {
             text_event_rx: None,
             #[cfg(feature = "meshtastic-proto")]
             outgoing_tx: None,
+            #[cfg(feature = "meshtastic-proto")]
+            scheduler: None,
             #[cfg(feature = "meshtastic-proto")]
             reader_control_tx: None,
             #[cfg(feature = "meshtastic-proto")]
@@ -272,13 +265,18 @@ impl BbsServer {
             #[cfg(feature = "weather")]
             weather_cache: None,
             #[cfg(feature = "weather")]
-            weather_last_poll: Instant::now() - Duration::from_secs(301), // trigger immediate initial refresh
+            weather_last_poll: Instant::now() - Duration::from_secs(301),
             #[cfg(feature = "meshtastic-proto")]
             pending_direct: Vec::new(),
             #[cfg(feature = "meshtastic-proto")]
-            node_cache_last_cleanup: Instant::now() - Duration::from_secs(3601), // trigger cleanup on first run
+            node_cache_last_cleanup: Instant::now() - Duration::from_secs(3601),
             test_messages: Vec::new(),
-        })
+        };
+        // Migrate any TOML-defined topics into runtime store (backward compatibility)
+        if !server.config.message_topics.is_empty() {
+            Self::merge_toml_topics_to_runtime(&mut server.storage, &server.config).await?;
+        }
+        Ok(server)
     }
 
     /// Connect to a Meshtastic device using the new reader/writer pattern
@@ -306,11 +304,21 @@ impl BbsServer {
         };
 
         // Create the reader/writer system
+        let tuning_clone = tuning.clone();
         let (reader, writer, text_event_rx, outgoing_tx, reader_control_tx, writer_control_tx) = 
-            crate::meshtastic::create_reader_writer_system(port, self.config.meshtastic.baud_rate, tuning).await?;
+            crate::meshtastic::create_reader_writer_system(port, self.config.meshtastic.baud_rate, tuning_clone).await?;
         
         // Store the channels in the server
         self.text_event_rx = Some(text_event_rx);
+        // Start scheduler (phase 1) before storing outgoing for general use
+        let help_delay_ms = mcfg.help_broadcast_delay_ms.unwrap_or(3500);
+        let sched_cfg = crate::bbs::dispatch::SchedulerConfig {
+            min_send_gap_ms: tuning.min_send_gap_ms,
+            post_dm_broadcast_gap_ms: tuning.post_dm_broadcast_gap_ms,
+            help_broadcast_delay_ms: help_delay_ms,
+        };
+        let scheduler_handle = crate::bbs::dispatch::start_scheduler(sched_cfg, outgoing_tx.clone());
+        self.scheduler = Some(scheduler_handle);
         self.outgoing_tx = Some(outgoing_tx);
         self.reader_control_tx = Some(reader_control_tx);
         self.writer_control_tx = Some(writer_control_tx);
