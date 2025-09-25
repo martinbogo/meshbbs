@@ -465,7 +465,8 @@ meshbbs/
 - **v1.0.0 BETA** (2025-09-25): First public beta of the 1.x series
 
 ### 🚀 Upcoming Features
-- [ ] **� Locally encrypted data storage**: Enhanced security for stored messages and user data
+- [ ] **🔐 Locally encrypted data storage**: Enhanced security for stored messages and user data
+- [ ] **Support connecting node via WiFi and Ethernet**
 
 ## 💻 Hardware Compatibility
 
