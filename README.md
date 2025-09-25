@@ -440,23 +440,51 @@ MESHTASTIC_PROTO_DIR=path/to/protos cargo build --features meshtastic-proto
 ```
 meshbbs/
 ├── 📄 src/
-│   ├── main.rs           # Application entry point
-│   ├── lib.rs            # Library exports
-│   ├── 🎮 bbs/           # Core BBS functionality
-│   │   ├── server.rs     # BBS server implementation
-│   │   ├── session.rs    # User session management
-│   │   ├── commands.rs   # BBS command processing
-│   │   ├── public.rs     # Public channel command parsing
-│   │   └── roles.rs      # User role definitions
-│   ├── 📡 meshtastic/    # Meshtastic integration
-│   ├── 💾 storage/       # Data persistence
-│   ├── ⚙️ config/        # Configuration management
-│   └── 📋 protobuf/      # Protobuf definitions
-├── 🧪 tests/             # Integration tests
-├── 📊 data/              # BBS data directory (runtime)
-├── 🔧 third_party/       # Git submodules
+│   ├── main.rs             # Application entry point
+│   ├── lib.rs              # Library exports
+│   ├── validation.rs       # Input validation helpers
+│   ├── 🎮 bbs/             # Core BBS functionality
+│   │   ├── server.rs       # BBS server implementation
+│   │   ├── session.rs      # User session management
+│   │   ├── commands.rs     # BBS command processing
+│   │   ├── public.rs       # Public channel command parsing
+│   │   └── roles.rs        # User role definitions
+│   ├── 📡 meshtastic/      # Meshtastic integration
+│   │   ├── framer.rs
+│   │   ├── slip.rs
+│   │   └── mod.rs
+│   ├── 💾 storage/
+│   │   └── mod.rs          # Data persistence
+│   ├── ⚙️ config/
+│   │   └── mod.rs          # Configuration management
+│   └── 📋 protobuf/
+│       └── mod.rs          # Protobuf definitions
+├── 📚 docs/                # Project documentation (GitHub Pages)
+│   ├── getting-started/
+│   ├── user-guide/
+│   ├── administration/
+│   ├── hardware/
+│   ├── development/
+│   └── qa/
+├── 🖼️ images/
+│   └── meshbbs_logo.png
+├── 🧰 scripts/
+│   └── clean_workspace.sh
+├── 🔧 third_party/
 │   └── meshtastic-protobufs/
-└── 📝 config.toml        # Configuration file
+├── 📦 protos/              # Local proto placeholders
+│   ├── meshtastic_placeholder.proto
+│   └── README.md
+├── 🧪 tests/               # Integration tests
+├── 🧩 test-data-int/       # Integration test fixtures
+├── 📊 data/                # Runtime data (topics, messages, users)
+├── 🛠️ build.rs
+├── 📦 Cargo.toml
+├── 📦 Cargo.lock
+├── ⚙️ config.toml
+├── 📝 config.example.toml
+├── 🗒️ CHANGELOG.md
+└── 📘 README.md
 ```
 
 ## 🗺️ Roadmap
