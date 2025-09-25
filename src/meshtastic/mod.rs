@@ -68,6 +68,7 @@
 
 use anyhow::{Result, anyhow};
 use log::{info, debug, error, trace, warn};
+use crate::logutil::escape_log; // for sanitizing log output
 use tokio::time::{sleep, Duration};
 use tokio::sync::mpsc;
 use std::collections::VecDeque;
@@ -1023,9 +1024,10 @@ impl MeshtasticDevice {
             std::thread::sleep(std::time::Duration::from_millis(50));
 
             let display_text = if text.len() > 80 { 
-                format!("{}...", &text[..77])
+                let truncated = &text[..77];
+                escape_log(truncated) + "..."
             } else { 
-                text.replace('\n', "\\n").replace('\r', "\\r")
+                escape_log(text)
             };
             let msg_type = if is_dm { "DM (reliable)" } else { "broadcast" };
             debug!("Sent TextPacket ({}): from=0x{:08x} to=0x{:08x} channel={} id={} want_ack={} priority={} ({} bytes payload) text='{}'", 
@@ -1039,7 +1041,7 @@ impl MeshtasticDevice {
         }
         #[cfg(not(feature = "serial"))]
         {
-            debug!("(mock) Would send TextPacket to 0x{:08x}: '{}'", dest, text);
+            debug!("(mock) Would send TextPacket to 0x{:08x}: '{}'", dest, escape_log(text));
         }
         
         // For DMs, send a heartbeat immediately after to try to trigger radio transmission
@@ -1851,11 +1853,16 @@ impl MeshtasticWriter {
                                     warn!("Transient routing error for id={} (no pending entry): reason={}", id, reason);
                                 }
                             } else {
+                                // Map to symbolic name if possible for clearer diagnostics
+                                let reason_name = match proto::routing::Error::try_from(reason) {
+                                    Ok(v) => format!("{:?}", v),
+                                    Err(_) => "Unknown".to_string(),
+                                };
                                 if let Some(p) = self.pending.remove(&id) {
                                     metrics::inc_reliable_failed();
-                                    warn!("Failed id={} to=0x{:08x} ({}): reason={}", id, p.to, p.content_preview, reason);
+                                    warn!("Failed id={} to=0x{:08x} ({}): reason={} ({})", id, p.to, p.content_preview, reason, reason_name);
                                 } else {
-                                    warn!("Failed id={} (routing error, no pending entry): reason={}", id, reason);
+                                    warn!("Failed id={} (routing error, no pending entry): reason={} ({})", id, reason, reason_name);
                                 }
                             }
                         }
@@ -2003,9 +2010,10 @@ impl MeshtasticWriter {
             self.last_text_send = Some(std::time::Instant::now());
             
             let display_text = if msg.content.len() > 80 {
-                format!("{}...", &msg.content[..77])
+                let truncated = &msg.content[..77];
+                escape_log(truncated) + "..."
             } else {
-                msg.content.replace('\n', "\\n").replace('\r', "\\r")
+                escape_log(&msg.content)
             };
             
             let msg_type = if is_dm { "DM (reliable)" } else { "broadcast" };
@@ -2024,7 +2032,7 @@ impl MeshtasticWriter {
             // For DMs, record pending and proactively send a heartbeat to nudge immediate radio TX
             if is_dm {
                 // capture a small preview for logging
-                let preview = if msg.content.len() > 40 { format!("{}...", &msg.content[..37].replace('\n', "\\n").replace('\r', "\\r")) } else { msg.content.replace('\n', "\\n").replace('\r', "\\r") };
+                let preview = if msg.content.len() > 40 { let t = &msg.content[..37]; format!("{}...", escape_log(t)) } else { escape_log(&msg.content) };
                 let now = std::time::Instant::now();
                 self.pending.insert(packet_id, PendingSend {
                     to: dest,

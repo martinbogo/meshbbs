@@ -2,16 +2,9 @@ use anyhow::Result;
 use log::{info, warn};
 use clap::{Parser, Subcommand};
 
-mod bbs;
-mod meshtastic;
-mod config;
-mod storage;
-mod validation;
-mod protobuf; // for meshtastic-proto feature generated code
-mod metrics; // metrics module (shared with lib)
-
-use crate::bbs::BbsServer;
-use crate::config::Config;
+// Use the published library crate modules instead of redefining them here.
+use meshbbs::bbs::BbsServer;
+use meshbbs::config::Config;
 
 #[derive(Parser)]
 #[command(name = "meshbbs")]
@@ -137,7 +130,7 @@ async fn main() -> Result<()> {
             #[cfg(all(feature = "serial", feature = "meshtastic-proto"))]
             {
                 use tokio::time::{Instant, Duration, sleep};
-                use crate::meshtastic::MeshtasticDevice;
+                use meshbbs::meshtastic::MeshtasticDevice;
                 let mut device = MeshtasticDevice::new(&port, baud).await?;
                 info!("Starting smoke test on {} @ {} baud", port, baud);
                 let mut last_hb = Instant::now();

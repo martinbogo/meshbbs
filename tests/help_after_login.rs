@@ -1,5 +1,6 @@
 use meshbbs::config::Config;
 use meshbbs::bbs::BbsServer;
+mod common;
 #[cfg(feature = "meshtastic-proto")]
 use meshbbs::meshtastic::TextEvent;
 
@@ -8,7 +9,7 @@ use meshbbs::meshtastic::TextEvent;
 #[tokio::test]
 async fn help_after_login() {
     let mut cfg = Config::default();
-    cfg.storage.data_dir = "./test-data-int".into();
+    cfg.storage.data_dir = crate::common::fixture_root().to_string_lossy().to_string();
     let mut server = BbsServer::new(cfg).await.expect("server");
 
     // Use a unique username each run to avoid collision with existing test data

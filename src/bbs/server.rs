@@ -9,6 +9,7 @@ use crate::meshtastic::{MeshtasticDevice, OutgoingMessage, MessagePriority, Cont
 #[cfg(feature = "meshtastic-proto")]
 use crate::meshtastic::TextEvent;
 use crate::storage::Storage;
+use crate::logutil::escape_log;
 use crate::validation::validate_sysop_name;
 use super::session::Session;
 use super::public::{PublicState, PublicCommandParser, PublicCommand};
@@ -804,17 +805,7 @@ impl BbsServer {
                         }
                     }
                 } else {
-                    // For non-auth first messages, show banner immediately. If message is auth command it will be processed below and produce its own reply.
-                    let first = ev.content.trim();
-                    let upper_first = first.to_uppercase();
-                    if !(upper_first.starts_with("LOGIN ") || upper_first.starts_with("REGISTER ")) {
-                        // Simple first-contact guidance (no banner/description)
-                        let guidance = format!(
-                            "[{}] Use REGISTER <name> <pass> to create an account or LOGIN <name> <pass>. Type HELP for basics.",
-                            self.config.bbs.name
-                        );
-                        let _ = self.send_message(&node_key, &format!("{}\n", guidance)).await;
-                    }
+                    // Removed first-contact guidance banner (Option B) to avoid duplicate initial messages.
                 }
                 self.sessions.insert(node_key.clone(), session);
             }
@@ -828,6 +819,8 @@ impl BbsServer {
                 let mut post_action = PostAction::None;
                 let mut deferred_reply: Option<String> = None;
 
+                // Track if this message was fully handled by registration logic to avoid re-processing.
+                let mut handled_registration = false;
                 // Handle REGISTER early without holding mutable borrow on session to simplify chunking logic.
                 if upper.starts_with("REGISTER ") {
                     let parts: Vec<&str> = raw_content.split_whitespace().collect();
@@ -840,9 +833,20 @@ impl BbsServer {
                                 Ok(_) => {
                                     if let Some(session) = self.sessions.get_mut(&node_key) { session.login(user.to_string(), 1).await?; }
                                     let summary = Self::format_unread_line(0);
+                                    // Compact single-frame friendly welcome (omit BBS name & HELP+ reference)
+                                    // Example (unread 0): "Registered as alice. 0 new msgs. HELP LIST READ POST WHO"
+                                    // Keeps under 230 bytes even with 30-char username.
+                                    let unread_snip = if summary.contains("no new") || summary.contains("no new messages") {
+                                        // summary format_unread_line(0) typically "There are no new messages." -> shorten
+                                        "0 new msgs.".to_string()
+                                    } else if let Some(num) = summary.split_whitespace().find(|w| w.chars().all(|c| c.is_ascii_digit())) {
+                                        format!("{} unread msgs.", num)
+                                    } else {
+                                        summary.trim().to_string()
+                                    };
                                     let full_welcome = format!(
-                                        "Registered and logged in as {}.\nWelcome, {} you are now logged in.\n{}\n🎉 Welcome to {}, {}! Quick start:\n\nHELP - command list\nLIST - browse topics\nREAD <topic> - read messages\nPOST <topic> <msg> - post\nWHO - see users online\n\nType HELP+ for full guide.\n",
-                                        user, user, summary, self.config.bbs.name, user
+                                        "Registered as {u}. {unread} HELP LIST READ POST WHO\n",
+                                        u=user, unread=unread_snip
                                     );
                                     let max_bytes = self.config.storage.max_message_size;
                                     let parts_vec = self.chunk_utf8(&full_welcome, max_bytes);
@@ -859,11 +863,18 @@ impl BbsServer {
                                     if let Err(e) = self.storage.mark_welcome_shown(user, true, false).await {
                                         eprintln!("Failed to mark welcome shown for {}: {}", user, e);
                                     }
+                                    handled_registration = true;
                                 }
                                 Err(e) => { deferred_reply = Some(format!("Register failed: {}\n", e)); }
                             }
                         }
                     }
+                }
+
+                // If registration fully handled (multi-part or single reply prepared), skip further command processing
+                if handled_registration {
+                    if let Some(msg) = deferred_reply { self.send_session_message(&node_key, &msg, true).await?; }
+                    return Ok(());
                 }
 
                 if let Some(session) = self.sessions.get_mut(&node_key) {
@@ -1287,6 +1298,13 @@ impl BbsServer {
                                     super::session::SessionState::MessageTopics => "Message Areas",
                                     super::session::SessionState::ReadingMessages => "Reading",
                                     super::session::SessionState::PostingMessage => "Posting",
+                                    super::session::SessionState::Topics => "Topics",
+                                    super::session::SessionState::Threads => "Threads",
+                                    super::session::SessionState::ThreadRead => "Read",
+                                    super::session::SessionState::ComposeNewTitle => "Compose Title",
+                                    super::session::SessionState::ComposeNewBody => "Compose Body",
+                                    super::session::SessionState::ComposeReply => "Compose Reply",
+                                    super::session::SessionState::ConfirmDelete => "Confirm Delete",
                                     super::session::SessionState::UserMenu => "User Menu",
                                     super::session::SessionState::Disconnected => "Disconnected",
                                 };
@@ -1460,7 +1478,7 @@ impl BbsServer {
                             if base < required { required } else { base }
                         };
                         if let Some(scheduler) = &self.scheduler {
-                            info!("Scheduling HELP public notice in {}ms (text='{}')", delay_ms, public_notice);
+                            info!("Scheduling HELP public notice in {}ms (text='{}')", delay_ms, escape_log(&public_notice));
                             let outgoing = crate::meshtastic::OutgoingMessage { to_node: None, channel: 0, content: public_notice.clone(), priority: crate::meshtastic::MessagePriority::Normal, kind: crate::meshtastic::OutgoingKind::Normal };
                             let env = crate::bbs::dispatch::MessageEnvelope::new(
                                 crate::bbs::dispatch::MessageCategory::HelpBroadcast,
@@ -1471,7 +1489,7 @@ impl BbsServer {
                             scheduler.enqueue(env);
                         } else if let Some(tx) = self.outgoing_tx.clone() { // fallback legacy path
                             let notice = public_notice.clone();
-                            info!("Scheduling HELP public notice in {}ms (legacy path) text='{}'", delay_ms, notice);
+                            info!("Scheduling HELP public notice in {}ms (legacy path) text='{}'", delay_ms, escape_log(&notice));
                             tokio::spawn(async move {
                                 tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
                                 let outgoing = crate::meshtastic::OutgoingMessage { to_node: None, channel: 0, content: notice.clone(), priority: crate::meshtastic::MessagePriority::Normal, kind: crate::meshtastic::OutgoingKind::Normal };
@@ -1556,7 +1574,7 @@ impl BbsServer {
 
                     match tx.send(outgoing) {
                         Ok(_) => {
-                            debug!("Queued message to {}: {}", to_node, message);
+                            debug!("Queued message to {}: {}", to_node, escape_log(message));
                         }
                         Err(e) => {
                             warn!("Failed to queue message to {}: {}", to_node, e);
@@ -1569,7 +1587,7 @@ impl BbsServer {
                 }
             } else {
                 // No device connected; operate in mock/test mode and just record the message
-                debug!("Mock send (no device) to {}: {}", to_node, message);
+                debug!("Mock send (no device) to {}: {}", to_node, escape_log(message));
             }
         }
         
@@ -1578,10 +1596,10 @@ impl BbsServer {
             // Fallback for when meshtastic-proto feature is disabled
             if let Some(ref mut device) = self.device {
                 device.send_message(to_node, message).await?;
-                debug!("Sent message to {}: {}", to_node, message);
+                debug!("Sent message to {}: {}", to_node, escape_log(message));
             } else {
                 // No device connected in non-proto mode either; treat as mock send for tests
-                debug!("Mock send (no device) to {}: {}", to_node, message);
+                debug!("Mock send (no device) to {}: {}", to_node, escape_log(message));
             }
         }
         
@@ -1605,10 +1623,10 @@ impl BbsServer {
         } else {
             let outgoing = OutgoingMessage { to_node: None, channel: 0, content: message.to_string(), priority: MessagePriority::Normal, kind: crate::meshtastic::OutgoingKind::Normal };
             if let Some(ref tx) = self.outgoing_tx {
-                match tx.send(outgoing) { Ok(_) => { debug!("Queued broadcast message: {}", message); Ok(()) }, Err(e) => { warn!("Failed to queue broadcast message: {}", e); Err(anyhow!("Failed to queue broadcast: {}", e)) } }
+                match tx.send(outgoing) { Ok(_) => { debug!("Queued broadcast message: {}", escape_log(message)); Ok(()) }, Err(e) => { warn!("Failed to queue broadcast message: {}", e); Err(anyhow!("Failed to queue broadcast: {}", e)) } }
             } else {
                 // Mock/test mode: record broadcast for assertions
-                debug!("Mock broadcast (no device): {}", message);
+                debug!("Mock broadcast (no device): {}", escape_log(message));
                 self.test_messages.push(("BCAST".to_string(), message.to_string()));
                 Ok(())
             }
@@ -1616,13 +1634,26 @@ impl BbsServer {
     }
 
     /// Send a session-scoped reply, automatically appending a dynamic prompt unless suppressed.
+    /// Ensures the combined body + optional newline + prompt is ≤ config.storage.max_message_size bytes.
     /// If chunked is true and not last_chunk, no prompt is appended (used for future multi-part HELP+).
     async fn send_session_message(&mut self, node_key: &str, body: &str, last_chunk: bool) -> Result<()> {
-        // Retrieve session (if missing, just send body)
+        // UTF-8 safe clamp to a given byte budget
+        fn clamp_utf8(s: &str, max_bytes: usize) -> String {
+            if s.as_bytes().len() <= max_bytes { return s.to_string(); }
+            let mut end = max_bytes.min(s.len());
+            while end > 0 && !s.is_char_boundary(end) { end -= 1; }
+            s[..end].to_string()
+        }
+
         let msg = if let Some(session) = self.sessions.get(node_key) {
             if last_chunk {
                 let prompt = session.build_prompt();
-                if body.ends_with('\n') { format!("{}{}", body, prompt) } else { format!("{}\n{}", body, prompt) }
+                let max_total = self.config.storage.max_message_size;
+                let prompt_len = prompt.as_bytes().len();
+                let extra_nl = if body.ends_with('\n') { 0 } else { 1 };
+                let budget = max_total.saturating_sub(prompt_len + extra_nl);
+                let clamped = clamp_utf8(body, budget);
+                if clamped.ends_with('\n') { format!("{}{}", clamped, prompt) } else { format!("{}\n{}", clamped, prompt) }
             } else {
                 body.to_string()
             }

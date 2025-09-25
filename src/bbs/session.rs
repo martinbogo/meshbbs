@@ -1,5 +1,6 @@
 use anyhow::Result;
 use log::debug;
+use crate::logutil::escape_log;
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
 
@@ -67,6 +68,16 @@ pub struct Session {
     pub current_topic: Option<String>,
     /// Whether the abbreviated HELP has already been shown this session (used to append shortcuts line once)
     pub help_seen: bool,
+    /// Current paginated list page (1-based) for Topics/Threads level
+    pub list_page: usize,
+    /// Currently focused thread (message) id when in thread contexts
+    pub current_thread_id: Option<String>,
+    /// Current post index within a thread (1-based); used for navigation with +/-
+    pub post_index: usize,
+    /// Current slice index within a post body (1-based) when content spans multiple slices
+    pub slice_index: usize,
+    /// Optional filter text for list/search context (e.g., F <text>)
+    pub filter_text: Option<String>,
     pub login_time: DateTime<Utc>,
     pub last_activity: DateTime<Utc>,
     pub state: SessionState,
@@ -80,6 +91,14 @@ pub enum SessionState {
     MessageTopics,
     ReadingMessages,
     PostingMessage,
+    /// New flat-mode UI states
+    Topics,          // Topics root list
+    Threads,         // Threads (messages) list within current_topic
+    ThreadRead,      // Reading a single thread/post slice
+    ComposeNewTitle, // Two-step compose (step 1)
+    ComposeNewBody,  // Two-step compose (step 2)
+    ComposeReply,    // Reply compose to current thread
+    ConfirmDelete,   // Confirm delete of selected entity
     UserMenu,
     Disconnected,
 }
@@ -98,6 +117,11 @@ impl Session {
             user_level: 0,
             current_topic: None,
             help_seen: false,
+            list_page: 1,
+            current_thread_id: None,
+            post_index: 1,
+            slice_index: 1,
+            filter_text: None,
             login_time: now,
             last_activity: now,
             state: SessionState::Connected,
@@ -108,7 +132,7 @@ impl Session {
     pub async fn process_command(&mut self, command: &str, storage: &mut Storage, config: &crate::config::Config) -> Result<String> {
         self.update_activity();
         
-        debug!("Session {}: Processing command: {}", self.id, command);
+    debug!("Session {}: Processing command: {}", self.id, escape_log(command));
         
         let processor = CommandProcessor::new();
         let response = processor.process(self, command, storage, config).await?;
@@ -204,11 +228,14 @@ impl Session {
 
         let level = self.user_level;
         match self.state {
-            SessionState::PostingMessage => {
+            SessionState::PostingMessage | SessionState::ComposeNewTitle | SessionState::ComposeNewBody | SessionState::ComposeReply => {
                 if let Some(topic) = &self.current_topic { format!("post@{}>", Self::truncate_topic(topic)) } else { "post>".into() }
             }
-            SessionState::ReadingMessages | SessionState::MessageTopics => {
+            SessionState::ReadingMessages | SessionState::MessageTopics | SessionState::Topics | SessionState::Threads | SessionState::ThreadRead => {
                 if let Some(topic) = &self.current_topic { format!("{}@{}>", self.display_name(), Self::truncate_topic(topic)) } else { format!("{} (lvl{})>", self.display_name(), level) }
+            }
+            SessionState::ConfirmDelete => {
+                format!("confirm@{}>", self.current_topic.as_deref().unwrap_or("bbs"))
             }
             SessionState::MainMenu | SessionState::UserMenu | SessionState::LoggingIn | SessionState::Connected => {
                 format!("{} (lvl{})>", self.display_name(), level)

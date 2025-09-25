@@ -114,6 +114,8 @@ pub struct Message {
     pub id: String,
     pub topic: String,
     pub author: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
     pub content: String,
     pub timestamp: DateTime<Utc>,
     pub replies: Vec<String>,
@@ -488,10 +490,19 @@ impl Storage {
             }
         }
 
+        // Derive a title from the first line of content (UTF-8 safe, up to 32 chars)
+        let title = {
+            let first = sanitized_content.lines().next().unwrap_or("");
+            let mut s = first.to_string();
+            if s.len() > 32 { s.truncate(32); while !s.is_char_boundary(s.len()) { s.pop(); } }
+            if s.is_empty() { None } else { Some(s) }
+        };
+
         let message = Message {
             id: Uuid::new_v4().to_string(),
             topic: validated_topic.clone(),
             author: author.to_string(),
+            title,
             content: sanitized_content,
             timestamp: Utc::now(),
             replies: Vec::new(),
@@ -722,6 +733,36 @@ impl Storage {
         messages.truncate(limit);
         
         Ok(messages)
+    }
+
+    /// Append a reply to an existing message (stored inline in the message JSON).
+    pub async fn append_reply(&self, topic: &str, id: &str, author: &str, content: &str) -> Result<()> {
+        // Resolve and validate message path
+        let message_file = secure_message_path(&self.data_dir, topic, id)
+            .map_err(|e| anyhow!("Invalid path parameters: {}", e))?;
+
+        if !message_file.exists() {
+            return Err(anyhow!("Message not found"));
+        }
+
+        // Read and parse message
+        let raw = fs::read_to_string(&message_file).await?;
+        let mut msg: Message = secure_json_parse(&raw, 1_000_000)
+            .map_err(|e| anyhow!("Corrupt message file: {:?}", e))?;
+
+        // Sanitize reply content and build compact reply string
+        let sanitized = sanitize_message_content(content, self.max_message_bytes)
+            .map_err(|e| anyhow!("Invalid reply content: {}", e))?;
+        if sanitized.trim().is_empty() { return Err(anyhow!("Empty reply")); }
+
+        let stamp = Utc::now().format("%m/%d %H:%M");
+        let reply_str = format!("{} | {}: {}", stamp, author, sanitized);
+
+        // Append and persist
+        msg.replies.push(reply_str);
+        let json_content = serde_json::to_string_pretty(&msg)?;
+        Self::write_file_locked(&message_file, &json_content).await?;
+        Ok(())
     }
 
     /// List available message topics (now uses runtime configuration instead of directory scanning)
