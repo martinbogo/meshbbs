@@ -5,6 +5,7 @@ use clap::{Parser, Subcommand};
 // Use the published library crate modules instead of redefining them here.
 use meshbbs::bbs::BbsServer;
 use meshbbs::config::Config;
+use meshbbs::storage::Storage;
 
 #[derive(Parser)]
 #[command(name = "meshbbs")]
@@ -91,8 +92,27 @@ async fn main() -> Result<()> {
         }
         Commands::Init => {
             info!("Initializing new BBS configuration");
-            Config::create_default(&cli.config).await?;
+            // Start from defaults, but do NOT include message_topics in the TOML
+            let mut cfg = Config::default();
+            cfg.message_topics.clear();
+            let serialized = toml::to_string_pretty(&cfg)?;
+            tokio::fs::write(&cli.config, serialized).await?;
             info!("Configuration file created at {}", cli.config);
+
+            // Create default topics in runtime JSON (data/topics.json)
+            let data_dir = cfg.storage.data_dir.clone();
+            let mut storage = Storage::new(&data_dir).await?;
+            let defaults = vec![
+                ("technical", "Technical", "Tech, hardware, and administrative discussions"),
+                ("general", "General", "General discussions"),
+                ("community", "Community", "Events, meet-ups, and community discussions"),
+            ];
+            for (id, name, desc) in defaults {
+                if !storage.topic_exists(id) {
+                    let _ = storage.create_topic(id, name, desc, 0, 0, "system").await;
+                }
+            }
+            info!("Initialized runtime topics at {}/topics.json", data_dir);
         }
         Commands::Status => {
             let config = pre_config.unwrap_or(Config::load(&cli.config).await?);

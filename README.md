@@ -136,6 +136,8 @@ nano config.toml  # or vim, code, etc.
 
 Meshbbs uses a `config.toml` file for all settings. Run `meshbbs init` to create a default configuration.
 
+Note: `meshbbs init` also seeds default forum topics into `data/topics.json` (runtime store). Topics are no longer defined in `config.toml`. Manage topics interactively from within the BBS; existing installations with `[message_topics.*]` in TOML remain supported for backward compatibility (they’ll be merged into the runtime store at startup).
+
 <details>
 <summary><strong>📋 View Example Configuration</strong></summary>
 

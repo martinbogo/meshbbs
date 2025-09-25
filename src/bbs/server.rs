@@ -304,7 +304,9 @@ impl BbsServer {
             node_cache_last_cleanup: Instant::now() - Duration::from_secs(3601),
             test_messages: Vec::new(),
         };
-        // Migrate any TOML-defined topics into runtime store (backward compatibility)
+        // Legacy compatibility: previously, topics could be defined in TOML.
+        // New behavior initializes topics in data/topics.json during `meshbbs init`.
+        // We keep a soft-compat path for existing configs that still have message_topics.
         if !server.config.message_topics.is_empty() {
             Self::merge_toml_topics_to_runtime(&mut server.storage, &server.config).await?;
         }
@@ -700,7 +702,7 @@ impl BbsServer {
         Ok(())
     }
 
-    /// Merge TOML topic configurations into runtime storage (for backwards compatibility)
+    /// Merge TOML topic configurations into runtime storage (legacy/backwards compatibility)
     async fn merge_toml_topics_to_runtime(storage: &mut Storage, config: &Config) -> Result<()> {
         for (topic_id, topic_config) in &config.message_topics {
             // Only create topics that don't already exist in runtime config

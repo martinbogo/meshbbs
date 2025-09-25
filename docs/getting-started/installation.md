@@ -38,6 +38,8 @@ cargo build --release
 
 This creates a `config.toml` file with default settings.
 
+It also seeds default forum topics into `data/topics.json` (the runtime topic store). From now on, topics are managed at runtime and not configured in TOML. If you have an older `config.toml` with `[message_topics.*]`, those will be merged into the runtime store at startup for backward compatibility.
+
 ### 4. Configure Your BBS
 
 Edit the generated `config.toml` file:

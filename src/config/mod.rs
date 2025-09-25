@@ -60,11 +60,7 @@
 //! baud_rate = 115200
 //! channel = 0
 //!
-//! [message_topics.general]
-//! name = "General"
-//! description = "General discussions"
-//! read_level = 0
-//! post_level = 0
+//! # Note: message topics are initialized into data/topics.json during `meshbbs init`
 //! ```
 //!
 //! ## Validation and Security
