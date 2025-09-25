@@ -1,11 +1,11 @@
 <div align="center">
-  <img src="images/meshbbs_logo.png" alt="MeshBBS Logo" width="200" height="200">
+   <img src="images/meshbbs_logo.png" alt="meshbbs Logo" width="200" height="200">
   
-  # MeshBBS
+   # Meshbbs
   
   **A modern Bulletin Board System for Meshtastic mesh networks**
   
-   [![Version](https://img.shields.io/badge/version-0.9.143-blue.svg)](https://github.com/martinbogo/meshbbs/releases)
+   [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/martinbogo/meshbbs/releases)
   [![License](https://img.shields.io/badge/license-CC--BY--NC--4.0-green.svg)](LICENSE)
   [![Language](https://img.shields.io/badge/language-Rust-orange.svg)](https://www.rust-lang.org/)
   [![Platform](https://img.shields.io/badge/platform-Meshtastic-purple.svg)](https://meshtastic.org/)
@@ -19,7 +19,7 @@
 
 ## 🌟 Overview
 
-MeshBBS revolutionizes communication on mesh networks by bringing the beloved Bulletin Board System experience to Meshtastic devices. Exchange messages, participate in forums, and build communities over long-range, low-power radio networks—all without traditional internet infrastructure.
+Meshbbs revolutionizes communication on mesh networks by bringing the beloved Bulletin Board System experience to Meshtastic devices. Exchange messages, participate in forums, and build communities over long-range, low-power radio networks—all without traditional internet infrastructure.
 
 Perfect for emergency communications, remote areas, outdoor adventures, and building resilient community networks.
 
@@ -134,21 +134,21 @@ nano config.toml  # or vim, code, etc.
 
 ## ⚙️ Configuration
 
-MeshBBS uses a `config.toml` file for all settings. Run `meshbbs init` to create a default configuration.
+Meshbbs uses a `config.toml` file for all settings. Run `meshbbs init` to create a default configuration.
 
 <details>
 <summary><strong>📋 View Example Configuration</strong></summary>
 
 ```toml
 [bbs]
-name = "MeshBBS Station"
+name = "meshbbs Station"
 sysop = "Your Name"
 location = "Your Location" 
 zipcode = "97210"
 description = "A bulletin board system for mesh networks"
 max_users = 100             # Hard cap on concurrent logged-in sessions
 session_timeout = 10        # Minutes of inactivity before auto-logout
-welcome_message = "Welcome to MeshBBS! Type HELP for commands."
+welcome_message = "Welcome to Meshbbs! Type HELP for commands."
 
 [meshtastic]
 port = "/dev/ttyUSB0"
@@ -217,7 +217,7 @@ meshbbs -vv start
 
 ### 📡 Connecting via Meshtastic
 
-MeshBBS uses a **two-step interaction model** that keeps the shared mesh channel quiet while enabling rich private sessions.
+Meshbbs uses a **two-step interaction model** that keeps the shared mesh channel quiet while enabling rich private sessions.
 
 #### 🔍 **Step 1: Say Hello on the Public Channel**
 Commands require `^` prefix to address the BBS:
@@ -251,7 +251,7 @@ Once logged in via DM, use the compact, single-letter flow:
 
 Shortcuts:
 - HELP / HELP+: compact vs. verbose help
-- WHERE / W: show breadcrumb path, e.g. `[BBS] You are at: MeshBBS > Topics > hello > Threads`
+- WHERE / W: show breadcrumb path, e.g. `[BBS] You are at: Meshbbs > Topics > hello > Threads`
 
 Indicators:
 - Topics list shows per-topic new message counts since your last login, e.g. `1. general (2)`
@@ -305,7 +305,7 @@ DEMOTE <user>             # Demote user level
 
 ### 🎯 Dynamic Prompts
 
-MeshBBS shows contextual prompts that reflect your current state:
+Meshbbs shows contextual prompts that reflect your current state:
 
 | Prompt | Meaning |
 |--------|---------|
@@ -322,7 +322,7 @@ Reply storage is structured and backward compatible: new replies record `timesta
 
 ### 🔁 Reliable Delivery, Chunking & Scheduling (Updated in 0.9.110)
 
-MeshBBS uses a centralized scheduler to coordinate all outgoing traffic (reliable Direct Message (DM) retries, broadcasts) and now includes UTF-8 safe message chunking for oversized registration and verbose help content. Instead of the writer task periodically scanning for pending retransmissions, each retry is explicitly enqueued with its own wake time under a dedicated `Retry` category. This provides:
+Meshbbs uses a centralized scheduler to coordinate all outgoing traffic (reliable Direct Message (DM) retries, broadcasts) and now includes UTF-8 safe message chunking for oversized registration and verbose help content. Instead of the writer task periodically scanning for pending retransmissions, each retry is explicitly enqueued with its own wake time under a dedicated `Retry` category. This provides:
 
 * Deterministic pacing honoring `min_send_gap_ms` and fairness between new sends and retries
 * Clear separation between an original send (`OutgoingKind::Normal`) and internally generated retry envelopes (`OutgoingKind::Retry`)
@@ -337,7 +337,7 @@ Additionally:
 
 ## 🏗️ Architecture
 
-MeshBBS is built with a clean, modular architecture in Rust:
+Meshbbs is built with a clean, modular architecture in Rust:
 
 ```mermaid
 graph TD
@@ -478,7 +478,7 @@ meshbbs/
 
 ## 💻 Hardware Compatibility
 
-MeshBBS has been tested on the following Meshtastic devices:
+Meshbbs has been tested on the following Meshtastic devices:
 
 | Device | Status |
 |--------|--------|
@@ -488,7 +488,7 @@ MeshBBS has been tested on the following Meshtastic devices:
 | **LilyGO T-Beam** | ✅ Tested |
 | **RAK WisBlock** | ✅ Tested |
 
-> **Other Meshtastic devices**: MeshBBS should work with any Meshtastic-compatible device, but we'd love to hear about your experiences adapting the BBS to other hardware! Please share your results in the discussions or issues.
+> **Other Meshtastic devices**: Meshbbs should work with any Meshtastic-compatible device, but we'd love to hear about your experiences adapting the BBS to other hardware! Please share your results in the discussions or issues.
 
 ## 🤝 Contributing
 
@@ -538,7 +538,7 @@ See the [LICENSE](LICENSE) file or visit [CC BY-NC 4.0](https://creativecommons.
 
 ## 🙏 Acknowledgments
 
-Special thanks to the projects and communities that make MeshBBS possible:
+Special thanks to the projects and communities that make meshbbs possible:
 
 - 🌐 **[Meshtastic](https://meshtastic.org/)** - The open source mesh networking project
 - ⚡ **[Tokio](https://tokio.rs/)** - Asynchronous runtime for Rust  
@@ -577,7 +577,7 @@ Have an idea? We'd love to hear it! [Start a discussion](https://github.com/mart
 
 <div align="center">
   
-**🎯 MeshBBS - Bringing bulletin board systems to the mesh networking age! 📡**
+**🎯 Meshbbs - Bringing bulletin board systems to the mesh networking age! 📡**
 
 *Built with ❤️ for the mesh networking community*
 

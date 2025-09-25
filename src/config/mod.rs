@@ -1,6 +1,6 @@
 //! # Configuration Management Module
 //!
-//! This module handles all configuration aspects of the MeshBBS system, providing
+//! This module handles all configuration aspects of the Meshbbs system, providing
 //! a centralized configuration system with validation, defaults, and persistence.
 //!
 //! ## Features
@@ -45,7 +45,7 @@
 //!
 //! ## Configuration File Format
 //!
-//! MeshBBS uses TOML format for human-readable configuration:
+//! Meshbbs uses TOML format for human-readable configuration:
 //!
 //! ```toml
 //! [bbs]
@@ -234,7 +234,7 @@ impl Default for Config {
 
         Config {
             bbs: BbsConfig {
-                name: "MeshBBS Station".to_string(),
+                name: "meshbbs Station".to_string(),
                 sysop: "sysop".to_string(),
                 location: "Your Location".to_string(),
                 description: "A bulletin board system for mesh networks".to_string(),

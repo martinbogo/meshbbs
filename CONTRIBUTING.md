@@ -1,6 +1,6 @@
-# Contributing to MeshBBS
+# Contributing to meshbbs
 
-Thank you for your interest in contributing to MeshBBS! This document provides guidelines for contributing to the project.
+Thank you for your interest in contributing to meshbbs! This document provides guidelines for contributing to the project.
 
 **📋 Testing Requirement: All code contributions must include appropriate unit tests. Pull requests without test coverage will not be accepted.**
 
@@ -173,7 +173,7 @@ Fixes #(issue number)
 
 ## License
 
-By contributing to MeshBBS, you agree that your contributions will be licensed under the Creative Commons Attribution-NonCommercial 4.0 International License.
+By contributing to meshbbs, you agree that your contributions will be licensed under the Creative Commons Attribution-NonCommercial 4.0 International License.
 
 ## Recognition
 
@@ -189,4 +189,4 @@ If you have questions about contributing, please:
 2. Open a new issue with the "question" label
 3. Contact the maintainer: martinbogo@gmail.com
 
-Thank you for contributing to MeshBBS! 🚀
+Thank you for contributing to meshbbs! 🚀

@@ -1,6 +1,6 @@
 # Installation Guide
 
-This guide will walk you through installing and setting up MeshBBS on your system.
+This guide will walk you through installing and setting up meshbbs on your system.
 
 ## Prerequisites
 

@@ -1,6 +1,6 @@
 //! # BBS (Bulletin Board System) Core Module
 //! 
-//! This module implements the core BBS functionality for MeshBBS, providing a complete
+//! This module implements the core BBS functionality for Meshbbs, providing a complete
 //! bulletin board system experience over Meshtastic mesh networks.
 //!
 //! ## Components
@@ -47,7 +47,7 @@
 //!
 //! ## Two-Phase Communication Model
 //!
-//! MeshBBS implements a unique two-phase communication model optimized for mesh networks:
+//! Meshbbs implements a unique two-phase communication model optimized for mesh networks:
 //!
 //! 1. **Public Discovery**: Lightweight commands on shared channel (`^HELP`, `^LOGIN`)
 //! 2. **Private Sessions**: Full BBS interaction via direct messages

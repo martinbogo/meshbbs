@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# MeshBBS cleanup script
+# meshbbs cleanup script
 # - Cleans Cargo build artifacts
 # - Removes test-generated files under tests/test-data-int (users/messages), preserving tracked fixtures
 # - Removes common logs and temp files

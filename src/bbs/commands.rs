@@ -175,24 +175,20 @@ impl CommandProcessor {
             return Ok(Some(response));
         }
         if upper.starts_with("POST ") {
-            let mut parts = raw.splitn(3, ' '); 
+            let mut parts = raw.splitn(3, ' ');
             parts.next(); // skip "POST"
             let second = parts.next();
-            
+
             // Parse topic and message content
-            let (raw_topic, text) = if let Some(s) = second { 
-                if let Some(rest) = parts.next() { 
-                    (s, rest) 
-                } else { 
-                    (session.current_topic.as_deref().unwrap_or("general"), s) 
-                } 
-            } else { 
-                (session.current_topic.as_deref().unwrap_or("general"), "") 
+            let (raw_topic, text) = if let Some(s) = second {
+                if let Some(rest) = parts.next() {
+                    (s, rest)
+                } else {
+                    (session.current_topic.as_deref().unwrap_or("general"), s)
+                }
+            } else {
+                (session.current_topic.as_deref().unwrap_or("general"), "")
             };
-            
-            if text.is_empty() { 
-                return Ok(Some("Usage: POST [topic] <message>".into())); 
-            }
             
             // Validate topic name
             let topic = match validate_topic_name(raw_topic) {
@@ -309,7 +305,7 @@ impl CommandProcessor {
                 out.push_str("ACCT: SETPASS <new> | CHPASS <old> <new> | LOGOUT\n");
                 // Terse navigation + legacy commands
                 out.push_str("MSG: M topics; 1-9 pick; U up; +/-; F <txt>; READ/POST/TOPICS\n");
-                if session.user_level >= 5 { out.push_str("MOD: D <area> <id> | K lock | DELLOG [p]\n"); }
+                if session.user_level >= 5 { out.push_str("MOD: D <area> <id> | K lock | DELLOG/DL [p]\n"); }
                 if session.user_level >= 10 { out.push_str("ADM: PROMOTE/DEMOTE <u> | SYSLOG <lvl> <msg>\n"); }
                 out.push_str("OTHER: WHERE | U | Q\n");
                 // Ensure length <=230 (should already be compact; final guard)
@@ -792,7 +788,7 @@ impl CommandProcessor {
             return self.render_threads_list(session, storage, config).await;
         }
         if let Some(ch) = raw.chars().next() { if ch.is_ascii_digit() && ch != '0' {
-            // Show a minimal read view of the selected message (single slice)
+            // Navigate to full read view for the selected message (no body truncation)
             let n = ch.to_digit(10).unwrap() as usize; // 1..9
             let topic = session.current_topic.clone().unwrap_or_else(|| "general".into());
             let msgs = storage.get_messages(&topic, 50).await?;
@@ -803,13 +799,7 @@ impl CommandProcessor {
                 session.current_thread_id = Some(m.id.clone());
                 session.post_index = 1;
                 session.slice_index = 1;
-                let topic_disp = config.message_topics.get(&topic).map(|c| c.name.clone()).unwrap_or_else(|| topic.clone());
-                let title = ui::utf8_truncate(m.content.lines().next().unwrap_or(""), 24);
-                let head = format!("[BBS][{} > {}] p1/1\n", topic_disp, title);
-                // Leave ~80 bytes for header+footer+prompt; clamp body around 140 bytes
-                let body = ui::utf8_truncate(&m.content, 140);
-                let footer = "Reply: + next, Y reply, B back, H help";
-                return Ok(format!("{}{}\n{}\n", head, body, footer));
+                return self.render_thread_read(session, storage, config).await;
             } else {
                 return Ok("No more items. L shows more, B back\n".into());
             }
@@ -827,15 +817,14 @@ impl CommandProcessor {
             let locked_note = if storage.is_topic_locked(&topic) { " [locked]" } else { "" };
             let pin_note = if m.pinned { " \u{1F4CC}" } else { "" }; // 📌
             let head = format!("[BBS][{} > {}]{}{} p1/1\n", topic_disp, title, pin_note, locked_note);
-            // Budget for replies preview: include last 1 reply if present
-            let mut body = ui::utf8_truncate(&m.content, 120);
+            // Show full body; rely on sender auto-chunking for large content
+            let mut body = m.content.clone();
             if let Some(last) = m.replies.last() {
                 let rp = match last {
-                    ReplyEntry::Legacy(s) => ui::utf8_truncate(s, 80),
+                    ReplyEntry::Legacy(s) => s.clone(),
                     ReplyEntry::Reply(r) => {
                         let stamp = r.timestamp.format("%m/%d %H:%M");
-                        let line = format!("{} | {}: {}", stamp, r.author, r.content);
-                        ui::utf8_truncate(&line, 80)
+                        format!("{} | {}: {}", stamp, r.author, r.content)
                     }
                 };
                 body.push_str("\n— ");

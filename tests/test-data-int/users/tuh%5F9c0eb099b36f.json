@@ -1,0 +1,11 @@
+{
+  "username": "tuh_9c0eb099b36f",
+  "node_id": "77",
+  "access_level": 1,
+  "password_hash": "$argon2id$v=19$m=19456,t=2,p=1$raKApwFwFK8C0tnTgIh/hQ$7t0xWSVODoQkDFJz6/Xvtql/NPkZ5IfpxEkOYrYjwRE",
+  "first_login": "2025-09-25T21:43:57.695379Z",
+  "last_login": "2025-09-25T21:43:57.695379Z",
+  "total_messages": 0,
+  "welcome_shown_on_registration": false,
+  "welcome_shown_on_first_login": false
+}

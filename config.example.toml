@@ -1,8 +1,8 @@
-# Example configuration for MeshBBS
+# Example configuration for meshbbs
 # Copy this to config.toml and customize for your setup
 
 [bbs]
-name = "MeshBBS Station"
+name = "meshbbs Station"
 sysop = "sysop"
 location = "Los Angeles"
 description = "Describe what your BBS is for here in one line"

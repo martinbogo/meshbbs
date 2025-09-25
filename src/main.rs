@@ -59,7 +59,7 @@ async fn main() -> Result<()> {
     let pre_config = match cli.command { Commands::Init => None, _ => Config::load(&cli.config).await.ok() };
     init_logging(&pre_config, cli.verbose);
 
-    info!("Starting MeshBBS v{}", env!("CARGO_PKG_VERSION"));
+    info!("Starting Meshbbs v{}", env!("CARGO_PKG_VERSION"));
 
     match cli.command {
         Commands::Start { port } => {

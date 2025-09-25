@@ -46,7 +46,7 @@ async fn help_shortcuts_once_and_help_plus_chunks() {
     let verbose_msgs: Vec<_> = server.test_messages().iter().filter(|(to,_msg)| to==&node_key).map(|(_,m)| m.clone()).collect();
     let help_plus_msgs: Vec<_> = verbose_msgs.into_iter().rev().take(10).collect(); // larger window for longer help
     // Ensure at least one chunk contains Extended Help header
-    assert!(help_plus_msgs.iter().any(|m| m.contains("MeshBBS Extended Help")));
+    assert!(help_plus_msgs.iter().any(|m| m.contains("Meshbbs Extended Help")));
 }
 
 #[tokio::test]

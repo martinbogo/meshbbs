@@ -1,6 +1,6 @@
 # Command Reference
 
-Complete reference for all MeshBBS commands available to users.
+Complete reference for all meshbbs commands available to users.
 
 ## Connection Commands
 
@@ -87,7 +87,7 @@ Available to users with moderator privileges:
 | `DELETE topic id` | Remove a message | `DELETE general msg123` |
 | `LOCK topic` | Prevent new posts in topic | `LOCK general` |
 | `UNLOCK topic` | Allow posts in topic again | `UNLOCK general` |
-| `DELLOG [page]` | View deletion audit log | `DELLOG` or `DELLOG 2` |
+| `DELLOG [page]` / `DL [page]` | View deletion audit log | `DELLOG`, `DL`, or `DL 2` |
 
 ## Sysop Commands (Level 10)
 
@@ -100,7 +100,7 @@ Available only to system operators:
 
 ## Dynamic Prompts
 
-MeshBBS shows contextual prompts that reflect your current state:
+Meshbbs shows contextual prompts that reflect your current state:
 
 | Prompt | Meaning |
 |--------|---------|
@@ -116,6 +116,7 @@ MeshBBS shows contextual prompts that reflect your current state:
 - **Topic names**: Long topic names are truncated in prompts with ellipsis
 - **Message limits**: Each message is limited to 230 bytes (optimized for Meshtastic)
 	- The server clamps outputs UTF‑8 safely and appends the prompt; the total frame (body + prompt) ≤ 230 bytes.
+    - Long thread reads are automatically split across multiple messages; the interactive prompt appears only on the final part.
 - **Session timeout**: Sessions automatically timeout after inactivity (configurable by sysop)
 - **Case sensitivity**: Commands are case-insensitive (`help`, `HELP`, and `Help` all work)
 
@@ -137,7 +138,7 @@ Common error messages and their meanings:
 
 ```
 > M
-[MeshBBS] Topics
+[Meshbbs] Topics
 1. hello  2. general  3. technical
 Type number to select topic. L more. H help. X exit
 alice (lvl1)>
@@ -171,7 +172,7 @@ Reply: + next, - prev, Y reply, B back, H help
 alice@hello>
 
 > W
-[BBS] You are at: MeshBBS > Topics > hello > Read
+[BBS] You are at: Meshbbs > Topics > hello > Read
 alice@hello>
 ```
 
@@ -180,7 +181,7 @@ alice@hello>
 ```
 Public channel:
 > ^LOGIN alice
-< MeshBBS: Pending login for 'alice'. Open a DM to start your session.
+< Meshbbs: Pending login for 'alice'. Open a DM to start your session.
 
 Direct message:
 > LOGIN alice mypassword
@@ -199,6 +200,7 @@ alice@general> Q
 
 ```
 mod (lvl5)> DELLOG
+mod (lvl5)> DL 2
 < Recent deletions:
 < 2025-09-23 10:30 - general/msg456 deleted by mod
 < 2025-09-23 09:15 - announcements/msg789 deleted by admin

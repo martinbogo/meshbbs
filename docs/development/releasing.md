@@ -1,6 +1,13 @@
-# Releasing MeshBBS
+---
+title: Releasing Meshbbs
+description: A printable checklist and step-by-step guide for cutting releases, including 1.0.0-beta preparation.
+---
 
-This checklist covers cutting a new release and preparing for 1.0.0-beta.
+# Releasing Meshbbs
+
+This page is a printer-friendly guide for creating new meshbbs releases and preparing for the 1.0.0-beta series.
+
+Tip for printing: Use your browser’s Print function to save this page as a PDF.
 
 ## Preflight
 
@@ -14,7 +21,7 @@ This checklist covers cutting a new release and preparing for 1.0.0-beta.
 
 - [ ] Bump version: `0.9.x` → `1.0.0-beta.1`
 - [ ] Update README badge and examples if needed
-- [ ] Review compact help for size and content
+- [ ] Review compact help for size and content (≤230 B including prompt)
 - [ ] Re-run all tests; verify flaky tests pass locally
 - [ ] Consider enabling CI (GitHub Actions)
   - [ ] Rust toolchain setup, `cargo test`
@@ -46,3 +53,7 @@ cargo test
 git tag -a v1.0.0-beta.1 -m "v1.0.0-beta.1"
 git push origin main --tags
 ```
+
+---
+
+Source on GitHub: See the root-level `RELEASING.md` for the canonical text.

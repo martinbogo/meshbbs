@@ -24,7 +24,7 @@ pub(crate) use sec_log;
 
 /// # BBS Server - Core Application Controller
 ///
-/// The `BbsServer` is the main orchestrator for the MeshBBS system, coordinating
+/// The `BbsServer` is the main orchestrator for the Meshbbs system, coordinating
 /// all components and managing the overall application lifecycle.
 ///
 /// ## Responsibilities
@@ -119,7 +119,7 @@ pub struct BbsServer {
 
 // Verbose HELP material & chunker (outside impl so usable without Self scoping issues during compilation ordering)
 const VERBOSE_HELP: &str = concat!(
-    "MeshBBS Extended Help\n",
+    "Meshbbs Extended Help\n",
     "Authentication:\n  REGISTER <name> <pass>  Create account\n  LOGIN <name> <pass>     Log in\n  SETPASS <new>           Set first password\n  CHPASS <old> <new>      Change password\n  LOGOUT                  End session\n\n",
     "Compact Navigation:\n  M       Topics menu (paged)\n  1-9     Pick item on page\n  L       More items\n  U/B     Up/back (to parent)\n  X       Exit\n  WHERE/W Where am I breadcrumb\n\n",
     "Topics → Subtopics → Threads → Read:\n  In Subtopics: 1-9 pick, U up\n  In Threads:   1-9 read, N new, F <text> filter, U up\n  In Read:      + next, - prev, Y reply\n\n",
@@ -744,6 +744,8 @@ impl BbsServer {
     #[allow(dead_code)]
     pub async fn test_get_messages(&self, topic: &str, limit: usize) -> Result<Vec<crate::storage::Message>> { self.storage.get_messages(topic, limit).await }
     #[allow(dead_code)]
+    pub async fn test_list_topics(&self) -> Result<Vec<String>> { self.storage.list_message_topics().await }
+    #[allow(dead_code)]
     pub fn test_is_locked(&self, topic: &str) -> bool { self.storage.is_topic_locked(topic) }
     #[allow(dead_code)]
     pub async fn test_deletion_page(&self, page: usize, size: usize) -> Result<Vec<crate::storage::DeletionAuditEntry>> { self.storage.get_deletion_audit_page(page, size).await }
@@ -1189,7 +1191,7 @@ impl BbsServer {
                                 deferred_reply = Some(format!("Area {} unlocked.\n", area));
                             }
                         }
-                    } else if upper.starts_with("DELLOG") {
+                    } else if upper.starts_with("DELLOG") || upper == "DL" || upper.starts_with("DL ") {
                         if session.user_level < LEVEL_MODERATOR { deferred_reply = Some("Permission denied.\n".into()); }
                         else {
                             let parts: Vec<&str> = raw_content.split_whitespace().collect();
@@ -1678,20 +1680,46 @@ impl BbsServer {
             s[..end].to_string()
         }
 
-        let msg = if let Some(session) = self.sessions.get(node_key) {
+        if let Some(session) = self.sessions.get(node_key) {
             if last_chunk {
+                // Compute budget for body to leave space for optional newline + prompt
                 let prompt = session.build_prompt();
                 let max_total = self.config.storage.max_message_size;
                 let prompt_len = prompt.len();
                 let extra_nl = if body.ends_with('\n') { 0 } else { 1 };
                 let budget = max_total.saturating_sub(prompt_len + extra_nl);
-                let clamped = clamp_utf8(body, budget);
-                if clamped.ends_with('\n') { format!("{}{}", clamped, prompt) } else { format!("{}\n{}", clamped, prompt) }
+
+                if body.len() > budget {
+                    // Auto-chunk oversized body into UTF-8 safe segments of size <= budget.
+                    // Send intermediate chunks without prompt; attach prompt only to the last one.
+                    let parts = self.chunk_utf8(body, budget);
+                    let total = parts.len();
+                    for (i, chunk) in parts.into_iter().enumerate() {
+                        let is_last = i + 1 == total;
+                        if is_last {
+                            let clamped = clamp_utf8(&chunk, budget);
+                            let msg = if clamped.ends_with('\n') { format!("{}{}", clamped, prompt) } else { format!("{}\n{}", clamped, prompt) };
+                            self.send_message(node_key, &msg).await?;
+                        } else {
+                            // Send as-is (no prompt on intermediate parts)
+                            self.send_message(node_key, &chunk).await?;
+                        }
+                    }
+                    return Ok(());
+                } else {
+                    // Fits in one frame; append prompt and send once
+                    let clamped = clamp_utf8(body, budget);
+                    let msg = if clamped.ends_with('\n') { format!("{}{}", clamped, prompt) } else { format!("{}\n{}", clamped, prompt) };
+                    return self.send_message(node_key, &msg).await;
+                }
             } else {
-                body.to_string()
+                // Non-final chunk: send body as-is (no prompt). Caller handles sequencing.
+                return self.send_message(node_key, body).await;
             }
-        } else { body.to_string() };
-        self.send_message(node_key, &msg).await
+        }
+
+        // No session (should be rare): just forward as-is
+        self.send_message(node_key, body).await
     }
 
     // (legacy) exported_test_messages retained for backwards compatibility in tests
@@ -1855,7 +1883,7 @@ impl BbsServer {
 
     /// Show BBS status and statistics
     pub async fn show_status(&self) -> Result<()> {
-        println!("=== MeshBBS Status ===");
+        println!("=== Meshbbs Status ===");
         println!("BBS Name: {}", self.config.bbs.name);
         println!("Sysop: {}", self.config.bbs.sysop);
         println!("Location: {}", self.config.bbs.location);

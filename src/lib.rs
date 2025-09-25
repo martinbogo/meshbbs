@@ -1,6 +1,6 @@
-//! # MeshBBS - Bulletin Board System for Meshtastic Networks
+//! # Meshbbs - Bulletin Board System for Meshtastic Networks
 //!
-//! MeshBBS is a modern Bulletin Board System (BBS) designed specifically for Meshtastic mesh networks.
+//! Meshbbs is a modern Bulletin Board System (BBS) designed specifically for Meshtastic mesh networks.
 //! It provides traditional BBS functionality over long-range, low-power radio networks using LoRa technology.
 //!
 //! ## Features
@@ -41,7 +41,7 @@
 //!
 //! ## Architecture
 //!
-//! MeshBBS uses a modular architecture with clear separation of concerns:
+//! Meshbbs uses a modular architecture with clear separation of concerns:
 //!
 //! ```text
 //! ┌─────────────────┐

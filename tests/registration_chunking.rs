@@ -30,7 +30,7 @@ fn registration_welcome_is_chunked() {
     // Use reflection of existing tests; many integration tests interact through higher-level public API.
 
         // Since direct invocation path isn't exposed publicly in provided snippet, we limit this test to verifying chunker itself.
-        let long = "Registered and logged in as user.\nWelcome, user you are now logged in.\nSome summary line here.\n🎉 Welcome to MeshBBS, user! Quick start:\n\nHELP - command list\nLIST - browse topics\nREAD <topic> - read messages\nPOST <topic> <msg> - post\nWHO - see users online\n\nType HELP+ for full guide.\n";
+    let long = "Registered and logged in as user.\nWelcome, user you are now logged in.\nSome summary line here.\n🎉 Welcome to Meshbbs, user! Quick start:\n\nHELP - command list\nLIST - browse topics\nREAD <topic> - read messages\nPOST <topic> <msg> - post\nWHO - see users online\n\nType HELP+ for full guide.\n";
     let parts = server.chunk_utf8(long, 80);
         assert!(parts.len() > 1, "expected multiple chunks for long welcome (got {})", parts.len());
         for p in &parts { assert!(p.as_bytes().len() <= 80, "chunk exceeds limit"); }

@@ -1,11 +1,11 @@
-# MeshBBS Documentation
+# Meshbbs Documentation
 
-Welcome to the comprehensive documentation for MeshBBS, a modern Bulletin Board System for Meshtastic mesh networks.
+Welcome to the comprehensive documentation for meshbbs, a modern Bulletin Board System for Meshtastic mesh networks.
 
 ## 📚 Documentation Structure
 
 ### Getting Started
-- [Installation Guide](getting-started/installation.md) - How to install and set up MeshBBS
+- [Installation Guide](getting-started/installation.md) - How to install and set up meshbbs
 - [Configuration](getting-started/configuration.md) - Configuring your BBS
 - [First Run](getting-started/first-run.md) - Getting your BBS online
 
@@ -26,9 +26,13 @@ Welcome to the comprehensive documentation for MeshBBS, a modern Bulletin Board 
 
 ### Development
 - [API Reference](https://martinbogo.github.io/meshbbs/meshbbs/) - Generated Rust API documentation
-- [Contributing Guide](../CONTRIBUTING.md) - How to contribute to MeshBBS
+- [Contributing Guide](../CONTRIBUTING.md) - How to contribute to meshbbs
 - [Architecture Overview](development/architecture.md) - System architecture and design
 - [Building from Source](development/building.md) - Development setup and building
+- [Releasing](development/releasing.md) - Step-by-step release checklist (printable)
+
+### Testing & QA
+- [Real-World QA Test Plan](qa/real-world-test-plan.md) - Printable checklist for device-connected testing
 
 ## 🔗 Quick Links
 

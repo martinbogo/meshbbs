@@ -1,6 +1,6 @@
 //! # Storage Module - Data Persistence Layer
 //!
-//! This module provides comprehensive data persistence for the MeshBBS system, handling
+//! This module provides comprehensive data persistence for the Meshbbs system, handling
 //! all storage operations for messages, users, configuration, and topic management.
 //!
 //! ## Features

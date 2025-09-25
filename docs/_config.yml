@@ -1,7 +1,7 @@
-# GitHub Pages Configuration for MeshBBS Documentation
+# GitHub Pages Configuration for meshbbs Documentation
 
-title: MeshBBS Documentation
-description: Comprehensive documentation for MeshBBS - A Bulletin Board System for Meshtastic mesh networks
+title: Meshbbs Documentation
+description: Comprehensive documentation for meshbbs - A Bulletin Board System for Meshtastic mesh networks
 baseurl: "/meshbbs"
 url: "https://martinbogo.github.io"
 
@@ -25,6 +25,8 @@ header_pages:
   - user-guide/commands.md
   - administration/setup.md
   - hardware/compatibility.md
+  - qa/real-world-test-plan.md
+  - development/releasing.md
 
 # Collections
 collections:
