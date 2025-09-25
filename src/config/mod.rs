@@ -50,7 +50,7 @@
 //! ```toml
 //! [bbs]
 //! name = "My Mesh BBS"
-//! sysop = "admin"
+//! sysop = "sysop"
 //! location = "Mesh Network"
 //! max_users = 100
 //! session_timeout = 10

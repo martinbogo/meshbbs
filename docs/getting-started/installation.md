@@ -47,7 +47,7 @@ Edit the generated `config.toml` file:
 ```toml
 [bbs]
 name = "Your BBS Name"
-sysop = "your_admin_username"
+sysop = "sysop"
 location = "Your Location"
 zipcode = "12345"
 
