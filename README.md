@@ -461,7 +461,7 @@ meshbbs/
 │   ├── meshtastic_placeholder.proto
 │   └── README.md
 ├── 🧪 tests/               # Integration tests
-├── 🧩 test-data-int/       # Integration test fixtures
+│   └── test-data-int/      # Integration test fixtures used by Cargo tests
 ├── 📊 data/                # Runtime data (topics, messages, users)
 ├── 🛠️ build.rs
 ├── 📦 Cargo.toml
