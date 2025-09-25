@@ -138,6 +138,9 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
 
+      - name: Install protobuf
+        run: brew install protobuf
+
       - name: Build (release)
         run: cargo build --release --target ${{ matrix.target }}
 
