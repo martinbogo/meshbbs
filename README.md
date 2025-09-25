@@ -275,9 +275,8 @@ HELP / H / ?              # Compact help with shortcuts
 HELP+ / HELP V            # Detailed verbose help with examples
 M                         # Quick navigation to message topics
 WHERE / W                 # Show current breadcrumb path
-U                         # Quick navigation to user menu
+U / B                     # Up/back (to parent)
 Q                         # Quit/logout
-B                         # Back to previous menu
 ```
 
 **Message Commands:**
@@ -293,13 +292,14 @@ POST <topic>              # Start multi-line post (end with '.' on new line)
 DELETE <topic> <id>       # Remove a message
 LOCK <topic>              # Prevent new posts
 UNLOCK <topic>            # Allow posts again  
-DELLOG [page]             # View deletion audit entries
+DELLOG [page] / DL [page] # View deletion audit entries
 ```
 
 **Sysop Commands** (level 10):
 ```bash
 PROMOTE <user>            # Promote user level
 DEMOTE <user>             # Demote user level
+SYSLOG <lvl> <msg>        # Write a message to the admin/security log
 ```
 </details>
 
