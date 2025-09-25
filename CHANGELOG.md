@@ -15,6 +15,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Testing
 - (placeholder)
 
+## [0.9.120] - 2025-09-24
+### Added
+- Symbolic routing error reason names appended to warning logs (e.g. `reason=7 (Timeout)`), improving operability.
+- Registration length regression test ensuring compact welcome fits single frame (≤ `max_message_size`).
+
+### Changed
+- Registration welcome refactored to single-line compact form: `Registered as <user>. <unread> HELP LIST READ POST WHO` (omits BBS name & extended help reference) to conserve bytes.
+- Dynamic prompt already appended centrally; removed obsolete first-contact DM banner for HELP to avoid duplicate first responses.
+- Invalid command handling guarded after REGISTER to prevent fall-through double-processing.
+
+### Removed
+- First-contact guidance banner (replaced by lean registration + HELP model).
+- Verbose multi-line registration onboarding text (replaced by compact variant).
+
+### Fixed
+- Duplicate `Invalid command` message appearing after successful `REGISTER` due to unguarded downstream command parsing.
+- Potential confusion from dual HELP outputs on initial DM contact (banner removed; single HELP response now).
+
+### Testing
+- Updated `welcome_system`, `registration_no_invalid`, and added length-focused test ensuring one-frame registration delivery.
+
+
 ## [0.9.110] - 2025-09-24
 ### Added
 - UTF-8 safe dynamic message chunking for oversize registration / help content (splits on newline where possible, clamps to `max_message_size`).
