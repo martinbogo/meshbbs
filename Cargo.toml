@@ -88,3 +88,10 @@ opt-level = 3
 lto = "thin"
 codegen-units = 4
 panic = "abort"
+
+[package.metadata.deb]
+maintainer = "Martin Bogomolni <martinbogo@gmail.com>"
+section = "net"
+priority = "optional"
+extended-description = "Meshbbs: a modern BBS for Meshtastic mesh networks."
+revision = "1"
