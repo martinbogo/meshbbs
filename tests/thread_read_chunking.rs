@@ -1,7 +1,7 @@
 use meshbbs::bbs::BbsServer;
 use meshbbs::config::Config;
 
-fn msgs_for<'a>(msgs: &'a Vec<(String, String)>, node: &str) -> Vec<&'a String> {
+fn msgs_for<'a>(msgs: &'a [(String, String)], node: &str) -> Vec<&'a String> {
     msgs.iter().filter(|(to, _)| to == node).map(|(_, m)| m).collect()
 }
 
@@ -100,6 +100,6 @@ async fn thread_read_is_chunked_and_prompt_on_last() {
             );
         }
         // Budget guard
-    assert!(m.as_bytes().len() <= 20, "chunk exceeds 20 bytes ({}): {}", m.as_bytes().len(), m);
+    assert!(m.len() <= 20, "chunk exceeds 20 bytes ({}): {}", m.len(), m);
     }
 }

@@ -735,6 +735,7 @@ impl BbsServer {
         self.storage.create_topic(topic_id, name, description, read_level, post_level, creator).await
     }
     #[allow(dead_code)]
+    #[allow(clippy::too_many_arguments)]
     pub async fn test_create_subtopic(&mut self, topic_id: &str, parent_id: &str, name: &str, description: &str, read_level: u8, post_level: u8, creator: &str) -> Result<()> {
         if self.storage.topic_exists(topic_id) { return Ok(()); }
         self.storage.create_subtopic(topic_id, parent_id, name, description, read_level, post_level, creator).await

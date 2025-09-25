@@ -3,7 +3,7 @@ use meshbbs::config::Config;
 use password_hash::{PasswordHasher, SaltString};
 use argon2::Argon2;
 
-fn last_for_node<'a>(msgs: &'a Vec<(String,String)>, node: &str) -> Option<&'a String> {
+fn last_for_node<'a>(msgs: &'a [(String, String)], node: &str) -> Option<&'a String> {
     for (to, m) in msgs.iter().rev() { if to == node { return Some(m); } }
     None
 }

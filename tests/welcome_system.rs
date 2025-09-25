@@ -125,25 +125,25 @@ async fn welcome_system_storage_persistence() {
 
     // Check initial state - both welcome flags should be false
     let user = storage.get_user("testuser").await.unwrap().unwrap();
-    assert_eq!(user.welcome_shown_on_registration, false);
-    assert_eq!(user.welcome_shown_on_first_login, false);
+    assert!(!user.welcome_shown_on_registration);
+    assert!(!user.welcome_shown_on_first_login);
 
     // Mark registration welcome as shown
     storage.mark_welcome_shown("testuser", true, false).await.unwrap();
     let user_after_reg = storage.get_user("testuser").await.unwrap().unwrap();
-    assert_eq!(user_after_reg.welcome_shown_on_registration, true);
-    assert_eq!(user_after_reg.welcome_shown_on_first_login, false);
+    assert!(user_after_reg.welcome_shown_on_registration);
+    assert!(!user_after_reg.welcome_shown_on_first_login);
 
     // Mark first login welcome as shown
     storage.mark_welcome_shown("testuser", false, true).await.unwrap();
     let user_after_first_login = storage.get_user("testuser").await.unwrap().unwrap();
-    assert_eq!(user_after_first_login.welcome_shown_on_registration, true);
-    assert_eq!(user_after_first_login.welcome_shown_on_first_login, true);
+    assert!(user_after_first_login.welcome_shown_on_registration);
+    assert!(user_after_first_login.welcome_shown_on_first_login);
 
     // Test that both can be marked at once
     storage.register_user("testuser2", "password456", Some("test_node2")).await.unwrap();
     storage.mark_welcome_shown("testuser2", true, true).await.unwrap();
     let user2 = storage.get_user("testuser2").await.unwrap().unwrap();
-    assert_eq!(user2.welcome_shown_on_registration, true);
-    assert_eq!(user2.welcome_shown_on_first_login, true);
+    assert!(user2.welcome_shown_on_registration);
+    assert!(user2.welcome_shown_on_first_login);
 }

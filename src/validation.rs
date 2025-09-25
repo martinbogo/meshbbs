@@ -325,6 +325,21 @@ pub fn secure_topic_path(data_dir: &str, topic: &str) -> Result<std::path::PathB
     Ok(path)
 }
 
+/// Securely parse JSON with size limits and error handling
+pub fn secure_json_parse<T>(content: &str, max_bytes: usize) -> Result<T, SecurityError>
+where
+    T: serde::de::DeserializeOwned,
+{
+    // Check content size first
+    if content.len() > max_bytes {
+        return Err(SecurityError::FileSizeExceeded { limit: max_bytes });
+    }
+    
+    // Attempt to parse the JSON
+    serde_json::from_str(content)
+        .map_err(|_| SecurityError::InvalidFormat)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -439,19 +454,4 @@ mod tests {
         assert!(secure_message_path(data_dir, "../etc", "550e8400-e29b-41d4-a716-446655440000").is_err());
         assert!(secure_message_path(data_dir, "general", "../secret").is_err());
     }
-}
-
-/// Securely parse JSON with size limits and error handling
-pub fn secure_json_parse<T>(content: &str, max_bytes: usize) -> Result<T, SecurityError>
-where
-    T: serde::de::DeserializeOwned,
-{
-    // Check content size first
-    if content.len() > max_bytes {
-        return Err(SecurityError::FileSizeExceeded { limit: max_bytes });
-    }
-    
-    // Attempt to parse the JSON
-    serde_json::from_str(content)
-        .map_err(|_| SecurityError::InvalidFormat)
 }

@@ -26,6 +26,6 @@ fn sysop_user_seeded_with_hash() {
         server.seed_sysop().await.unwrap();
         let u = server.get_user("sysop").await.unwrap().expect("sysop exists");
         assert_eq!(u.user_level, 10);
-        assert_eq!(u.password_hash.is_some(), true);
+    assert!(u.password_hash.is_some());
     });
 }

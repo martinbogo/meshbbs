@@ -19,7 +19,11 @@ async fn public_login_then_dm_session_inline_commands() {
     let mut server = BbsServer::new(config).await.expect("server");
 
     // Create the topic that will be used in the POST command, ignore if it already exists
-    if let Err(_) = server.test_create_topic("hello", "Hello Topic", "A test topic for hello messages", 0, 0, "sysop").await {
+    if (server
+        .test_create_topic("hello", "Hello Topic", "A test topic for hello messages", 0, 0, "sysop")
+        .await)
+        .is_err()
+    {
         // Topic already exists, which is fine for this test
     }
 

@@ -1,7 +1,7 @@
 use meshbbs::bbs::BbsServer;
 use meshbbs::config::Config;
 
-fn last_for_node<'a>(msgs: &'a Vec<(String,String)>, node: &str) -> Option<&'a String> {
+fn last_for_node<'a>(msgs: &'a [(String, String)], node: &str) -> Option<&'a String> {
     for (to, m) in msgs.iter().rev() { if to == node { return Some(m); } }
     None
 }
@@ -100,7 +100,7 @@ async fn compact_flow_topics_threads_read_compose_reply() {
     // Budget guard: All emitted messages for this node must be <= 230 bytes
     for (_to, msg) in server.test_messages().iter() {
         if _to == node {
-            assert!(msg.as_bytes().len() <= 230, "message exceeds 230 bytes ({}): {}", msg.as_bytes().len(), msg);
+            assert!(msg.len() <= 230, "message exceeds 230 bytes ({}): {}", msg.len(), msg);
         }
     }
 }

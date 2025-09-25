@@ -33,7 +33,7 @@ fn registration_welcome_is_chunked() {
     let long = "Registered and logged in as user.\nWelcome, user you are now logged in.\nSome summary line here.\n🎉 Welcome to Meshbbs, user! Quick start:\n\nHELP - command list\nLIST - browse topics\nREAD <topic> - read messages\nPOST <topic> <msg> - post\nWHO - see users online\n\nType HELP+ for full guide.\n";
     let parts = server.chunk_utf8(long, 80);
         assert!(parts.len() > 1, "expected multiple chunks for long welcome (got {})", parts.len());
-        for p in &parts { assert!(p.as_bytes().len() <= 80, "chunk exceeds limit"); }
+    for p in &parts { assert!(p.len() <= 80, "chunk exceeds limit"); }
         // Ensure concatenation matches original
         let rebuilt = parts.join("");
         assert_eq!(rebuilt, long);

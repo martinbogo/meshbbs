@@ -30,7 +30,7 @@ async fn help_after_login() {
         collected.push_str(&format!("MSG:[[{}]]\n", msg));
         if msg.contains("ACCT:") {
             found = true;
-            if msg.as_bytes().len() <= 230 { help_len_ok = true; }
+            if msg.len() <= 230 { help_len_ok = true; }
         }
     }
     assert!(found, "Expected abbreviated HELP output containing ACCT: section. Collected messages:\n{}", collected);
