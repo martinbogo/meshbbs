@@ -5,7 +5,7 @@
   
   **A modern Bulletin Board System for Meshtastic mesh networks**
   
-   [![Version](https://img.shields.io/badge/version-0.9.101-blue.svg)](https://github.com/martinbogo/meshbbs/releases)
+   [![Version](https://img.shields.io/badge/version-0.9.110-blue.svg)](https://github.com/martinbogo/meshbbs/releases)
   [![License](https://img.shields.io/badge/license-CC--BY--NC--4.0-green.svg)](LICENSE)
   [![Language](https://img.shields.io/badge/language-Rust-orange.svg)](https://www.rust-lang.org/)
   [![Platform](https://img.shields.io/badge/platform-Meshtastic-purple.svg)](https://meshtastic.org/)
@@ -288,9 +288,9 @@ MeshBBS shows contextual prompts that reflect your current state:
 
 Each message is limited to **230 bytes** (not characters) to mirror Meshtastic text payload constraints. Multi-byte UTF-8 characters reduce visible character count. Oversized posts are rejected with an error.
 
-### 🔁 Reliable Delivery & Scheduling (New in 0.9.101)
+### 🔁 Reliable Delivery, Chunking & Scheduling (Updated in 0.9.110)
 
-MeshBBS now uses a centralized scheduler to coordinate all outgoing traffic, including reliable Direct Message (DM) retries. Instead of the writer task periodically scanning for pending retransmissions, each retry is explicitly enqueued with its own wake time under a dedicated `Retry` category. This provides:
+MeshBBS uses a centralized scheduler to coordinate all outgoing traffic (reliable Direct Message (DM) retries, broadcasts) and now includes UTF-8 safe message chunking for oversized registration and verbose help content. Instead of the writer task periodically scanning for pending retransmissions, each retry is explicitly enqueued with its own wake time under a dedicated `Retry` category. This provides:
 
 * Deterministic pacing honoring `min_send_gap_ms` and fairness between new sends and retries
 * Clear separation between an original send (`OutgoingKind::Normal`) and internally generated retry envelopes (`OutgoingKind::Retry`)
@@ -298,7 +298,10 @@ MeshBBS now uses a centralized scheduler to coordinate all outgoing traffic, inc
 
 ACK responses are correlated to pending reliable DMs, updating counters for sent / acked / failed and accumulating basic latency statistics (exposed internally; user-facing metrics endpoint forthcoming). After the configured backoff schedule (e.g. `[4,8,16]` seconds) exhausts without ACK, the message is marked failed—no busy looping or duplicate scans.
 
-Additionally, the HELP public broadcast now respects a configurable `help_broadcast_delay_ms` which defers the public notice after sending the private HELP DM reply, reducing rate-limit collisions immediately after a reliable send.
+Additionally:
+* The HELP public broadcast respects configurable `help_broadcast_delay_ms` (reduces immediate post-DM rate-limit collisions)
+* Oversized multi-part registration / verbose help messages are split on clean UTF-8 boundaries (prefer newline) up to `max_message_size` (default 230 bytes)
+* Unknown commands now receive a terse quoted reply: `Invalid command "<cmd>"`
 
 ## 🏗️ Architecture
 

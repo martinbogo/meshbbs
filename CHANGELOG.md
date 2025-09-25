@@ -15,6 +15,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Testing
 - (placeholder)
 
+## [0.9.110] - 2025-09-24
+### Added
+- UTF-8 safe dynamic message chunking for oversize registration / help content (splits on newline where possible, clamps to `max_message_size`).
+- New `chunk_utf8` helper exposed on `BbsServer` (used in registration welcome + HELP+ verbose output).
+- Metrics assertions tightened in tests (semantic snapshot checks replacing trivial comparisons).
+
+### Changed
+- Invalid / unknown command reply now quotes the offending command (terse form): `Invalid command "<cmd>"` (prompt appended separately). Removed trailing guidance to conserve bytes.
+- Registration welcome multi-part delivery sends all chunks immediately (removed deferred extras staging logic).
+
+### Removed
+- Obsolete session `extras` key/value store introduced for deferred chunk dispatch (no longer needed after immediate multi-part send change).
+- Legacy "Type HELP" suffix in unknown command response.
+
+### Fixed
+- Eliminated test warnings (unused variable, useless comparison) for cleaner builds.
+- Prevented oversize registration DM routing failures by chunking large welcome text (previous ~496B message now reliably delivered in parts).
+
+### Testing
+- Added `registration_chunking` test to ensure long welcome text splits into >1 chunk and round-trips correctly.
+- Updated prompt / unknown command tests to reflect new terse invalid command reply format.
+
 ## [0.9.101] - 2025-09-24
 ### Added
 - Scheduler-driven reliable DM retry system: Retries now dispatched via central scheduler `Retry` category instead of legacy writer heartbeat scan.
