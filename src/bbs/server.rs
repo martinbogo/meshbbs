@@ -121,8 +121,8 @@ pub struct BbsServer {
 const VERBOSE_HELP: &str = concat!(
     "MeshBBS Extended Help\n",
     "Authentication:\n  REGISTER <name> <pass>  Create account\n  LOGIN <name> <pass>     Log in\n  SETPASS <new>           Set first password\n  CHPASS <old> <new>      Change password\n  LOGOUT                  End session\n\n",
-    "Compact Navigation:\n  M       Topics menu (paged)\n  1-9     Pick item on page\n  L       More items\n  B       Back\n  X       Exit\n  WHERE/W Where am I breadcrumb\n\n",
-    "Topics → Threads → Read:\n  In Threads:  1-9 read, N new, F <text> filter\n  In Read:     + next, - prev, Y reply\n\n",
+    "Compact Navigation:\n  M       Topics menu (paged)\n  1-9     Pick item on page\n  L       More items\n  U/B     Up/back (to parent)\n  X       Exit\n  WHERE/W Where am I breadcrumb\n\n",
+    "Topics → Subtopics → Threads → Read:\n  In Subtopics: 1-9 pick, U up\n  In Threads:   1-9 read, N new, F <text> filter, U up\n  In Read:      + next, - prev, Y reply\n\n",
     "Moderator (level 5+):\n  Threads:  D<n> delete  P<n> pin/unpin  R<n> <title> rename  K lock/unlock area\n  Read:     D delete     P pin/unpin     R <title>            K lock/unlock area\n\n",
     "Sysop (level 10):\n  G @user=LEVEL|ROLE      Grant level (1/5/10) or USER/MOD/SYSOP\n\n",
     "Administration (mod/sysop):\n  USERS [pattern]         List users (filter optional)\n  WHO                     Show logged-in users\n  USERINFO <user>         Detailed user info\n  SESSIONS                List all sessions\n  KICK <user>             Force logout user\n  BROADCAST <msg>         Broadcast to all\n  ADMIN / DASHBOARD       System overview\n\n",
@@ -730,7 +730,15 @@ impl BbsServer {
     #[allow(dead_code)]
     pub async fn test_update_level(&mut self, username: &str, lvl: u8) -> Result<()> { if username == self.config.bbs.sysop { return Err(anyhow::anyhow!("Cannot modify sysop level")); } self.storage.update_user_level(username, lvl, "test").await.map(|_| ()) }
     #[allow(dead_code)]
-    pub async fn test_create_topic(&mut self, topic_id: &str, name: &str, description: &str, read_level: u8, post_level: u8, creator: &str) -> Result<()> { self.storage.create_topic(topic_id, name, description, read_level, post_level, creator).await }
+    pub async fn test_create_topic(&mut self, topic_id: &str, name: &str, description: &str, read_level: u8, post_level: u8, creator: &str) -> Result<()> {
+        if self.storage.topic_exists(topic_id) { return Ok(()); }
+        self.storage.create_topic(topic_id, name, description, read_level, post_level, creator).await
+    }
+    #[allow(dead_code)]
+    pub async fn test_create_subtopic(&mut self, topic_id: &str, parent_id: &str, name: &str, description: &str, read_level: u8, post_level: u8, creator: &str) -> Result<()> {
+        if self.storage.topic_exists(topic_id) { return Ok(()); }
+        self.storage.create_subtopic(topic_id, parent_id, name, description, read_level, post_level, creator).await
+    }
     #[allow(dead_code)]
     pub async fn test_store_message(&mut self, topic: &str, author: &str, content: &str) -> Result<String> { self.storage.store_message(topic, author, content).await }
     #[allow(dead_code)]
@@ -1330,6 +1338,7 @@ impl BbsServer {
                                     super::session::SessionState::ReadingMessages => "Reading",
                                     super::session::SessionState::PostingMessage => "Posting",
                                     super::session::SessionState::Topics => "Topics",
+                                    super::session::SessionState::Subtopics => "Subtopics",
                                     super::session::SessionState::Threads => "Threads",
                                     super::session::SessionState::ThreadRead => "Read",
                                     super::session::SessionState::ComposeNewTitle => "Compose Title",
@@ -1403,12 +1412,9 @@ impl BbsServer {
                         if session.is_logged_in() { let name = session.display_name(); session.logout().await?; deferred_reply = Some(format!("User {} logged out.\n", name)); }
                         else { deferred_reply = Some("Not logged in.\n".into()); }
                     } else if upper == "HELP" || upper == "?" || upper == "H" {
-                        // Use existing abbreviated help via command processor (ensures consistent text) and include shortcuts line first time
-                        let mut help_text = session.process_command("HELP", &mut self.storage, &self.config).await?;
-                        if !session.help_seen {
-                            session.help_seen = true;
-                            help_text.push_str("Shortcuts: M=areas U=user Q=quit\n");
-                        }
+                        // Use existing abbreviated help via command processor (ensures consistent text)
+                        let help_text = session.process_command("HELP", &mut self.storage, &self.config).await?;
+                        if !session.help_seen { session.help_seen = true; }
                         self.send_session_message(&node_key, &help_text, true).await?;
                     } else {
                         let redact = ["REGISTER ", "LOGIN ", "SETPASS ", "CHPASS "];
@@ -1715,7 +1721,10 @@ impl BbsServer {
                 return Ok(());
             } else if upper == "HELP" || upper == "?" || upper == "H" {
                 let mut help_text = session.process_command("HELP", &mut self.storage, &self.config).await?;
-                if !session.help_seen { session.help_seen = true; help_text.push_str("Shortcuts: M=areas U=user Q=quit\n"); }
+                if !session.help_seen {
+                    session.help_seen = true;
+                    help_text.push_str("Shortcuts: M=areas U=user Q=quit\n");
+                }
                 self.send_session_message(node_key, &help_text, true).await?;
                 return Ok(());
             } else if upper.starts_with("LOGIN ") {

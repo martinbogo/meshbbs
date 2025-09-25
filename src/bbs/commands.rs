@@ -72,6 +72,11 @@ impl CommandProcessor {
             SessionState::MessageTopics | SessionState::Topics => {
                 parts.push("Topics".into());
             }
+            SessionState::Subtopics => {
+                parts.push("Topics".into());
+                if let Some(t) = &session.current_topic { parts.push(t.clone()); }
+                parts.push("Subtopics".into());
+            }
             SessionState::Threads => {
                 parts.push("Topics".into());
                 if let Some(t) = &session.current_topic { parts.push(t.clone()); }
@@ -125,6 +130,7 @@ impl CommandProcessor {
                 self.handle_main_menu(session, &cmd_upper, storage, config).await
             }
             SessionState::Topics => self.handle_topics(session, raw, &cmd_upper, storage, config).await,
+            SessionState::Subtopics => self.handle_subtopics(session, raw, &cmd_upper, storage, config).await,
             SessionState::Threads => self.handle_threads(session, raw, &cmd_upper, storage, config).await,
             SessionState::ThreadRead => self.handle_thread_read(session, raw, &cmd_upper, storage, config).await,
             SessionState::ComposeNewTitle => self.handle_compose_new_title(session, raw, storage, config).await,
@@ -301,10 +307,11 @@ impl CommandProcessor {
                     return Ok(out);
                 }
                 out.push_str("ACCT: SETPASS <new> | CHPASS <old> <new> | LOGOUT\n");
-                out.push_str("MSG: M=menu; digits pick; +/- nav; F filter; READ <t>; POST <t> <txt>; TOPICS\n");
-                if session.user_level >= 5 { out.push_str("MOD: DELETE <a> <id> LOCK/UNLOCK <a> DELLOG [p]\n"); }
-                if session.user_level >= 10 { out.push_str("ADM: PROMOTE <u> DEMOTE <u> SYSLOG <lvl> <msg>\n"); }
-                out.push_str("OTHER: WHERE/W breadcrumb | U=User | Q=Quit\n");
+                // Terse navigation + legacy commands
+                out.push_str("MSG: M topics; 1-9 pick; U up; +/-; F <txt>; READ/POST/TOPICS\n");
+                if session.user_level >= 5 { out.push_str("MOD: D <area> <id> | K lock | DELLOG [p]\n"); }
+                if session.user_level >= 10 { out.push_str("ADM: PROMOTE/DEMOTE <u> | SYSLOG <lvl> <msg>\n"); }
+                out.push_str("OTHER: WHERE | U | Q\n");
                 // Ensure length <=230 (should already be compact; final guard)
                 const MAX: usize = 230;
                 if out.len() > MAX { out.truncate(MAX); }
@@ -493,11 +500,14 @@ impl CommandProcessor {
     }
 
     async fn render_topics_page(&self, session: &Session, storage: &mut Storage, config: &Config) -> Result<String> {
-        // Gather readable topics
+        // Gather readable root topics (no parent)
         let all = storage.list_message_topics().await?;
         let mut readable: Vec<(String, String)> = Vec::new(); // (id, display)
         for t in all {
             if self_topic_can_read(session.user_level, &t, storage) {
+                // Filter to only root topics (no parent)
+                let is_root = storage.get_topic_config(&t).map(|cfg| cfg.parent.is_none()).unwrap_or(true);
+                if !is_root { continue; }
                 let name = config.message_topics.get(&t).map(|c| c.name.clone()).unwrap_or_else(|| t.clone());
                 readable.push((t, name));
             }
@@ -512,7 +522,10 @@ impl CommandProcessor {
                     if n > 0 { items.push(format!("{}. {} ({})", i+1, id, n)); continue; }
                 }
             }
-            items.push(format!("{}. {}", i+1, id));
+            // If this topic has subtopics, add a marker
+            let sub_count = storage.list_subtopics(id).len();
+            if sub_count > 0 { items.push(format!("{}. {} ›", i+1, id)); }
+            else { items.push(format!("{}. {}", i+1, id)); }
         }
         let footer = "Type number to select topic. L more. H help. X exit";
         let body = ui::topics_page(&config.bbs.name, &items, footer);
@@ -537,15 +550,82 @@ impl CommandProcessor {
             for t in all { if self_topic_can_read(session.user_level, &t, storage) { readable.push(t); } }
             let idx = (session.list_page.saturating_sub(1)) * 5 + (n-1);
             if idx < readable.len() {
-                session.current_topic = Some(readable[idx].clone());
-                session.state = SessionState::Threads;
+                let picked = readable[idx].clone();
+                session.current_topic = Some(picked.clone());
                 session.list_page = 1;
-                return self.render_threads_list(session, storage, config).await;
+                // If the picked topic has subtopics, go to Subtopics view; otherwise into Threads
+                if storage.list_subtopics(&picked).is_empty() {
+                    session.state = SessionState::Threads;
+                    return self.render_threads_list(session, storage, config).await;
+                } else {
+                    session.state = SessionState::Subtopics;
+                    return self.render_subtopics_page(session, storage, config).await;
+                }
             } else {
                 return Ok("No more items. L shows more, B back\n".into());
             }
         }}
         self.render_topics_page(session, storage, config).await
+    }
+
+    async fn render_subtopics_page(&self, session: &Session, storage: &mut Storage, _config: &Config) -> Result<String> {
+        let parent = session.current_topic.clone().unwrap_or_else(|| "general".into());
+        let mut subs: Vec<String> = storage.list_subtopics(&parent);
+        // Filter by read permission
+        subs.retain(|t| self_topic_can_read(session.user_level, t, storage));
+        let start = (session.list_page.saturating_sub(1)) * 5;
+        let page = &subs.get(start..(start+5).min(subs.len())).unwrap_or(&[]);
+        let mut items: Vec<String> = Vec::new();
+        for (i, id) in page.iter().enumerate() {
+            // Unread count marker for subtopic
+            if let Some(since) = session.unread_since {
+                if let Ok(n) = storage.count_messages_since_in_topic(id, since).await {
+                    if n > 0 { items.push(format!("{}. {} ({})", i+1, id, n)); continue; }
+                }
+            }
+            // Further nesting indicator if grandchild subtopics exist
+            let sub_count = storage.list_subtopics(id).len();
+            if sub_count > 0 { items.push(format!("{}. {} ›", i+1, id)); }
+            else { items.push(format!("{}. {}", i+1, id)); }
+        }
+        let header = format!("[BBS][{}] Subtopics\n", parent);
+        let list = format!("{}\n", ui::list_1_to_5(&items));
+        let footer = "Pick: 1-9. U up. L more. M topics. X exit";
+        Ok(format!("{}{}{}\n", header, list, footer))
+    }
+
+    async fn handle_subtopics(&self, session: &mut Session, raw: &str, upper: &str, storage: &mut Storage, config: &Config) -> Result<String> {
+        match upper {
+            "H" | "HELP" | "?" => return Ok("Subtopics: 1-9 pick, U up, L more, M topics, X exit\n".into()),
+            "M" => { session.state = SessionState::Topics; session.list_page = 1; return self.render_topics_page(session, storage, config).await; }
+            "U" | "UP" | "B" => { session.state = SessionState::Topics; session.list_page = 1; return self.render_topics_page(session, storage, config).await; }
+            "X" => { session.state = SessionState::Disconnected; return Ok("Goodbye! 73s".into()); }
+            "L" => { session.list_page += 1; return self.render_subtopics_page(session, storage, config).await; }
+            _ => {}
+        }
+        if let Some(ch) = raw.chars().next() { if ch.is_ascii_digit() && ch != '0' {
+            let n = ch.to_digit(10).unwrap() as usize; // 1..9
+            let parent = session.current_topic.clone().unwrap_or_else(|| "general".into());
+            let mut subs: Vec<String> = storage.list_subtopics(&parent);
+            subs.retain(|t| self_topic_can_read(session.user_level, t, storage));
+            let idx = (session.list_page.saturating_sub(1)) * 5 + (n-1);
+            if idx < subs.len() {
+                let picked = subs[idx].clone();
+                session.current_topic = Some(picked.clone());
+                session.list_page = 1;
+                // If further nesting, stay in Subtopics; else proceed to Threads
+                if storage.list_subtopics(&picked).is_empty() {
+                    session.state = SessionState::Threads;
+                    return self.render_threads_list(session, storage, config).await;
+                } else {
+                    session.state = SessionState::Subtopics;
+                    return self.render_subtopics_page(session, storage, config).await;
+                }
+            } else {
+                return Ok("No more items. L shows more, U up\n".into());
+            }
+        }}
+        self.render_subtopics_page(session, storage, config).await
     }
 
     async fn render_threads_list(&self, session: &Session, storage: &mut Storage, config: &Config) -> Result<String> {
@@ -595,7 +675,24 @@ impl CommandProcessor {
                 return Ok(s);
             }
             "M" => { session.state = SessionState::Topics; session.list_page = 1; return self.render_topics_page(session, storage, config).await; }
-            "B" => { session.state = SessionState::Topics; let _ = session.filter_text.take(); return self.render_topics_page(session, storage, config).await; }
+            "B" => {
+                let _ = session.filter_text.take();
+                // If current topic has a parent, go up to Subtopics of parent; else to Topics
+                let up_state = if let Some(t) = &session.current_topic {
+                    if let Some(cfg) = storage.get_topic_config(t) { if cfg.parent.is_some() { Some(cfg.parent.clone().unwrap()) } else { None } }
+                    else { None }
+                } else { None };
+                if let Some(parent) = up_state {
+                    session.current_topic = Some(parent);
+                    session.state = SessionState::Subtopics;
+                    session.list_page = 1;
+                    return self.render_subtopics_page(session, storage, config).await;
+                } else {
+                    session.state = SessionState::Topics;
+                    session.list_page = 1;
+                    return self.render_topics_page(session, storage, config).await;
+                }
+            }
             "X" => { session.state = SessionState::Disconnected; return Ok("Goodbye! 73s".into()); }
             "L" => { session.list_page += 1; return self.render_threads_list(session, storage, config).await; }
             "N" => { session.state = SessionState::ComposeNewTitle; return Ok("[BBS] New thread title (≤32):\n".into()); }
@@ -753,7 +850,11 @@ impl CommandProcessor {
 
     async fn handle_thread_read(&self, session: &mut Session, raw: &str, upper: &str, storage: &mut Storage, config: &Config) -> Result<String> {
         match upper {
-            "B" => { session.state = SessionState::Threads; return self.render_threads_list(session, storage, config).await; }
+            "B" => { 
+                // From read, go back to threads; threads handler will handle further 'B'
+                session.state = SessionState::Threads; 
+                return self.render_threads_list(session, storage, config).await; 
+            }
             "H" | "HELP" | "?" => {
                 let mut s = "Read: + next, - prev, Y reply, B back".to_string();
                 if session.user_level >= LEVEL_MODERATOR { s.push_str(" | mod: D del, P pin, R title, K lock"); }

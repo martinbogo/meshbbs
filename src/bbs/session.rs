@@ -95,6 +95,7 @@ pub enum SessionState {
     PostingMessage,
     /// New flat-mode UI states
     Topics,          // Topics root list
+    Subtopics,       // Subtopics under current_topic (as parent)
     Threads,         // Threads (messages) list within current_topic
     ThreadRead,      // Reading a single thread/post slice
     ComposeNewTitle, // Two-step compose (step 1)
@@ -234,7 +235,7 @@ impl Session {
             SessionState::PostingMessage | SessionState::ComposeNewTitle | SessionState::ComposeNewBody | SessionState::ComposeReply => {
                 if let Some(topic) = &self.current_topic { format!("post@{}>", Self::truncate_topic(topic)) } else { "post>".into() }
             }
-            SessionState::ReadingMessages | SessionState::MessageTopics | SessionState::Topics | SessionState::Threads | SessionState::ThreadRead => {
+            SessionState::ReadingMessages | SessionState::MessageTopics | SessionState::Topics | SessionState::Subtopics | SessionState::Threads | SessionState::ThreadRead => {
                 if let Some(topic) = &self.current_topic { format!("{}@{}>", self.display_name(), Self::truncate_topic(topic)) } else { format!("{} (lvl{})>", self.display_name(), level) }
             }
             SessionState::ConfirmDelete => {

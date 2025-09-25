@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.143] - 2025-09-25
+### Added
+- Compact UI: Subtopics navigation layer (Topics → Subtopics → Threads → Read) with breadcrumbs and unread counts.
+- Moderator/sysop compact-path tests: K lock/unlock in Threads; G grant level.
+
+### Changed
+- Compact HELP tightened to always fit within a single DM frame (≤230 bytes including prompt).
+- Topics view shows only root topics; items with children marked with a ‘›’ indicator.
+- Threads back-navigation now ascends to Subtopics when in a child topic; otherwise back to Topics.
+
+### Fixed
+- Non-exhaustive match after adding Subtopics state (server sessions mapping).
+- Sysop grant test stability by seeding sysop and logging in as “sysop”.
+- Help-after-login regression: ensured DM HELP length stays within 230-byte budget.
+
+### Testing
+- New integration tests for subtopics list/navigation/post/read.
+- Stable tests for one-time HELP shortcuts and verbose HELP chunking.
+
 ## [0.9.142] - 2025-09-25
 ### Added
 - Structured replies in storage (`Reply` with `author`, `timestamp`, `content`) with backward-compatible `ReplyEntry` deserialization for legacy data.

@@ -5,7 +5,7 @@
   
   **A modern Bulletin Board System for Meshtastic mesh networks**
   
-   [![Version](https://img.shields.io/badge/version-0.9.142-blue.svg)](https://github.com/martinbogo/meshbbs/releases)
+   [![Version](https://img.shields.io/badge/version-0.9.143-blue.svg)](https://github.com/martinbogo/meshbbs/releases)
   [![License](https://img.shields.io/badge/license-CC--BY--NC--4.0-green.svg)](LICENSE)
   [![Language](https://img.shields.io/badge/language-Rust-orange.svg)](https://www.rust-lang.org/)
   [![Platform](https://img.shields.io/badge/platform-Meshtastic-purple.svg)](https://meshtastic.org/)
@@ -233,13 +233,18 @@ After public `LOGIN`, open a private message to the BBS node to start your authe
 Once logged in via DM, use the compact, single-letter flow:
 
 - Topics (press M)
-   - Digits 1‑9: select topic on the current page
+   - Digits 1‑9: select topic on the current page (root topics only)
+   - Topics with children show a ‘›’ marker; selecting opens Subtopics
    - L: more topics, H: help, B: back, X: exit
+   
+  Subtopics
+   - Digits 1‑9: select subtopic; nested levels supported
+   - U/B: up one level; M: back to root Topics; L: more
 - Threads (inside a topic)
    - Digits 1‑9: read thread
    - N: new thread (2 steps: title ≤32, then body ≤200)
    - F <text>: filter thread titles (repeat F to clear)
-   - L: more, B: back, M: topics, H: help
+   - L: more, B: back (to Subtopics or Topics), M: topics, H: help
 - Read view
    - +: next, -: prev, Y: reply, B: back, H: help
    - Shows the latest reply preview (prefixed with "— ")

@@ -48,6 +48,15 @@ After using `^LOGIN` on the public channel, open a direct message to the BBS nod
 | `POST topic message` | Post a message to topic | `POST general Hello everyone!` |
 | `POST topic` | Start multi-line post | `POST general` |
 
+#### Topics and Subtopics (Compact UI)
+
+- Press `M` to open Topics (root topics only are shown)
+- Items with children show a `›` marker; selecting opens Subtopics
+- In Subtopics:
+	- `1-9` pick subtopic on current page; nested levels are supported
+	- `U` or `B` goes up one level; `M` returns to root Topics; `L` shows more
+	- Selecting a leaf subtopic enters Threads
+
 #### Multi-line Posting
 
 When using `POST topic` without a message, you enter multi-line mode:
@@ -99,6 +108,7 @@ MeshBBS shows contextual prompts that reflect your current state:
 | `alice (lvl1)>` | Logged in as alice, user level 1 |
 | `alice@general>` | Reading messages in 'general' topic |
 | `post@general>` | Posting a message to 'general' topic |
+| `alice@community>` → `alice (lvl1)>` | Using `B`/`U` goes up from Threads to Subtopics, then to Topics |
 
 ## Tips and Shortcuts
 
