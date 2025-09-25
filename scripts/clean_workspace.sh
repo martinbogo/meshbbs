@@ -5,7 +5,9 @@ set -euo pipefail
 # - Cleans Cargo build artifacts
 # - Removes test-generated files under tests/test-data-int (users/messages), preserving tracked fixtures
 # - Removes common logs and temp files
-# - Does NOT touch config.toml or data/topics.json
+# - Cleans runtime data: removes created users (data/users), messages (data/messages)
+# - In data/, keeps topics.example.json and removes other .json files (e.g., topics.json, node_cache.json)
+# - Removes generated logfiles such as meshbbs.log and data/admin_audit.log
 #
 # Usage:
 #   bash scripts/clean_workspace.sh          # perform cleanup
@@ -40,14 +42,36 @@ echo "==> Removing target/ if present (after cargo clean)"
 if [[ -d target ]]; then run "rm -rf target"; fi
 
 echo "==> Removing logs and temp files"
-for f in meshbbs.log meshbbs-security.log; do
+for f in meshbbs.log meshbbs-security.log data/admin_audit.log; do
   if [[ -f $f ]]; then run "rm -v '$f'"; fi
 done
-# Remove stray macOS files
+# Remove stray macOS and editor temp files
 run "find . -name .DS_Store -print -delete"
+run "find . -type f \( -name '*.swp' -o -name '*.swo' -o -name '*.tmp' -o -name '*.temp' \) -print -delete"
 
 echo "==> Cleaning tmp/ directory (if present)"
 if [[ -d tmp ]]; then run "rm -rf tmp/*"; fi
+
+echo "==> Cleaning runtime data under data/"
+if [[ -d data ]]; then
+  # Remove created users and messages
+  if [[ -d data/users ]]; then run "rm -rf data/users"; fi
+  if [[ -d data/messages ]]; then run "rm -rf data/messages"; fi
+
+  # Remove all JSON files in data/ except topics.example.json
+  while IFS= read -r -d '' file; do
+    base="$(basename "$file")"
+    if [[ "$base" == "topics.example.json" ]]; then
+      echo "Preserved: $file"
+      continue
+    fi
+    run "rm -v '$file'"
+  done < <(find data -maxdepth 1 -type f -name '*.json' -print0)
+
+  # Ensure empty directories exist after clean
+  run "mkdir -p data/users"
+  run "mkdir -p data/messages"
+fi
 
 echo "==> Cleaning test-generated users (tests/test-data-int/users)"
 USERS_DIR="tests/test-data-int/users"
@@ -79,10 +103,8 @@ if [[ -d "$MSG_DIR" ]]; then
   done < <(find "$MSG_DIR" -type f -name '*.json' -print0)
 fi
 
-echo "==> Preserving config and topics (as requested)"
-for p in config.toml data/topics.json; do
-  if [[ -e "$p" ]]; then echo "Preserved: $p"; fi
-done
+echo "==> Preserving config example file (if present)"
+if [[ -e config.example.toml ]]; then echo "Preserved: config.example.toml"; fi
 
 if $DEEP_CLEAN; then
   echo "==> Deep clean: removing ALL untracked files (git clean -fdx)"
