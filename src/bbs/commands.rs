@@ -4,7 +4,7 @@ use log::{info, warn, error};
 use crate::logutil::escape_log;
 
 use crate::config::Config;
-use crate::storage::Storage;
+use crate::storage::{Storage, ReplyEntry};
 use crate::validation::{validate_user_name, validate_topic_name, sanitize_message_content};
 use super::session::{Session, SessionState};
 
@@ -592,7 +592,14 @@ impl CommandProcessor {
             // Budget for replies preview: include last 1 reply if present
             let mut body = ui::utf8_truncate(&m.content, 120);
             if let Some(last) = m.replies.last() {
-                let rp = ui::utf8_truncate(last, 80);
+                let rp = match last {
+                    ReplyEntry::Legacy(s) => ui::utf8_truncate(s, 80),
+                    ReplyEntry::Reply(r) => {
+                        let stamp = r.timestamp.format("%m/%d %H:%M");
+                        let line = format!("{} | {}: {}", stamp, r.author, r.content);
+                        ui::utf8_truncate(&line, 80)
+                    }
+                };
                 body.push_str("\n— ");
                 body.push_str(&rp);
             }

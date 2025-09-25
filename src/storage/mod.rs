@@ -110,6 +110,20 @@ pub struct Storage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Reply {
+    pub author: String,
+    pub timestamp: DateTime<Utc>,
+    pub content: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ReplyEntry {
+    Reply(Reply),
+    Legacy(String),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
     pub id: String,
     pub topic: String,
@@ -118,7 +132,8 @@ pub struct Message {
     pub title: Option<String>,
     pub content: String,
     pub timestamp: DateTime<Utc>,
-    pub replies: Vec<String>,
+    #[serde(default)]
+    pub replies: Vec<ReplyEntry>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -755,11 +770,9 @@ impl Storage {
             .map_err(|e| anyhow!("Invalid reply content: {}", e))?;
         if sanitized.trim().is_empty() { return Err(anyhow!("Empty reply")); }
 
-        let stamp = Utc::now().format("%m/%d %H:%M");
-        let reply_str = format!("{} | {}: {}", stamp, author, sanitized);
-
-        // Append and persist
-        msg.replies.push(reply_str);
+        // Append and persist using structured reply (backward compatible via enum on read)
+        let reply = Reply { author: author.to_string(), timestamp: Utc::now(), content: sanitized };
+        msg.replies.push(ReplyEntry::Reply(reply));
         let json_content = serde_json::to_string_pretty(&msg)?;
         Self::write_file_locked(&message_file, &json_content).await?;
         Ok(())

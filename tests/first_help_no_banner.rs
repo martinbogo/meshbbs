@@ -15,7 +15,7 @@ async fn first_help_no_banner() {
 
     // Collect messages for this node
     let node_key = node.to_string();
-    let mut collected: Vec<String> = server.test_messages().iter()
+    let collected: Vec<String> = server.test_messages().iter()
         .filter(|(to,_m)| to == &node_key)
         .map(|(_,m)| m.clone()).collect();
 
