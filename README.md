@@ -481,7 +481,7 @@ meshbbs/
 
 ### 🚀 Upcoming Features
 - [ ] **🔐 Locally encrypted data storage**: Enhanced security for stored messages and user data
-- [ ] **Support connecting node via WiFi and Ethernet**
+- [ ] **📶 Support connecting node via WiFi and Ethernet**
 
 ## 💻 Hardware Compatibility
 
