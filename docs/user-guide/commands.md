@@ -34,6 +34,7 @@ After using `^LOGIN` on the public channel, open a direct message to the BBS nod
 | `HELP` or `H` or `?` | Show compact help | `HELP` |
 | `HELP+` or `HELP V` | Show detailed help with examples | `HELP+` |
 | `M` | Quick navigation to message topics | `M` |
+| `WHERE` or `W` | Show current breadcrumb path | `WHERE` |
 | `U` | Quick navigation to user menu | `U` |
 | `Q` | Quit/logout | `Q` |
 | `B` | Back to previous menu | `B` |
@@ -104,6 +105,7 @@ MeshBBS shows contextual prompts that reflect your current state:
 - **First-time help**: The first time you use `HELP` after login, you'll see a shortcuts reminder
 - **Topic names**: Long topic names are truncated in prompts with ellipsis
 - **Message limits**: Each message is limited to 230 bytes (optimized for Meshtastic)
+	- The server clamps outputs UTF‑8 safely and appends the prompt; the total frame (body + prompt) ≤ 230 bytes.
 - **Session timeout**: Sessions automatically timeout after inactivity (configurable by sysop)
 - **Case sensitivity**: Commands are case-insensitive (`help`, `HELP`, and `Help` all work)
 
@@ -121,6 +123,47 @@ Common error messages and their meanings:
 | `Session timeout` | Inactive too long | Log in again |
 
 ## Examples
+### Compact Single-Letter Flow (DM Session)
+
+```
+> M
+[MeshBBS] Topics
+1. hello  2. general  3. technical
+Type number to select topic. L more. H help. X exit
+alice (lvl1)>
+
+> 1
+Messages in hello:
+[BBS][hello] Threads
+1 Test Title  2 Intro…
+Reply: 1-9 read, N new, L more, B back, F <text> filter
+alice@hello>
+
+> N
+[BBS] New thread title (≤32):
+post@hello>
+
+> Test Title
+Body: (single message)
+post@hello>
+
+> This is the body of the test thread.
+Messages in hello:
+[BBS][hello] Threads
+1 Test Title
+Reply: 1-9 read, N new, L more, B back, F <text> filter
+alice@hello>
+
+> 1
+[BBS][hello > Test Title] p1/1
+This is the body of the test thread.
+Reply: + next, - prev, Y reply, B back, H help
+alice@hello>
+
+> W
+[BBS] You are at: MeshBBS > Topics > hello > Read
+alice@hello>
+```
 
 ### Basic Session Flow
 

@@ -228,6 +228,25 @@ Commands require `^` prefix to address the BBS:
 #### 💬 **Step 2: Start Your Private Conversation**
 After public `LOGIN`, open a private message to the BBS node to start your authenticated session.
 
+#### 🎛️ Compact Message UI (DM Session)
+
+Once logged in via DM, use the compact, single-letter flow:
+
+- Topics (press M)
+   - Digits 1‑9: select topic on the current page
+   - L: more topics, H: help, B: back, X: exit
+- Threads (inside a topic)
+   - Digits 1‑9: read thread
+   - N: new thread (2 steps: title ≤32, then body ≤200)
+   - F <text>: filter thread titles (repeat F to clear)
+   - L: more, B: back, M: topics, H: help
+- Read view
+   - +: next, -: prev, Y: reply, B: back, H: help
+
+Shortcuts:
+- HELP / HELP+: compact vs. verbose help
+- WHERE / W: show breadcrumb path, e.g. `[BBS] You are at: MeshBBS > Topics > hello > Threads`
+
 <details>
 <summary><strong>📋 Complete Command Reference</strong></summary>
 
@@ -245,6 +264,7 @@ SETPASS <new>             # Set initial password (passwordless accounts)
 HELP / H / ?              # Compact help with shortcuts
 HELP+ / HELP V            # Detailed verbose help with examples
 M                         # Quick navigation to message topics
+WHERE / W                 # Show current breadcrumb path
 U                         # Quick navigation to user menu
 Q                         # Quit/logout
 B                         # Back to previous menu
@@ -286,7 +306,7 @@ MeshBBS shows contextual prompts that reflect your current state:
 
 ### 📏 Message Size Limit
 
-Each message is limited to **230 bytes** (not characters) to mirror Meshtastic text payload constraints. Multi-byte UTF-8 characters reduce visible character count. Oversized posts are rejected with an error.
+Each outbound message (body + optional newline + dynamic prompt) is limited to **230 bytes** (not characters) to match Meshtastic constraints. Multi‑byte UTF‑8 characters reduce visible character count. The server applies a UTF‑8 safe clamp at send‑time and then appends the prompt, ensuring frames always fit.
 
 ### 🔁 Reliable Delivery, Chunking & Scheduling (Updated in 0.9.110)
 
