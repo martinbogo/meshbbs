@@ -462,16 +462,7 @@ meshbbs/
 ## 🗺️ Roadmap
 
 ### ✅ Recent Releases
-- **v0.9.120** (2025-09-24): Compact single-line registration welcome, duplicate REGISTER invalid-command fix, routing error reason names, removed first-contact banner, added frame-length regression test
-- **v0.9.70** (2025-09-23): Major architecture refactor implementing reader/writer pattern to resolve asynchronous I/O deadlock, improved message delivery reliability
-- **v0.9.65** (2025-09-23): Fixed short name resolution bug - correctly extract actual short names (e.g., "WAP2") from Meshtastic network instead of generating wrong names from long names (e.g., "WREC")
-- **v0.9.60** (2025-09-23): Enhanced weather debugging with full URL logging, improved DM delivery with hop limit fixes, persistent node cache system
-- **v0.9.55** (2025-09-23): Complete AREA → TOPIC terminology refactor, enhanced default topics, documentation fixes
-- **v0.9.50** (2025-09-23): Documentation accuracy improvements, streamlined roadmap, tested hardware clarity
-- **v0.9.30** (2025-09-23): Critical security fix for public login password bypass vulnerability
-- **v0.9.25** (2025-09-23): Documentation improvements, rustdoc fixes, ^WEATHER command addition
-- **v0.9.20** (2025-09-23): Version consistency and stability improvements
-- **v0.9.18** (2025-09-23): New user welcome system, enhanced security, sysop username support
+- **v1.0.0 BETA** (2025-09-25): First public beta of the 1.x series
 
 ### 🚀 Upcoming Features
 - [ ] **� Locally encrypted data storage**: Enhanced security for stored messages and user data
