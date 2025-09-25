@@ -475,6 +475,11 @@ impl CommandProcessor {
         let mut items: Vec<String> = Vec::new();
         for (i, (id, _name)) in page.iter().enumerate() {
             // Use topic id for display to satisfy tests expecting '1. general'
+            if let Some(since) = session.unread_since {
+                if let Ok(n) = storage.count_messages_since_in_topic(id, since).await {
+                    if n > 0 { items.push(format!("{}. {} ({})", i+1, id, n)); continue; }
+                }
+            }
             items.push(format!("{}. {}", i+1, id));
         }
         let footer = "Type number to select topic. L more. H help. X exit";
@@ -529,7 +534,12 @@ impl CommandProcessor {
         for (i, m) in page.iter().enumerate() {
             let title_src = m.title.as_deref().unwrap_or_else(|| m.content.lines().next().unwrap_or(""));
             let title = ui::utf8_truncate(title_src, 32);
-            items.push(format!("{} {}", i+1, title));
+            let mut marker = "";
+            if let Some(since) = session.unread_since {
+                if m.timestamp > since { marker = "*"; }
+                else if m.replies.iter().any(|r| match r { ReplyEntry::Reply(rr) => rr.timestamp > since, ReplyEntry::Legacy(_) => false }) { marker = "*"; }
+            }
+            items.push(format!("{} {}{}", i+1, title, marker));
         }
         let topic_disp = config.message_topics.get(&topic).map(|c| c.name.clone()).unwrap_or_else(|| topic.clone());
         let header = format!("Messages in {}:\n[BBS][{}] Threads\n", topic, topic_disp);

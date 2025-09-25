@@ -587,6 +587,27 @@ impl Storage {
         Ok(count)
     }
 
+    /// Count messages in a specific topic whose timestamp is strictly greater than `since`.
+    pub async fn count_messages_since_in_topic(&self, topic: &str, since: DateTime<Utc>) -> Result<u32> {
+        let mut count: u32 = 0;
+        let topic_dir = Path::new(&self.data_dir).join("messages").join(safe_filename(topic));
+        if !topic_dir.exists() { return Ok(0); }
+        let mut message_entries = fs::read_dir(&topic_dir).await?;
+        while let Some(entry) = message_entries.next_entry().await? {
+            if entry.path().extension().and_then(|s| s.to_str()) == Some("json") {
+                if let Ok(metadata) = entry.metadata().await {
+                    if metadata.len() > 1_000_000 { continue; }
+                }
+                if let Ok(content) = fs::read_to_string(entry.path()).await {
+                    if let Ok(msg) = serde_json::from_str::<Message>(&content) {
+                        if msg.timestamp > since { count += 1; }
+                    }
+                }
+            }
+        }
+        Ok(count)
+    }
+
     /// Record a successful user login (updating last_login) and return updated user.
     pub async fn record_user_login(&self, username: &str) -> Result<User> {
         let users_dir = Path::new(&self.data_dir).join("users");

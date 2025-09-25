@@ -1,4 +1,5 @@
 use anyhow::{Result, anyhow};
+use chrono::Utc;
 use log::{info, warn, debug, trace, error};
 use tokio::time::{Instant, Duration};
 use tokio::sync::mpsc;
@@ -790,6 +791,7 @@ impl BbsServer {
                                 trace!("Auto-applying pending public login '{}' (no password) to new DM session {}", username, node_key);
                                 session.login(username.clone(), 1).await?;
                                 let prev_last = user.last_login;
+                                if let Some(sess) = self.sessions.get_mut(&node_key) { sess.unread_since = Some(prev_last); }
                                 let unread = self.storage.count_messages_since(prev_last).await.unwrap_or(0);
                                 let _ = self.storage.record_user_login(&username).await; // update last_login
                                 let summary = Self::format_unread_line(unread);
@@ -799,6 +801,7 @@ impl BbsServer {
                             // New user case - create user without password (they can set one later)
                             trace!("Auto-applying pending public login '{}' (new user) to new DM session {}", username, node_key);
                             session.login(username.clone(), 1).await?;
+                            if let Some(sess) = self.sessions.get_mut(&node_key) { sess.unread_since = Some(Utc::now()); }
                             self.storage.create_or_update_user(&username, &node_key).await?;
                             let summary = Self::format_unread_line(0);
                             let _ = self.send_session_message(&node_key, &format!("Welcome, {} you are now logged in.\n{}", username, summary), true).await;
@@ -831,7 +834,7 @@ impl BbsServer {
                         else {
                             match self.storage.register_user(user, pass, Some(&node_key)).await {
                                 Ok(_) => {
-                                    if let Some(session) = self.sessions.get_mut(&node_key) { session.login(user.to_string(), 1).await?; }
+                                    if let Some(session) = self.sessions.get_mut(&node_key) { session.login(user.to_string(), 1).await?; session.unread_since = Some(Utc::now()); }
                                     let summary = Self::format_unread_line(0);
                                     // Compact single-frame friendly welcome (omit BBS name & HELP+ reference)
                                     // Example (unread 0): "Registered as alice. 0 new msgs. HELP LIST READ POST WHO"
@@ -917,6 +920,7 @@ impl BbsServer {
                                                     let updated_user = self.storage.set_user_password(user, pass).await?;
                                                     let updated = if !node_bound { self.storage.bind_user_node(user, &node_key).await? } else { updated_user };
                                                     session.login(updated.username.clone(), updated.user_level).await?;
+                                                    if let Some(sess) = self.sessions.get_mut(&node_key) { sess.unread_since = Some(Utc::now()); }
                                                     // First-time password set; unread messages prior to this first authenticated login are based on prior last_login value.
                                                     // set_user_password already bumped last_login, so computing unread would yield zero. This is acceptable; show none.
                                                     let _ = self.storage.record_user_login(user).await; // ensure fresh timestamp after full login
@@ -948,6 +952,7 @@ impl BbsServer {
                                                     let updated = if !node_bound { self.storage.bind_user_node(user, &node_key).await? } else { u };
                                                     session.login(updated.username.clone(), updated.user_level).await?;
                                                     let prev_last = updated.last_login; // captured before we update last_login again
+                                                    if let Some(sess) = self.sessions.get_mut(&node_key) { sess.unread_since = Some(prev_last); }
                                                     let unread = self.storage.count_messages_since(prev_last).await.unwrap_or(0);
                                                     let updated2 = self.storage.record_user_login(user).await.unwrap_or(updated);
                                                     let summary = Self::format_unread_line(unread);
@@ -1696,7 +1701,15 @@ impl BbsServer {
                 else if session.is_logged_in() { deferred_reply = Some(format!("Already logged in as {}.\n", session.display_name())); }
                 else {
                     let parts: Vec<&str> = raw_content.split_whitespace().collect();
-                    if parts.len() >= 2 { let user = parts[1]; session.login(user.to_string(), 1).await?; deferred_reply = Some(format!("Welcome, {} you are now logged in.\n{}", user, Self::format_unread_line(0))); }
+                    if parts.len() >= 2 {
+                        let user = parts[1];
+                        // For tests, initialize unread_since from stored user's last_login if present
+                        let mut prev_last_opt = None;
+                        if let Ok(Some(u)) = self.storage.get_user(user).await { prev_last_opt = Some(u.last_login); }
+                        session.login(user.to_string(), 1).await?;
+                        if let Some(prev) = prev_last_opt { if let Some(s2) = self.sessions.get_mut(node_key) { s2.unread_since = Some(prev); } }
+                        deferred_reply = Some(format!("Welcome, {} you are now logged in.\n{}", user, Self::format_unread_line(0)));
+                    }
                 }
             } else {
                 let response = session.process_command(&raw_content, &mut self.storage, &self.config).await?;

@@ -78,6 +78,8 @@ pub struct Session {
     pub slice_index: usize,
     /// Optional filter text for list/search context (e.g., F <text>)
     pub filter_text: Option<String>,
+    /// Baseline timestamp for unread indicators (captured as previous last_login when user logs in)
+    pub unread_since: Option<DateTime<Utc>>,
     pub login_time: DateTime<Utc>,
     pub last_activity: DateTime<Utc>,
     pub state: SessionState,
@@ -122,6 +124,7 @@ impl Session {
             post_index: 1,
             slice_index: 1,
             filter_text: None,
+            unread_since: None,
             login_time: now,
             last_activity: now,
             state: SessionState::Connected,
