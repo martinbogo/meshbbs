@@ -102,7 +102,7 @@ nano config.toml  # or vim, code, etc.
    ```toml
    [bbs]
    name = "Your BBS Name"
-   sysop = "Your Name"  # This becomes your admin username
+   sysop = "sysop"  # This becomes your admin username
    location = "Your Location"
    zipcode = "12345"    # For weather features
    ```
@@ -144,7 +144,7 @@ Note: `meshbbs init` also seeds default forum topics into `data/topics.json` (ru
 ```toml
 [bbs]
 name = "meshbbs Station"
-sysop = "Your Name"
+sysop = "sysop"
 location = "Your Location" 
 zipcode = "97210"
 description = "A bulletin board system for mesh networks"
