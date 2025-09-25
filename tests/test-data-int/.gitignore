@@ -1,0 +1,4 @@
+# Ignore test artifacts generated during integration tests
+messages/**
+users/tuh_*.json
+users/tuh%5F*.json
