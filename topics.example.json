@@ -1,0 +1,28 @@
+{
+  "topics": {
+    "general": {
+      "name": "General",
+      "description": "General discussions",
+      "read_level": 0,
+      "post_level": 0,
+      "created_by": "system",
+      "created_at": "2025-09-23T23:33:48.792777Z"
+    },
+    "community": {
+      "name": "Community",
+      "description": "Events, meet-ups, and community discussions",
+      "read_level": 0,
+      "post_level": 0,
+      "created_by": "system",
+      "created_at": "2025-09-23T23:33:48.793224Z"
+    },
+    "technical": {
+      "name": "Technical",
+      "description": "Tech, hardware, and administrative discussions",
+      "read_level": 0,
+      "post_level": 0,
+      "created_by": "system",
+      "created_at": "2025-09-23T23:33:48.793113Z"
+    }
+  }
+}
