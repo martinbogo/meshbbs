@@ -90,7 +90,7 @@ fn main() {
     eprintln!("build.rs: Using include paths: {:?}", include_paths);
 
     let mut config = prost_build::Config::new();
-    config.bytes(&["."]);
+    config.bytes(["."]);
 
     // Workaround: The Meshtastic repo has many protos all within the same package
     // and some .proto files import others using the fully qualified path prefix

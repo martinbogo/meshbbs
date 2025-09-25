@@ -300,10 +300,10 @@ impl CommandProcessor {
                     return Ok(out);
                 }
                 out.push_str("ACCT: SETPASS <new> | CHPASS <old> <new> | LOGOUT\n");
-                out.push_str("MSG: M=menu READ <t> POST <t> <txt> TOPICS/LIST\n");
+                out.push_str("MSG: M=menu; digits pick; +/- nav; F filter; READ <t>; POST <t> <txt>; TOPICS\n");
                 if session.user_level >= 5 { out.push_str("MOD: DELETE <a> <id> LOCK/UNLOCK <a> DELLOG [p]\n"); }
                 if session.user_level >= 10 { out.push_str("ADM: PROMOTE <u> DEMOTE <u> SYSLOG <lvl> <msg>\n"); }
-                out.push_str("OTHER: U=User Q=Quit\n");
+                out.push_str("OTHER: WHERE/W breadcrumb | U=User | Q=Quit\n");
                 // Ensure length <=230 (should already be compact; final guard)
                 const MAX: usize = 230;
                 if out.as_bytes().len() > MAX { out.truncate(MAX); }

@@ -134,6 +134,9 @@ pub struct Message {
     pub timestamp: DateTime<Utc>,
     #[serde(default)]
     pub replies: Vec<ReplyEntry>,
+    /// Optional pin flag to float a thread in listings (ordering applied in UI phase)
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub pinned: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -195,6 +198,9 @@ pub struct RuntimeTopicConfig {
     pub post_level: u8,
     pub created_by: String,
     pub created_at: DateTime<Utc>,
+    /// Optional parent topic for hierarchical organization (subtopics)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent: Option<String>,
 }
 
 /// Collection of all runtime topic configurations
@@ -521,6 +527,7 @@ impl Storage {
             content: sanitized_content,
             timestamp: Utc::now(),
             replies: Vec::new(),
+            pinned: false,
         };
         
         // Topic directory should already exist (created by create_topic)
@@ -831,6 +838,7 @@ impl Storage {
             post_level,
             created_by: creator.to_string(),
             created_at: Utc::now(),
+            parent: None,
         };
 
         // Add to runtime topics
@@ -1093,4 +1101,64 @@ impl Storage {
         Ok(())
     }
 
+    /// Create a new subtopic under an existing parent (sysop only)
+    pub async fn create_subtopic(&mut self, topic_id: &str, parent_id: &str, name: &str, description: &str, read_level: u8, post_level: u8, creator: &str) -> Result<()> {
+        // Validate inputs
+        validate_topic_name(topic_id).map_err(|e| anyhow!("Invalid topic name: {}", e))?;
+        validate_topic_name(parent_id).map_err(|e| anyhow!("Invalid parent topic: {}", e))?;
+        // Ensure parent exists
+        if !self.runtime_topics.topics.contains_key(parent_id) {
+            return Err(anyhow!("Parent topic '{}' not found", parent_id));
+        }
+        // Check duplicate
+        if self.runtime_topics.topics.contains_key(topic_id) {
+            return Err(anyhow!("Topic '{}' already exists", topic_id));
+        }
+        // Create directory
+        let topic_dir = Path::new(&self.data_dir).join("messages").join(topic_id);
+        fs::create_dir_all(&topic_dir).await?;
+        // Config
+        let topic_config = RuntimeTopicConfig {
+            name: name.to_string(),
+            description: description.to_string(),
+            read_level,
+            post_level,
+            created_by: creator.to_string(),
+            created_at: Utc::now(),
+            parent: Some(parent_id.to_string()),
+        };
+        self.runtime_topics.topics.insert(topic_id.to_string(), topic_config);
+        self.save_runtime_topics().await?;
+        Ok(())
+    }
+
+    /// List subtopics directly under a parent (sorted by id)
+    pub fn list_subtopics(&self, parent_id: &str) -> Vec<String> {
+        let mut v: Vec<String> = self
+            .runtime_topics
+            .topics
+            .iter()
+            .filter_map(|(id, cfg)| match &cfg.parent { Some(p) if p == parent_id => Some(id.clone()), _ => None })
+            .collect();
+        v.sort();
+        v
+    }
+
+    /// Set or clear the pinned flag on a message
+    pub async fn set_message_pinned(&self, topic: &str, id: &str, pinned: bool) -> Result<()> {
+        let message_file = secure_message_path(&self.data_dir, topic, id)
+            .map_err(|e| anyhow!("Invalid path parameters: {}", e))?;
+        if !message_file.exists() { return Err(anyhow!("Message not found")); }
+        let raw = fs::read_to_string(&message_file).await?;
+        let mut msg: Message = secure_json_parse(&raw, 1_000_000)
+            .map_err(|e| anyhow!("Corrupt message file: {:?}", e))?;
+        msg.pinned = pinned;
+        let json_content = serde_json::to_string_pretty(&msg)?;
+        Self::write_file_locked(&message_file, &json_content).await?;
+        Ok(())
+    }
+
 }
+
+/// Serde helper to avoid serializing `pinned: false`
+fn is_false(b: &bool) -> bool { !*b }
