@@ -60,6 +60,8 @@ async fn unknown_command_reply() {
     server.test_insert_session(session);
     server.route_test_text_direct(&node_key, "NOPE").await.unwrap();
     let last = server.test_messages().last().unwrap().1.clone();
-    assert!(last.starts_with("Invalid command \"NOPE\""), "unexpected unknown reply: {}", last);
-    assert!(last.contains("Type HELP"));
+    // Message now includes prompt after the newline. Validate prefix & prompt presence.
+    assert!(last.starts_with("Invalid command \"NOPE\"\n"), "unexpected prefix: {}", last);
+    assert!(last.contains("carol (lvl1)>"), "prompt missing: {}", last);
+    assert!(last.len() <= 230 + 40, "sanity: message + prompt unexpectedly large ({} bytes)", last.len());
 }
