@@ -56,11 +56,10 @@ impl PublicCommandParser {
         let body = &trimmed[1..];
     if body.eq_ignore_ascii_case("HELP") || body == "?" { trace!("Parsed HELP from '{}'" , raw); return PublicCommand::Help; }
     // WEATHER command: accept optional trailing arguments (ignored for now)
-    if body.len() >= 7 && body[..7].eq_ignore_ascii_case("WEATHER") {
-        if body.len() == 7 || body.chars().nth(7).map(|c| c.is_whitespace()).unwrap_or(false) {
-            trace!("Parsed WEATHER from '{}' (args ignored)", raw);
-            return PublicCommand::Weather;
-        }
+    if body.len() >= 7 && body[..7].eq_ignore_ascii_case("WEATHER")
+        && (body.len() == 7 || body.chars().nth(7).map(|c| c.is_whitespace()).unwrap_or(false)) {
+        trace!("Parsed WEATHER from '{}' (args ignored)", raw);
+        return PublicCommand::Weather;
     }
         if body.len() >= 5 && body[..5].eq_ignore_ascii_case("LOGIN") {
             if body.len() == 5 { return PublicCommand::Invalid("Username required".into()); }
@@ -75,6 +74,8 @@ impl PublicCommandParser {
         PublicCommand::Unknown
     }
 }
+
+impl Default for PublicCommandParser { fn default() -> Self { Self::new() } }
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum PublicCommand {

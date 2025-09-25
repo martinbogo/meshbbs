@@ -6,12 +6,11 @@
 /// - `\r` => `\\r`
 /// - `\t` => `\\t`
 /// - backslash => `\\\\`
-/// Truncates very long strings (over `max_preview`) with an ellipsis to cap log noise.
+///   Truncates very long strings (over `max_preview`) with an ellipsis to cap log noise.
 pub fn escape_log(s: &str) -> String {
     const MAX_PREVIEW: usize = 300; // generous for debug; adjust if needed
     let mut out = String::with_capacity(s.len().min(MAX_PREVIEW) + 8);
-    let mut count = 0;
-    for ch in s.chars() {
+    for (count, ch) in s.chars().enumerate() {
         if count >= MAX_PREVIEW { out.push('…'); break; }
         match ch {
             '\\' => out.push_str("\\\\"),
@@ -24,7 +23,6 @@ pub fn escape_log(s: &str) -> String {
             }
             c => out.push(c)
         }
-        count += 1;
     }
     out
 }

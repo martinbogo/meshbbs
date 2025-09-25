@@ -6,15 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.9.142] - 2025-09-25
 ### Added
 - Structured replies in storage (`Reply` with `author`, `timestamp`, `content`) with backward-compatible `ReplyEntry` deserialization for legacy data.
 - Read view now shows the latest reply preview (compact single line prefixed with em dash).
 
 ### Changed
 - Threads list uses stored `Message.title` when available; falls back to first line of content, truncated.
+- Clippy cleanup across modules (commands, server, public, validation, logutil, meshtastic). No behavior changes intended.
+- Restored Meshtastic `hop_limit` to 3 in all packet initializers to ensure expected mesh routing.
 
 ### Testing
 - Extended integration tests remain green; added coverage to ensure reply preview and size budget stay within 230 bytes (prompt-aware clamp).
+- Clippy now passes with `-D warnings`; full test suite remains green.
 
 ## [0.9.120] - 2025-09-24
 ### Added

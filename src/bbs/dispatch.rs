@@ -4,7 +4,7 @@
 //! command logic and the Meshtastic writer channel. The immediate scope is the
 //! HELP public notice (broadcast) which previously used an ad‑hoc `tokio::spawn`
 //! + `sleep` to defer sending after a DM. By centralizing enqueue logic we open
-//! the path toward richer fairness and pacing features.
+//!   the path toward richer fairness and pacing features.
 //!
 //! Phase 1 (initial):
 //! * Envelope abstraction with category + priority.
@@ -143,7 +143,7 @@ pub fn start_scheduler(
                                     let (ai, av) = a; let (bi, bv) = b;
                                     av.priority.cmp(&bv.priority) // reversed by using max later we want worst
                                         .then(av.enqueued_at.cmp(&bv.enqueued_at))
-                                        .then(ai.cmp(&bi))
+                                        .then(ai.cmp(bi))
                                 }).map(|(i,_)| i) {
                                     queue.remove(victim_pos); // Drop victim
                                     stats.dropped_total += 1;

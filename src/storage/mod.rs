@@ -983,7 +983,7 @@ impl Storage {
             while let Some(area_entry) = area_entries.next_entry().await? {
                 if area_entry.file_type().await?.is_dir() {
                     let mut message_entries = fs::read_dir(area_entry.path()).await?;
-                    while let Some(_) = message_entries.next_entry().await? {
+                    while (message_entries.next_entry().await?).is_some() {
                         total_messages += 1;
                     }
                 }
@@ -995,7 +995,7 @@ impl Storage {
         if users_dir.exists() {
             let mut user_entries = fs::read_dir(&users_dir).await?;
             while let Some(entry) = user_entries.next_entry().await? {
-                if entry.file_type().await?.is_file() && entry.path().extension().map_or(false, |ext| ext == "json") {
+                if entry.file_type().await?.is_file() && entry.path().extension().is_some_and(|ext| ext == "json") {
                     total_users += 1;
                     
                     // Parse user file to get details
@@ -1030,7 +1030,7 @@ impl Storage {
         if users_dir.exists() {
             let mut user_entries = fs::read_dir(&users_dir).await?;
             while let Some(entry) = user_entries.next_entry().await? {
-                if entry.file_type().await?.is_file() && entry.path().extension().map_or(false, |ext| ext == "json") {
+                if entry.file_type().await?.is_file() && entry.path().extension().is_some_and(|ext| ext == "json") {
                     let content = fs::read_to_string(entry.path()).await?;
                     match serde_json::from_str::<User>(&content) {
                         Ok(user) => users.push(user),
@@ -1061,7 +1061,7 @@ impl Storage {
                 if area_entry.file_type().await?.is_dir() {
                     let mut message_entries = fs::read_dir(area_entry.path()).await?;
                     while let Some(message_entry) = message_entries.next_entry().await? {
-                        if message_entry.file_type().await?.is_file() && message_entry.path().extension().map_or(false, |ext| ext == "json") {
+                        if message_entry.file_type().await?.is_file() && message_entry.path().extension().is_some_and(|ext| ext == "json") {
                             // Check file size before reading
                             if let Ok(metadata) = message_entry.metadata().await {
                                 if metadata.len() > 1_000_000 { // 1MB limit per message file
@@ -1102,6 +1102,7 @@ impl Storage {
     }
 
     /// Create a new subtopic under an existing parent (sysop only)
+    #[allow(clippy::too_many_arguments)]
     pub async fn create_subtopic(&mut self, topic_id: &str, parent_id: &str, name: &str, description: &str, read_level: u8, post_level: u8, creator: &str) -> Result<()> {
         // Validate inputs
         validate_topic_name(topic_id).map_err(|e| anyhow!("Invalid topic name: {}", e))?;
@@ -1153,6 +1154,20 @@ impl Storage {
         let mut msg: Message = secure_json_parse(&raw, 1_000_000)
             .map_err(|e| anyhow!("Corrupt message file: {:?}", e))?;
         msg.pinned = pinned;
+        let json_content = serde_json::to_string_pretty(&msg)?;
+        Self::write_file_locked(&message_file, &json_content).await?;
+        Ok(())
+    }
+
+    /// Update the title of a message (without rewriting content body). Pass None to clear.
+    pub async fn set_message_title(&self, topic: &str, id: &str, title: Option<&str>) -> Result<()> {
+        let message_file = secure_message_path(&self.data_dir, topic, id)
+            .map_err(|e| anyhow!("Invalid path parameters: {}", e))?;
+        if !message_file.exists() { return Err(anyhow!("Message not found")); }
+        let raw = fs::read_to_string(&message_file).await?;
+        let mut msg: Message = secure_json_parse(&raw, 1_000_000)
+            .map_err(|e| anyhow!("Corrupt message file: {:?}", e))?;
+        msg.title = title.map(|t| t.to_string());
         let json_content = serde_json::to_string_pretty(&msg)?;
         Self::write_file_locked(&message_file, &json_content).await?;
         Ok(())

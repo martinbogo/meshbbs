@@ -181,10 +181,8 @@ pub fn validate_username(username: &str, rules: &UsernameRules) -> Result<String
             true // Always allowed
         } else if ch == ' ' {
             rules.allow_spaces
-        } else if ch.is_alphabetic() && !ch.is_ascii() {
-            rules.allow_unicode // Unicode letters
-        } else if ch.is_numeric() && !ch.is_ascii() {
-            rules.allow_unicode // Unicode numbers
+        } else if (ch.is_alphabetic() || ch.is_numeric()) && !ch.is_ascii() {
+            rules.allow_unicode // Unicode letters or numbers
         } else if "!@#$%^&*()+=[]{}|;':\",.?`~".contains(ch) {
             rules.allow_special_chars
         } else if !ch.is_ascii() {
@@ -269,7 +267,7 @@ pub fn validate_message_id(id: &str) -> Result<String, SecurityError> {
 /// Sanitize message content (remove control characters, validate length)
 pub fn sanitize_message_content(content: &str, max_bytes: usize) -> Result<String, SecurityError> {
     // Check byte length first
-    if content.as_bytes().len() > max_bytes {
+    if content.len() > max_bytes {
         return Err(SecurityError::ContentTooLong { max_length: max_bytes });
     }
     

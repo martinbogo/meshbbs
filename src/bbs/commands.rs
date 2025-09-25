@@ -5,6 +5,7 @@ use crate::logutil::escape_log;
 
 use crate::config::Config;
 use crate::storage::{Storage, ReplyEntry};
+use super::roles::{LEVEL_MODERATOR};
 use crate::validation::{validate_user_name, validate_topic_name, sanitize_message_content};
 use super::session::{Session, SessionState};
 
@@ -12,7 +13,7 @@ use super::session::{Session, SessionState};
 mod ui {
     /// Truncate a &str to at most max_bytes bytes, not splitting UTF-8; append '…' if truncated
     pub fn utf8_truncate(s: &str, max_bytes: usize) -> String {
-        if s.as_bytes().len() <= max_bytes { return s.to_string(); }
+        if s.len() <= max_bytes { return s.to_string(); }
         let mut out = s.as_bytes()[..max_bytes.min(s.len())].to_vec();
         while !out.is_empty() && (out.last().map(|b| (*b & 0b1100_0000) == 0b1000_0000).unwrap_or(false)) { out.pop(); }
         let mut s = String::from_utf8_lossy(&out).into_owned();
@@ -177,10 +178,10 @@ impl CommandProcessor {
                 if let Some(rest) = parts.next() { 
                     (s, rest) 
                 } else { 
-                    (session.current_topic.as_ref().map(|s| s.as_str()).unwrap_or("general"), s) 
+                    (session.current_topic.as_deref().unwrap_or("general"), s) 
                 } 
             } else { 
-                (session.current_topic.as_ref().map(|s| s.as_str()).unwrap_or("general"), "") 
+                (session.current_topic.as_deref().unwrap_or("general"), "") 
             };
             
             if text.is_empty() { 
@@ -275,12 +276,12 @@ impl CommandProcessor {
     }
 
     async fn handle_main_menu(&self, session: &mut Session, cmd: &str, storage: &mut Storage, config: &Config) -> Result<String> {
-        match &cmd[..] {
+        match cmd {
             "M" | "MESSAGES" => {
                 // New compact Topics UI (paged, ≤5 items)
                 session.state = SessionState::Topics;
                 session.list_page = 1;
-                Ok(self.render_topics_page(session, storage, config).await?)
+                self.render_topics_page(session, storage, config).await
             }
             "U" | "USER" => {
                 session.state = SessionState::UserMenu;
@@ -306,7 +307,7 @@ impl CommandProcessor {
                 out.push_str("OTHER: WHERE/W breadcrumb | U=User | Q=Quit\n");
                 // Ensure length <=230 (should already be compact; final guard)
                 const MAX: usize = 230;
-                if out.as_bytes().len() > MAX { out.truncate(MAX); }
+                if out.len() > MAX { out.truncate(MAX); }
                 Ok(out)
             }
             // Admin commands for moderators and sysops
@@ -356,6 +357,37 @@ impl CommandProcessor {
                     Err(e) => Ok(format!("Error listing users: {}\n", e)),
                 }
             }
+            cmd if cmd.starts_with("G ") || cmd.starts_with("GRANT ") => {
+                // Syntax: G @user=level | G @user=Role
+                if session.user_level < 10 { return Ok("Permission denied.\n".to_string()); }
+                let rest = cmd.trim_start_matches(|c: char| c.is_ascii_alphabetic()).trim();
+                if rest.is_empty() { return Ok("Usage: G @user=LEVEL|ROLE\n".into()); }
+                // Expect @username=VALUE
+                let mut parts = rest.splitn(2, '=');
+                let lhs = parts.next().unwrap_or("").trim();
+                let rhs = parts.next().unwrap_or("").trim();
+                if !lhs.starts_with('@') || rhs.is_empty() { return Ok("Usage: G @user=LEVEL|ROLE\n".into()); }
+                let raw_user = lhs.trim_start_matches('@');
+                // Validate username
+                let username = match validate_user_name(raw_user) { Ok(u) => u, Err(_) => return Ok("Invalid username.\n".into()) };
+                // Parse level/role
+                let level: u8 = match rhs.parse::<u8>() {
+                    Ok(n) => n,
+                    Err(_) => {
+                        let up = rhs.to_uppercase();
+                        match up.as_str() {
+                            "USER" => 1,
+                            "MOD" | "MODERATOR" => 5,
+                            "SYSOP" | "ADMIN" => 10,
+                            _ => return Ok("Unknown role. Use USER/MODERATOR/SYSOP or numeric 1/5/10.\n".into()),
+                        }
+                    }
+                };
+                match storage.update_user_level(&username, level, session.username.as_deref().unwrap_or("sysop")).await {
+                    Ok(user) => Ok(format!("{} set to {} (level {}).\n", user.username, super::roles::role_name(user.user_level), user.user_level)),
+                    Err(e) => Ok(format!("Grant failed: {}\n", e)),
+                }
+            }
             "WHO" => {
                 if session.user_level < 5 { return Ok("Permission denied.\n".to_string()); }
                 Ok("Logged In Users:\nNone (session info not available in this context)\n".to_string())
@@ -384,7 +416,7 @@ impl CommandProcessor {
                         Ok(format!(
                             "User Information for {}:\n  Level: {} ({})\n  Posts: {}\n  Registered: {}\n",
                             user.username, user.user_level, role, post_count, 
-                            user.first_login.format("%Y-%m-%d").to_string()
+                            user.first_login.format("%Y-%m-%d")
                         ))
                     }
                     Ok(None) => Ok(format!("User '{}' not found.\n", username)),
@@ -491,10 +523,10 @@ impl CommandProcessor {
         // Global controls
         match upper {
             "H" | "HELP" | "?" => return Ok("Topics: 1-9 pick, L more, B back, M menu, X exit\n".into()),
-            "M" => { session.list_page = 1; return Ok(self.render_topics_page(session, storage, config).await?); }
+            "M" => { session.list_page = 1; return self.render_topics_page(session, storage, config).await; }
             "B" => { session.state = SessionState::MainMenu; return Ok("Main Menu:\n[M]essages [U]ser [Q]uit\n".into()); }
             "X" => { session.state = SessionState::Disconnected; return Ok("Goodbye! 73s".into()); }
-            "L" => { session.list_page += 1; return Ok(self.render_topics_page(session, storage, config).await?); }
+            "L" => { session.list_page += 1; return self.render_topics_page(session, storage, config).await; }
             _ => {}
         }
         // Digit selection 1-9
@@ -508,18 +540,22 @@ impl CommandProcessor {
                 session.current_topic = Some(readable[idx].clone());
                 session.state = SessionState::Threads;
                 session.list_page = 1;
-                return Ok(self.render_threads_list(session, storage, config).await?);
+                return self.render_threads_list(session, storage, config).await;
             } else {
                 return Ok("No more items. L shows more, B back\n".into());
             }
         }}
-        Ok(self.render_topics_page(session, storage, config).await?)
+        self.render_topics_page(session, storage, config).await
     }
 
     async fn render_threads_list(&self, session: &Session, storage: &mut Storage, config: &Config) -> Result<String> {
         let topic = session.current_topic.clone().unwrap_or_else(|| "general".into());
-        let msgs = storage.get_messages(&topic, 50).await?;
-        // Newest first (already sorted in storage); paginate 5 per page
+    let msgs = storage.get_messages(&topic, 200).await?;
+        // Order pinned first, then by timestamp desc (storage already sorts by timestamp desc)
+    let (mut pinned, mut unpinned): (Vec<_>, Vec<_>) = msgs.into_iter().partition(|m| m.pinned);
+    pinned.append(&mut unpinned);
+    let msgs = pinned; // now ordered
+        // Paginate 5 per page
         let start = (session.list_page.saturating_sub(1)) * 5;
         // Apply optional title filter
         let filtered: Vec<_> = if let Some(f) = &session.filter_text {
@@ -536,34 +572,127 @@ impl CommandProcessor {
             let title = ui::utf8_truncate(title_src, 32);
             let mut marker = "";
             if let Some(since) = session.unread_since {
-                if m.timestamp > since { marker = "*"; }
-                else if m.replies.iter().any(|r| match r { ReplyEntry::Reply(rr) => rr.timestamp > since, ReplyEntry::Legacy(_) => false }) { marker = "*"; }
+                if m.timestamp > since || m.replies.iter().any(|r| matches!(r, ReplyEntry::Reply(rr) if rr.timestamp > since)) { marker = "*"; }
             }
-            items.push(format!("{} {}{}", i+1, title, marker));
+            let pin = if m.pinned { " \u{1F4CC}" } else { "" }; // 📌
+            items.push(format!("{}{} {}{}", i+1, pin, title, marker));
         }
         let topic_disp = config.message_topics.get(&topic).map(|c| c.name.clone()).unwrap_or_else(|| topic.clone());
-        let header = format!("Messages in {}:\n[BBS][{}] Threads\n", topic, topic_disp);
+        let locked_note = if storage.is_topic_locked(&topic) { " [locked]" } else { "" };
+        let header = format!("Messages in {}:\n[BBS][{}] Threads{}\n", topic, topic_disp, locked_note);
         let list = format!("{}\n", ui::list_1_to_5(&items));
-        let footer = if session.filter_text.is_some() { "Reply: 1-9 read, N new, L more, B back, F clear" } else { "Reply: 1-9 read, N new, L more, B back, F <text> filter" };
+        let mut footer = if session.filter_text.is_some() { "Reply: 1-9 read, N new, L more, B back, F clear".to_string() } else { "Reply: 1-9 read, N new, L more, B back, F <text> filter".to_string() };
+        if session.user_level >= LEVEL_MODERATOR { footer.push_str(" | mod: D<n> del, P<n> pin, K lock"); }
         Ok(format!("{}{}{}\n", header, list, footer))
     }
 
     async fn handle_threads(&self, session: &mut Session, raw: &str, upper: &str, storage: &mut Storage, config: &Config) -> Result<String> {
         match upper {
-            "H" | "HELP" | "?" => return Ok("Threads: 1-9 read, N new, L more, B back, F filter, M topics, X exit\n".into()),
-            "M" => { session.state = SessionState::Topics; session.list_page = 1; return Ok(self.render_topics_page(session, storage, config).await?); }
-            "B" => { session.state = SessionState::Topics; let _ = session.filter_text.take(); return Ok(self.render_topics_page(session, storage, config).await?); }
+            "H" | "HELP" | "?" => {
+                let mut s = "Threads: 1-9 read, N new, L more, B back, F filter, M topics, X exit".to_string();
+                if session.user_level >= LEVEL_MODERATOR { s.push_str(" | mod: D<n>, P<n>, K"); }
+                s.push('\n');
+                return Ok(s);
+            }
+            "M" => { session.state = SessionState::Topics; session.list_page = 1; return self.render_topics_page(session, storage, config).await; }
+            "B" => { session.state = SessionState::Topics; let _ = session.filter_text.take(); return self.render_topics_page(session, storage, config).await; }
             "X" => { session.state = SessionState::Disconnected; return Ok("Goodbye! 73s".into()); }
-            "L" => { session.list_page += 1; return Ok(self.render_threads_list(session, storage, config).await?); }
+            "L" => { session.list_page += 1; return self.render_threads_list(session, storage, config).await; }
             "N" => { session.state = SessionState::ComposeNewTitle; return Ok("[BBS] New thread title (≤32):\n".into()); }
             _ => {}
+        }
+        // Moderator actions in Threads list
+        if session.user_level >= LEVEL_MODERATOR {
+            // K: toggle topic lock
+            if upper == "K" || upper == "LOCK" || upper == "UNLOCK" {
+                let topic = session.current_topic.clone().unwrap_or_else(|| "general".into());
+                if storage.is_topic_locked(&topic) { let _ = storage.unlock_topic_persist(&topic).await; }
+                else { let _ = storage.lock_topic_persist(&topic).await; }
+                return self.render_threads_list(session, storage, config).await;
+            }
+            // P<n>: toggle pin on nth thread in current page (or with explicit index across pages)
+            if upper.starts_with("P") || upper.starts_with("PIN") || upper.starts_with("UNPIN") {
+                // Extract number (supports "P5" or "P 5")
+                let idx_str = raw.trim_start_matches(|c: char| c.is_ascii_alphabetic()).trim();
+                if let Some(ch) = idx_str.chars().find(|c| c.is_ascii_digit()) {
+                    let n = ch.to_digit(10).unwrap() as usize;
+                    let topic = session.current_topic.clone().unwrap_or_else(|| "general".into());
+                    let msgs = storage.get_messages(&topic, 200).await?;
+                    let (mut pinned, mut unpinned): (Vec<_>, Vec<_>) = msgs.into_iter().partition(|m| m.pinned);
+                    pinned.append(&mut unpinned);
+                    let start = (session.list_page.saturating_sub(1)) * 5;
+                    let idx = start + (n.saturating_sub(1));
+                    if idx < pinned.len() {
+                        let target = &pinned[idx];
+                        let new_val = !target.pinned;
+                        let _ = storage.set_message_pinned(&topic, &target.id, new_val).await;
+                        return self.render_threads_list(session, storage, config).await;
+                    } else {
+                        return Ok("No such item on this page.\n".into());
+                    }
+                } else {
+                    return Ok("Usage: P<n> (e.g., P1)\n".into());
+                }
+            }
+            // D<n>: delete with confirm
+            if upper.starts_with("D") || upper.starts_with("DELETE") {
+                let idx_str = raw.trim_start_matches(|c: char| c.is_ascii_alphabetic()).trim();
+                if let Some(ch) = idx_str.chars().find(|c| c.is_ascii_digit()) {
+                    let n = ch.to_digit(10).unwrap() as usize;
+                    let topic = session.current_topic.clone().unwrap_or_else(|| "general".into());
+                        let msgs = storage.get_messages(&topic, 200).await?;
+                    // Same ordering
+                    let (mut pinned, mut unpinned): (Vec<_>, Vec<_>) = msgs.into_iter().partition(|m| m.pinned);
+                    pinned.append(&mut unpinned);
+                    let start = (session.list_page.saturating_sub(1)) * 5;
+                    let idx = start + (n.saturating_sub(1));
+                    if idx < pinned.len() {
+                        let target = &pinned[idx];
+                        session.current_thread_id = Some(target.id.clone());
+                        session.state = SessionState::ConfirmDelete;
+                        return Ok(format!("Confirm delete {}? (Y/N)\n", target.id));
+                    } else {
+                        return Ok("No such item on this page.\n".into());
+                    }
+                } else {
+                    return Ok("Usage: D<n> (e.g., D1)\n".into());
+                }
+            }
+            // R<n> <new title>: rename thread title (moderator+)
+            if upper.starts_with("R") || upper.starts_with("RENAME") {
+                let parts: Vec<&str> = raw.split_whitespace().collect();
+                if parts.len() >= 2 {
+                    let idx_token = parts[0];
+                    let idx_str = idx_token.trim_start_matches(|c: char| c.is_ascii_alphabetic());
+                    if let Ok(n) = idx_str.parse::<usize>() {
+                        let new_title = raw[idx_token.len()..].trim();
+                        if new_title.is_empty() { return Ok("Usage: R<n> <new title>\n".into()); }
+                        let topic = session.current_topic.clone().unwrap_or_else(|| "general".into());
+                        let msgs = storage.get_messages(&topic, 200).await?;
+                        let (mut pinned, mut unpinned): (Vec<_>, Vec<_>) = msgs.into_iter().partition(|m| m.pinned);
+                        pinned.append(&mut unpinned);
+                        let start = (session.list_page.saturating_sub(1)) * 5;
+                        let idx = start + (n.saturating_sub(1));
+                        if idx < pinned.len() {
+                            let target = &pinned[idx];
+                            // 32-char cap consistent with compose title
+                            let title_cap = if new_title.len() > 32 { ui::utf8_truncate(new_title, 32) } else { new_title.to_string() };
+                            let _ = storage.set_message_title(&topic, &target.id, Some(&title_cap)).await;
+                            return self.render_threads_list(session, storage, config).await;
+                        } else {
+                            return Ok("No such item on this page.\n".into());
+                        }
+                    }
+                }
+                return Ok("Usage: R<n> <new title>\n".into());
+            }
         }
         // Filter: F <text> or just F to clear
         if upper.starts_with("F") {
             let text = raw.strip_prefix('F').or_else(|| raw.strip_prefix('f')).unwrap_or("").trim();
             if text.is_empty() { session.filter_text = None; }
             else { session.filter_text = Some(text.to_string()); session.list_page = 1; }
-            return Ok(self.render_threads_list(session, storage, config).await?);
+            return self.render_threads_list(session, storage, config).await;
         }
         if let Some(ch) = raw.chars().next() { if ch.is_ascii_digit() && ch != '0' {
             // Show a minimal read view of the selected message (single slice)
@@ -588,17 +717,19 @@ impl CommandProcessor {
                 return Ok("No more items. L shows more, B back\n".into());
             }
         }}
-        Ok(self.render_threads_list(session, storage, config).await?)
+        self.render_threads_list(session, storage, config).await
     }
 
     async fn render_thread_read(&self, session: &Session, storage: &mut Storage, config: &Config) -> Result<String> {
-        let topic = session.current_topic.clone().unwrap_or_else(|| "general".into());
-        let id = if let Some(id) = &session.current_thread_id { id.clone() } else { return Ok(self.render_threads_list(session, storage, config).await?) };
+    let topic = session.current_topic.clone().unwrap_or_else(|| "general".into());
+    let id = if let Some(id) = &session.current_thread_id { id.clone() } else { return self.render_threads_list(session, storage, config).await };
         let msgs = storage.get_messages(&topic, 200).await?;
         if let Some(m) = msgs.into_iter().find(|mm| mm.id == id) {
             let topic_disp = config.message_topics.get(&topic).map(|c| c.name.clone()).unwrap_or_else(|| topic.clone());
             let title = ui::utf8_truncate(m.content.lines().next().unwrap_or(""), 24);
-            let head = format!("[BBS][{} > {}] p1/1\n", topic_disp, title);
+            let locked_note = if storage.is_topic_locked(&topic) { " [locked]" } else { "" };
+            let pin_note = if m.pinned { " \u{1F4CC}" } else { "" }; // 📌
+            let head = format!("[BBS][{} > {}]{}{} p1/1\n", topic_disp, title, pin_note, locked_note);
             // Budget for replies preview: include last 1 reply if present
             let mut body = ui::utf8_truncate(&m.content, 120);
             if let Some(last) = m.replies.last() {
@@ -620,10 +751,15 @@ impl CommandProcessor {
         }
     }
 
-    async fn handle_thread_read(&self, session: &mut Session, _raw: &str, upper: &str, storage: &mut Storage, config: &Config) -> Result<String> {
+    async fn handle_thread_read(&self, session: &mut Session, raw: &str, upper: &str, storage: &mut Storage, config: &Config) -> Result<String> {
         match upper {
-            "B" => { session.state = SessionState::Threads; return Ok(self.render_threads_list(session, storage, config).await?); }
-            "H" | "HELP" | "?" => return Ok("Read: + next, - prev, Y reply, B back\n".into()),
+            "B" => { session.state = SessionState::Threads; return self.render_threads_list(session, storage, config).await; }
+            "H" | "HELP" | "?" => {
+                let mut s = "Read: + next, - prev, Y reply, B back".to_string();
+                if session.user_level >= LEVEL_MODERATOR { s.push_str(" | mod: D del, P pin, R title, K lock"); }
+                s.push('\n');
+                return Ok(s);
+            }
             "+" | "-" => {
                 let topic = session.current_topic.clone().unwrap_or_else(|| "general".into());
                 if let Some(curr) = &session.current_thread_id {
@@ -635,10 +771,49 @@ impl CommandProcessor {
                         }
                     }
                 }
-                return Ok(self.render_thread_read(session, storage, config).await?);
+                return self.render_thread_read(session, storage, config).await;
             }
             "Y" => { session.state = SessionState::ComposeReply; return Ok("[BBS] Reply text (single message):\n".into()); }
             _ => {}
+        }
+        // Moderator actions while reading a thread
+        if session.user_level >= LEVEL_MODERATOR {
+            // Delete current
+            if (upper == "D" || upper == "DELETE") && session.current_thread_id.is_some() {
+                session.state = SessionState::ConfirmDelete;
+                let id = session.current_thread_id.clone().unwrap_or_default();
+                return Ok(format!("Confirm delete {}? (Y/N)\n", id));
+            }
+            // Pin toggle current
+            if upper == "P" || upper == "PIN" || upper == "UNPIN" {
+                let topic = session.current_topic.clone().unwrap_or_else(|| "general".into());
+                if let Some(id) = &session.current_thread_id {
+                    // Determine current pin state
+                    let msgs = storage.get_messages(&topic, 200).await?;
+                    if let Some(m) = msgs.into_iter().find(|mm| &mm.id == id) {
+                        let _ = storage.set_message_pinned(&topic, id, !m.pinned).await;
+                        return self.render_thread_read(session, storage, config).await;
+                    }
+                }
+            }
+            // Rename current title
+            if upper.starts_with("R ") || upper == "R" || upper.starts_with("RENAME") {
+                let topic = session.current_topic.clone().unwrap_or_else(|| "general".into());
+                if let Some(id) = &session.current_thread_id {
+                    let new_title = raw.trim_start_matches(['R','r']).trim();
+                    if new_title.is_empty() { return Ok("Usage: R <new title>\n".into()); }
+                    let title_cap = if new_title.len() > 32 { ui::utf8_truncate(new_title, 32) } else { new_title.to_string() };
+                    let _ = storage.set_message_title(&topic, id, Some(&title_cap)).await;
+                    return self.render_thread_read(session, storage, config).await;
+                }
+            }
+            // K: toggle topic lock
+            if upper == "K" || upper == "LOCK" || upper == "UNLOCK" {
+                let topic = session.current_topic.clone().unwrap_or_else(|| "general".into());
+                if storage.is_topic_locked(&topic) { let _ = storage.unlock_topic_persist(&topic).await; }
+                else { let _ = storage.lock_topic_persist(&topic).await; }
+                return self.render_thread_read(session, storage, config).await;
+            }
         }
         self.render_thread_read(session, storage, config).await
     }
@@ -664,12 +839,12 @@ impl CommandProcessor {
         let _ = storage.store_message(&topic, &author, &content).await?;
         session.state = SessionState::Threads;
         session.filter_text = None;
-        Ok(self.render_threads_list(session, storage, config).await?)
+        self.render_threads_list(session, storage, config).await
     }
 
     async fn handle_compose_reply(&self, session: &mut Session, raw: &str, storage: &mut Storage, config: &Config) -> Result<String> {
         let topic = session.current_topic.clone().unwrap_or_else(|| "general".into());
-        let id = if let Some(id) = &session.current_thread_id { id.clone() } else { session.state = SessionState::Threads; return Ok(self.render_threads_list(session, storage, config).await?) };
+        let id = if let Some(id) = &session.current_thread_id { id.clone() } else { session.state = SessionState::Threads; return self.render_threads_list(session, storage, config).await };
         if storage.is_topic_locked(&topic) { session.state = SessionState::ThreadRead; return Ok("Topic locked.\n".into()); }
         if !self_topic_can_post(session.user_level, &topic, storage) { session.state = SessionState::ThreadRead; return Ok("Permission denied.\n".into()); }
         let author = session.display_name();
@@ -678,9 +853,37 @@ impl CommandProcessor {
         self.render_thread_read(session, storage, config).await
     }
 
-    async fn handle_confirm_delete(&self, session: &mut Session, _raw: &str, _storage: &mut Storage, _config: &Config) -> Result<String> {
-        session.state = SessionState::Threads;
-        Ok("Delete flow not implemented.\n".into())
+    async fn handle_confirm_delete(&self, session: &mut Session, raw: &str, storage: &mut Storage, config: &Config) -> Result<String> {
+        // Only moderators can delete
+        if session.user_level < LEVEL_MODERATOR {
+            session.state = SessionState::Threads;
+            return self.render_threads_list(session, storage, config).await;
+        }
+        let answer = raw.trim().to_uppercase();
+        let topic = session.current_topic.clone().unwrap_or_else(|| "general".into());
+        match answer.as_str() {
+            "Y" | "YES" => {
+                if let Some(id) = session.current_thread_id.clone() {
+                    let ok = storage.delete_message(&topic, &id).await.unwrap_or(false);
+                    if ok {
+                        let actor = session.username.as_deref().unwrap_or(&session.display_name()).to_string();
+                        let _ = storage.append_deletion_audit(&topic, &id, &actor).await;
+                    }
+                }
+                session.state = SessionState::Threads;
+                session.current_thread_id = None;
+                let mut body = String::from("Deleted.\n");
+                body.push_str(&self.render_threads_list(session, storage, config).await?);
+                Ok(body)
+            }
+            "N" | "NO" => {
+                session.state = SessionState::Threads;
+                let mut body = String::from("Canceled.\n");
+                body.push_str(&self.render_threads_list(session, storage, config).await?);
+                Ok(body)
+            }
+            _ => Ok("Confirm delete? (Y/N)\n".into())
+        }
     }
 
     async fn handle_message_topics(&self, session: &mut Session, cmd: &str, storage: &mut Storage, config: &Config) -> Result<String> {
@@ -703,7 +906,7 @@ impl CommandProcessor {
             }
         }
 
-        match &cmd[..] {
+        match cmd {
             "R" | "READ" => {
                 session.state = SessionState::ReadingMessages;
                 // Default to first available topic instead of hardcoded "general"
@@ -727,7 +930,7 @@ impl CommandProcessor {
                         response.push_str(&format!("- {}\n", topic));
                     }
                 }
-                response.push_str("\n");
+                response.push('\n');
                 Ok(response)
             }
             "B" | "BACK" => { session.state = SessionState::MainMenu; Ok("Main Menu:\n[M]essages [U]ser [Q]uit\n".to_string()) }
@@ -736,7 +939,7 @@ impl CommandProcessor {
     }
 
     async fn handle_reading_messages(&self, session: &mut Session, cmd: &str, _storage: &mut Storage, _config: &Config) -> Result<String> {
-        match &cmd[..] {
+        match cmd {
             "B" | "BACK" => { session.state = SessionState::MessageTopics; Ok("Message Topics:\n[R]ead [P]ost [L]ist [B]ack\n".to_string()) }
             _ => Ok("Commands: [N]ext [P]rev [R]eply [B]ack\n".to_string())
         }
@@ -767,7 +970,7 @@ impl CommandProcessor {
     }
 
     async fn handle_user_menu(&self, session: &mut Session, cmd: &str, storage: &mut Storage, _config: &Config) -> Result<String> {
-        match &cmd[..] {
+        match cmd {
             "I" | "INFO" => Ok(format!(
                 "User Information:\nUsername: {}\nNode ID: {}\nAccess Level: {}\nSession Duration: {} minutes\n",
                 session.display_name(), session.node_id, session.user_level, session.session_duration().num_minutes()
@@ -783,4 +986,8 @@ impl CommandProcessor {
             _ => Ok("Commands: [I]nfo [S]tats [B]ack\n".to_string())
         }
     }
+}
+
+impl Default for CommandProcessor {
+    fn default() -> Self { Self::new() }
 }

@@ -82,14 +82,13 @@ pub enum MessagePriority {
 }
 
 /// Kind of outgoing message (normal vs internally generated retry)
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum OutgoingKind {
+    #[default]
     Normal,
     /// Retry of a previously sent reliable DM (identified by original packet id)
     Retry { id: u32 },
 }
-
-impl Default for OutgoingKind { fn default() -> Self { OutgoingKind::Normal } }
 
 /// Outgoing message structure for the writer task
 #[derive(Debug, Clone)]
@@ -218,7 +217,7 @@ fn summarize_known_port_payload(port: proto::PortNum, payload: &[u8]) -> Option<
             if let Ok(pos) = proto::Position::decode(&mut b) {
                 let lat = pos.latitude_i.map(|v| v as f64 * 1e-7);
                 let lon = pos.longitude_i.map(|v| v as f64 * 1e-7);
-                let alt = pos.altitude.or(pos.altitude_hae.map(|v| v as i32));
+                let alt = pos.altitude.or(pos.altitude_hae);
                 let mut parts = Vec::new();
                 if let (Some(la), Some(lo)) = (lat, lon) { parts.push(format!("lat={:.5} lon={:.5}", la, lo)); }
                 if let Some(a) = alt { parts.push(format!("alt={}m", a)); }
@@ -315,6 +314,10 @@ impl NodeCache {
         }
         removed
     }
+}
+
+impl Default for NodeCache {
+    fn default() -> Self { Self::new() }
 }
 
 /// Represents a connection to a Meshtastic device
@@ -812,7 +815,7 @@ impl MeshtasticDevice {
                             if let Ok(routing) = proto::Routing::decode(&mut b) {
                                 use proto::routing::{Variant as RVar, Error as RErr};
                                 if let Some(RVar::ErrorReason(e)) = routing.variant {
-                                    if let Some(err) = RErr::try_from(e).ok() {
+                                    if let Ok(err) = RErr::try_from(e) {
                                         let corr_id = if data_msg.request_id != 0 { data_msg.request_id } else { data_msg.reply_id };
                                         return Some(format!("ROUTING_ERROR:{:?}:id={}", err, corr_id));
                                     }
@@ -824,9 +827,9 @@ impl MeshtasticDevice {
                                 if let Ok(text) = std::str::from_utf8(&data_msg.payload) {
                                     let dest = if pkt.to != 0 { Some(pkt.to) } else { None };
                                     // is_direct if destination equals our node id (when known) and not broadcast
-                                    let is_direct = match (dest, self.our_node_id) { (Some(d), Some(our)) if d == our => true, _ => false };
+                                    let is_direct = matches!((dest, self.our_node_id), (Some(d), Some(our)) if d == our);
                                     // In current Meshtastic proto, channel is a u32 field (0 = primary). Treat 0 as Some(0) for uniformity.
-                                    let channel = Some(pkt.channel as u32);
+                                    let channel = Some(pkt.channel);
                                     self.text_events.push_back(TextEvent { source: pkt.from, dest, is_direct, channel, content: text.to_string() });
                                     return Some(format!("TEXT:{}:{}", pkt.from, text));
                                 }
@@ -838,8 +841,8 @@ impl MeshtasticDevice {
                                 } else { None };
                                 if let Some(text) = maybe_text {
                                     let dest = if pkt.to != 0 { Some(pkt.to) } else { None };
-                                    let is_direct = match (dest, self.our_node_id) { (Some(d), Some(our)) if d == our => true, _ => false };
-                                    let channel = Some(pkt.channel as u32);
+                                    let is_direct = matches!((dest, self.our_node_id), (Some(d), Some(our)) if d == our);
+                                    let channel = Some(pkt.channel);
                                     self.text_events.push_back(TextEvent { source: pkt.from, dest, is_direct, channel, content: text.clone() });
                                     return Some(format!("TEXT:{}:{}", pkt.from, text));
                                 } else {
@@ -978,7 +981,6 @@ impl MeshtasticDevice {
             reply_id: 0,
             emoji: 0,
             bitfield: None,
-            ..Default::default()
         };
         let from_node = self.our_node_id.ok_or_else(|| 
             anyhow!("Cannot send message: our_node_id not yet known (device may not have provided MYINFO)")
@@ -1003,7 +1005,7 @@ impl MeshtasticDevice {
             id: packet_id,
             rx_time: 0,
             rx_snr: 0.0,
-            hop_limit: 3, // Allow routing through mesh
+            hop_limit: 3, // Default hop limit for mesh routing
             want_ack: is_dm, // Request ACK for DMs to trigger immediate transmission
             priority: if is_dm { 70 } else { 0 }, // Use RELIABLE priority (70) for DMs, DEFAULT (0) for broadcasts
             ..Default::default()
@@ -1378,7 +1380,7 @@ impl MeshtasticReader {
                             if let Ok(routing) = proto::Routing::decode(&mut b) {
                                 use proto::routing::{Variant as RVar, Error as RErr};
                                 if let Some(RVar::ErrorReason(e)) = routing.variant {
-                                    if let Some(err) = RErr::try_from(e).ok() {
+                                    if let Ok(err) = RErr::try_from(e) {
                                         let corr_id = if data_msg.request_id != 0 { data_msg.request_id } else { data_msg.reply_id };
                                         match err {
                                             RErr::None => {
@@ -1407,11 +1409,8 @@ impl MeshtasticReader {
                             PortNum::TextMessageApp => {
                                 if let Ok(text) = std::str::from_utf8(&data_msg.payload) {
                                     let dest = if pkt.to != 0 { Some(pkt.to) } else { None };
-                                    let is_direct = match (dest, self.our_node_id) { 
-                                        (Some(d), Some(our)) if d == our => true, 
-                                        _ => false 
-                                    };
-                                    let channel = Some(pkt.channel as u32);
+                                    let is_direct = matches!((dest, self.our_node_id), (Some(d), Some(our)) if d == our);
+                                    let channel = Some(pkt.channel);
                                     
                                     let event = TextEvent { 
                                         source: pkt.from, 
@@ -1434,11 +1433,8 @@ impl MeshtasticReader {
                                 
                                 if let Some(text) = maybe_text {
                                     let dest = if pkt.to != 0 { Some(pkt.to) } else { None };
-                                    let is_direct = match (dest, self.our_node_id) { 
-                                        (Some(d), Some(our)) if d == our => true, 
-                                        _ => false 
-                                    };
-                                    let channel = Some(pkt.channel as u32);
+                                    let is_direct = matches!((dest, self.our_node_id), (Some(d), Some(our)) if d == our);
+                                    let channel = Some(pkt.channel);
                                     
                                     let event = TextEvent { 
                                         source: pkt.from, 
@@ -1828,12 +1824,12 @@ impl MeshtasticWriter {
                             // Map reason to enum when possible to decide if transient
                             #[allow(unused_imports)]
                             use crate::protobuf::meshtastic_generated as proto;
-                            let transient = match proto::routing::Error::try_from(reason) {
+                            let transient = matches!(
+                                proto::routing::Error::try_from(reason),
                                 Ok(proto::routing::Error::RateLimitExceeded)
-                                | Ok(proto::routing::Error::DutyCycleLimit)
-                                | Ok(proto::routing::Error::Timeout) => true,
-                                _ => false,
-                            };
+                                    | Ok(proto::routing::Error::DutyCycleLimit)
+                                    | Ok(proto::routing::Error::Timeout)
+                            );
                             if transient {
                                 if let Some(p) = self.pending.get_mut(&id) {
                                     // Keep current backoff stage; just ensure next_due is at least the stage delay from now
@@ -1929,7 +1925,6 @@ impl MeshtasticWriter {
             reply_id: 0,
             emoji: 0,
             bitfield: None,
-            ..Default::default()
         };
         
         let from_node = self.our_node_id.ok_or_else(|| 
@@ -2104,7 +2099,6 @@ impl MeshtasticWriter {
             reply_id: 0,
             emoji: 0,
             bitfield: None,
-            ..Default::default()
         };
         let pkt = MeshPacket {
             from: from_node,

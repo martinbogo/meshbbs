@@ -168,7 +168,7 @@ async fn main() -> Result<()> {
                         "config_request_id": device.config_request_id_hex(),
                         "timeout_seconds": timeout,
                     });
-                    println!("{}", payload.to_string());
+                    println!("{}", payload);
                     std::process::exit(if status_ok { 0 } else { 1 });
                 }
             }
