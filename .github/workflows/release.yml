@@ -34,6 +34,11 @@ jobs:
       - name: Install libudev-dev (Linux host)
         run: sudo apt-get update && sudo apt-get install -y libudev-dev
 
+      - name: Show pkg-config state
+        run: |
+          pkg-config --version || true
+          pkg-config --libs --cflags libudev || true
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
