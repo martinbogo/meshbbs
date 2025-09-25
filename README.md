@@ -320,21 +320,6 @@ Each outbound message (body + optional newline + dynamic prompt) is limited to *
 
 Reply storage is structured and backward compatible: new replies record `timestamp`, `author`, and `content`, while legacy plain-string replies continue to display correctly.
 
-### 🔁 Reliable Delivery, Chunking & Scheduling (Updated in 0.9.110)
-
-Meshbbs uses a centralized scheduler to coordinate all outgoing traffic (reliable Direct Message (DM) retries, broadcasts) and now includes UTF-8 safe message chunking for oversized registration and verbose help content. Instead of the writer task periodically scanning for pending retransmissions, each retry is explicitly enqueued with its own wake time under a dedicated `Retry` category. This provides:
-
-* Deterministic pacing honoring `min_send_gap_ms` and fairness between new sends and retries
-* Clear separation between an original send (`OutgoingKind::Normal`) and internally generated retry envelopes (`OutgoingKind::Retry`)
-* Extensible foundation for future per‑category metrics and fairness reporting
-
-ACK responses are correlated to pending reliable DMs, updating counters for sent / acked / failed and accumulating basic latency statistics (exposed internally; user-facing metrics endpoint forthcoming). After the configured backoff schedule (e.g. `[4,8,16]` seconds) exhausts without ACK, the message is marked failed—no busy looping or duplicate scans.
-
-Additionally:
-* The HELP public broadcast respects configurable `help_broadcast_delay_ms` (reduces immediate post-DM rate-limit collisions)
-* Oversized multi-part registration / verbose help messages are split on clean UTF-8 boundaries (prefer newline) up to `max_message_size` (default 230 bytes)
-* Unknown commands now receive a terse quoted reply: `Invalid command "<cmd>"`
-
 ## 🏗️ Architecture
 
 Meshbbs is built with a clean, modular architecture in Rust:
