@@ -52,6 +52,14 @@ run "find . -type f \( -name '*.swp' -o -name '*.swo' -o -name '*.tmp' -o -name 
 echo "==> Cleaning tmp/ directory (if present)"
 if [[ -d tmp ]]; then run "rm -rf tmp/*"; fi
 
+echo "==> Removing standalone test temp directories in repo root (tmp-test-*)"
+# e.g., created by tests like tests/storage_setters.rs
+for d in tmp-test-*; do
+  if [[ -d "$d" ]]; then
+    run "rm -rf '$d'"
+  fi
+done
+
 echo "==> Cleaning runtime data under data/"
 if [[ -d data ]]; then
   # Remove created users and messages
