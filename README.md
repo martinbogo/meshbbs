@@ -242,10 +242,15 @@ Once logged in via DM, use the compact, single-letter flow:
    - L: more, B: back, M: topics, H: help
 - Read view
    - +: next, -: prev, Y: reply, B: back, H: help
+   - Shows the latest reply preview (prefixed with "— ")
 
 Shortcuts:
 - HELP / HELP+: compact vs. verbose help
 - WHERE / W: show breadcrumb path, e.g. `[BBS] You are at: MeshBBS > Topics > hello > Threads`
+
+Indicators:
+- Topics list shows per-topic new message counts since your last login, e.g. `1. general (2)`
+- Threads list shows a `*` on titles with new content since your last login
 
 <details>
 <summary><strong>📋 Complete Command Reference</strong></summary>
@@ -307,6 +312,8 @@ MeshBBS shows contextual prompts that reflect your current state:
 ### 📏 Message Size Limit
 
 Each outbound message (body + optional newline + dynamic prompt) is limited to **230 bytes** (not characters) to match Meshtastic constraints. Multi‑byte UTF‑8 characters reduce visible character count. The server applies a UTF‑8 safe clamp at send‑time and then appends the prompt, ensuring frames always fit.
+
+Reply storage is structured and backward compatible: new replies record `timestamp`, `author`, and `content`, while legacy plain-string replies continue to display correctly.
 
 ### 🔁 Reliable Delivery, Chunking & Scheduling (Updated in 0.9.110)
 

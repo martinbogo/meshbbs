@@ -7,13 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
-- (placeholder)
+- Structured replies in storage (`Reply` with `author`, `timestamp`, `content`) with backward-compatible `ReplyEntry` deserialization for legacy data.
+- Read view now shows the latest reply preview (compact single line prefixed with em dash).
 
 ### Changed
-- (placeholder)
+- Threads list uses stored `Message.title` when available; falls back to first line of content, truncated.
 
 ### Testing
-- (placeholder)
+- Extended integration tests remain green; added coverage to ensure reply preview and size budget stay within 230 bytes (prompt-aware clamp).
 
 ## [0.9.120] - 2025-09-24
 ### Added
