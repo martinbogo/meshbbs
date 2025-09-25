@@ -6,6 +6,9 @@ on:
       - 'v*'
   workflow_dispatch: {}
 
+permissions:
+  contents: write
+
 env:
   CRATE_NAME: meshbbs
 
@@ -27,6 +30,9 @@ jobs:
         uses: docker/setup-qemu-action@v3
         with:
           platforms: all
+
+      - name: Install libudev-dev (Linux host)
+        run: sudo apt-get update && sudo apt-get install -y libudev-dev
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -88,7 +94,7 @@ jobs:
       - name: Install tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y dpkg-dev gcc-aarch64-linux-gnu
+          sudo apt-get install -y dpkg-dev gcc-aarch64-linux-gnu libudev-dev
           cargo install cargo-deb --locked
 
       - name: Build .deb

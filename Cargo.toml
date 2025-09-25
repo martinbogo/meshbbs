@@ -62,6 +62,7 @@ reqwest = { version = "0.11", optional = true, default-features = false, feature
 
 [build-dependencies]
 prost-build = { version = "0.12" }
+protoc-bin-vendored = "3"
 
 [features]
 # Enable major functional features by default (serial IO, web server, protobuf, weather, extra API re-exports)

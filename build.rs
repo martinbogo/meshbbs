@@ -8,6 +8,13 @@ fn main() {
         return;
     }
 
+    // Ensure a working `protoc` is available across all CI runners by using a vendored binary.
+    // This avoids relying on system packages on macOS/Windows/Linux (including cross builds).
+    if let Ok(path) = protoc_bin_vendored::protoc_bin_path() {
+        std::env::set_var("PROTOC", &path);
+        eprintln!("build.rs: Using vendored protoc at {}", path.display());
+    }
+
     println!("cargo:rerun-if-env-changed=MESHTASTIC_PROTO_DIR");
     println!("cargo:rerun-if-changed=protos");
 
