@@ -62,6 +62,52 @@ pub struct CommandProcessor;
 impl CommandProcessor {
     pub fn new() -> Self { CommandProcessor }
 
+    fn where_am_i(&self, session: &Session, config: &Config) -> String {
+        // Build a compact breadcrumb like: BBS > Topics > hello > Threads > Read
+        let mut parts: Vec<String> = vec![config.bbs.name.clone()];
+        match session.state {
+            SessionState::Connected | SessionState::LoggingIn => parts.push("Login".into()),
+            SessionState::MainMenu => parts.push("Main".into()),
+            SessionState::MessageTopics | SessionState::Topics => {
+                parts.push("Topics".into());
+            }
+            SessionState::Threads => {
+                parts.push("Topics".into());
+                if let Some(t) = &session.current_topic { parts.push(t.clone()); }
+                parts.push("Threads".into());
+            }
+            SessionState::ThreadRead => {
+                parts.push("Topics".into());
+                if let Some(t) = &session.current_topic { parts.push(t.clone()); }
+                parts.push("Read".into());
+            }
+            SessionState::ComposeNewTitle | SessionState::ComposeNewBody => {
+                parts.push("Topics".into());
+                if let Some(t) = &session.current_topic { parts.push(t.clone()); }
+                parts.push("Compose".into());
+            }
+            SessionState::ComposeReply => {
+                parts.push("Topics".into());
+                if let Some(t) = &session.current_topic { parts.push(t.clone()); }
+                parts.push("Reply".into());
+            }
+            SessionState::ConfirmDelete => { parts.push("Confirm".into()); }
+            SessionState::UserMenu => parts.push("User".into()),
+            SessionState::ReadingMessages => {
+                parts.push("Topics".into());
+                if let Some(t) = &session.current_topic { parts.push(t.clone()); }
+                parts.push("Reading".into());
+            }
+            SessionState::PostingMessage => {
+                parts.push("Topics".into());
+                if let Some(t) = &session.current_topic { parts.push(t.clone()); }
+                parts.push("Posting".into());
+            }
+            SessionState::Disconnected => parts.push("Disconnected".into()),
+        }
+        parts.join(" > ")
+    }
+
     /// Process a command and return a response
     pub async fn process(&self, session: &mut Session, command: &str, storage: &mut Storage, config: &Config) -> Result<String> {
         let raw = command.trim();
@@ -96,6 +142,11 @@ impl CommandProcessor {
     }
 
     async fn try_inline_message_command(&self, session: &mut Session, raw: &str, upper: &str, storage: &mut Storage, config: &Config) -> Result<Option<String>> {
+        // WHERE-AM-I breadcrumb (global)
+        if upper == "WHERE" || upper == "W" {
+            let here = self.where_am_i(session, config);
+            return Ok(Some(format!("[BBS] You are at: {}\n", here)));
+        }
         if upper.starts_with("READ") {
             let raw_topic = raw.split_whitespace().nth(1).unwrap_or("general");
             
@@ -462,32 +513,47 @@ impl CommandProcessor {
 
     async fn render_threads_list(&self, session: &Session, storage: &mut Storage, config: &Config) -> Result<String> {
         let topic = session.current_topic.clone().unwrap_or_else(|| "general".into());
-    let msgs = storage.get_messages(&topic, 50).await?;
+        let msgs = storage.get_messages(&topic, 50).await?;
         // Newest first (already sorted in storage); paginate 5 per page
         let start = (session.list_page.saturating_sub(1)) * 5;
-        let page = &msgs.get(start..(start+5).min(msgs.len())).unwrap_or(&[]);
+        // Apply optional title filter
+        let filtered: Vec<_> = if let Some(f) = &session.filter_text {
+            let q = f.to_lowercase();
+            msgs.into_iter().filter(|m| {
+                let title_src = m.title.as_deref().unwrap_or_else(|| m.content.lines().next().unwrap_or(""));
+                title_src.to_lowercase().contains(&q)
+            }).collect()
+        } else { msgs };
+        let page = &filtered.get(start..(start+5).min(filtered.len())).unwrap_or(&[]);
         let mut items: Vec<String> = Vec::new();
         for (i, m) in page.iter().enumerate() {
             let title_src = m.title.as_deref().unwrap_or_else(|| m.content.lines().next().unwrap_or(""));
             let title = ui::utf8_truncate(title_src, 32);
             items.push(format!("{} {}", i+1, title));
         }
-    let topic_disp = config.message_topics.get(&topic).map(|c| c.name.clone()).unwrap_or_else(|| topic.clone());
-    let header = format!("Messages in {}:\n[BBS][{}] Threads\n", topic, topic_disp);
+        let topic_disp = config.message_topics.get(&topic).map(|c| c.name.clone()).unwrap_or_else(|| topic.clone());
+        let header = format!("Messages in {}:\n[BBS][{}] Threads\n", topic, topic_disp);
         let list = format!("{}\n", ui::list_1_to_5(&items));
-        let footer = "Reply: 1-9 read, N new, L more, B back";
+        let footer = if session.filter_text.is_some() { "Reply: 1-9 read, N new, L more, B back, F clear" } else { "Reply: 1-9 read, N new, L more, B back, F <text> filter" };
         Ok(format!("{}{}{}\n", header, list, footer))
     }
 
     async fn handle_threads(&self, session: &mut Session, raw: &str, upper: &str, storage: &mut Storage, config: &Config) -> Result<String> {
         match upper {
-            "H" | "HELP" | "?" => return Ok("Threads: 1-9 read, N new, L more, B back, M topics, X exit\n".into()),
+            "H" | "HELP" | "?" => return Ok("Threads: 1-9 read, N new, L more, B back, F filter, M topics, X exit\n".into()),
             "M" => { session.state = SessionState::Topics; session.list_page = 1; return Ok(self.render_topics_page(session, storage, config).await?); }
-            "B" => { session.state = SessionState::Topics; return Ok(self.render_topics_page(session, storage, config).await?); }
+            "B" => { session.state = SessionState::Topics; let _ = session.filter_text.take(); return Ok(self.render_topics_page(session, storage, config).await?); }
             "X" => { session.state = SessionState::Disconnected; return Ok("Goodbye! 73s".into()); }
             "L" => { session.list_page += 1; return Ok(self.render_threads_list(session, storage, config).await?); }
             "N" => { session.state = SessionState::ComposeNewTitle; return Ok("[BBS] New thread title (≤32):\n".into()); }
             _ => {}
+        }
+        // Filter: F <text> or just F to clear
+        if upper.starts_with("F") {
+            let text = raw.strip_prefix('F').or_else(|| raw.strip_prefix('f')).unwrap_or("").trim();
+            if text.is_empty() { session.filter_text = None; }
+            else { session.filter_text = Some(text.to_string()); session.list_page = 1; }
+            return Ok(self.render_threads_list(session, storage, config).await?);
         }
         if let Some(ch) = raw.chars().next() { if ch.is_ascii_digit() && ch != '0' {
             // Show a minimal read view of the selected message (single slice)
