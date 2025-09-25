@@ -60,5 +60,6 @@ async fn unknown_command_reply() {
     server.test_insert_session(session);
     server.route_test_text_direct(&node_key, "NOPE").await.unwrap();
     let last = server.test_messages().last().unwrap().1.clone();
-    assert!(last.contains("Unknown command. Type HELP"));
+    assert!(last.starts_with("Invalid command \"NOPE\""), "unexpected unknown reply: {}", last);
+    assert!(last.contains("Type HELP"));
 }

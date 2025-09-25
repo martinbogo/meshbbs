@@ -340,7 +340,22 @@ impl CommandProcessor {
                     Err(e) => Ok(format!("Error getting statistics: {}\n", e)),
                 }
             }
-            _ => Ok("Unknown command. Type HELP\n".to_string())
+            _ => {
+                // Quote back the invalid command; enforce overall length <= 230 bytes.
+                // Reserve room for fixed wrapper: 'Invalid command "' + '". Type HELP\n'
+                const PREFIX: &str = "Invalid command \""; // 17 bytes
+                const SUFFIX: &str = "\". Type HELP\n";   // 14 bytes including trailing newline
+                const MAX_TOTAL: usize = 230;
+                let budget = MAX_TOTAL.saturating_sub(PREFIX.len() + SUFFIX.len());
+                let mut snippet = cmd.to_string();
+                if snippet.len() > budget { // truncate safely on UTF-8 boundary
+                    snippet.truncate(budget.saturating_sub(1)); // leave room for ellipsis marker
+                    // Ensure we don't cut in middle of UTF-8 (truncate works on byte boundary; adjust if invalid)
+                    while !snippet.is_char_boundary(snippet.len()) { snippet.pop(); }
+                    snippet.push('…');
+                }
+                Ok(format!("{}{}{}", PREFIX, snippet, SUFFIX))
+            }
         }
     }
 
