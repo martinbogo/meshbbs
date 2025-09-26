@@ -28,6 +28,7 @@ jobs:
           - { distro: debian,  target: aarch64-unknown-linux-gnu, arch: arm64, runner: ubuntu-24.04 }
           - { distro: ubuntu,  target: x86_64-unknown-linux-gnu, arch: x86_64, runner: ubuntu-24.04 }
           - { distro: ubuntu,  target: aarch64-unknown-linux-gnu, arch: arm64, runner: ubuntu-24.04 }
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -42,64 +43,78 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Prepare APT for multiarch (noble ports)
+      # Only needed for arm64 or armhf on Noble
+      - name: Prepare APT for multiarch on Noble, pin mirrors by arch
         if: matrix.runner == 'ubuntu-24.04' && (matrix.arch == 'arm64' || matrix.arch == 'armhf')
         run: |
-          set -euo pipefail
+          set -eux
+
           sudo rm -rf /var/lib/apt/lists/*
-          # Add only the needed foreign architecture and its ports sources
+
+          # Ensure non-ports mirrors are host only
+          if [ -f /etc/apt/sources.list ]; then
+            sudo sed -i -E \
+              's|^(deb\s+)(http(s)?://[^ ]*ubuntu\.com/ubuntu)|\1[arch=amd64] \2|g' \
+              /etc/apt/sources.list
+            sudo sed -i -E \
+              's|^(deb\s+)(http(s)?://azure\.archive\.ubuntu\.com/ubuntu)|\1[arch=amd64] \2|g' \
+              /etc/apt/sources.list
+          fi
+
+          # Pin deb822 file if present
+          if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
+            sudo awk '
+              BEGIN{RS="\\n\\n"; ORS="\\n\\n"}
+              /^Types:/{
+                if ($0 !~ /Architectures:/) $0 = $0 "\nArchitectures: amd64";
+                gsub(/Enabled: no/, "Enabled: yes");
+                print; next
+              }
+              {print}
+            ' /etc/apt/sources.list.d/ubuntu.sources | sudo tee /etc/apt/sources.list.d/ubuntu.sources >/dev/null
+          fi
+
+          # Enable foreign arches needed by this matrix row
           if [ "${{ matrix.arch }}" = "arm64" ]; then
             sudo dpkg --add-architecture arm64 || true
             cat <<'EOF' | sudo tee /etc/apt/sources.list.d/ubuntu-arm64.list
-deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe multiverse
-deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe multiverse
-deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse
-deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-backports main restricted universe multiverse
-EOF
-            sudo rm -f /etc/apt/sources.list.d/ubuntu-armhf.list || true
+            deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe multiverse
+            deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe multiverse
+            deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse
+            deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-backports main restricted universe multiverse
+            EOF
           fi
+
           if [ "${{ matrix.arch }}" = "armhf" ]; then
             sudo dpkg --add-architecture armhf || true
             cat <<'EOF' | sudo tee /etc/apt/sources.list.d/ubuntu-armhf.list
-deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe multiverse
-deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe multiverse
-deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse
-deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble-backports main restricted universe multiverse
-EOF
-            sudo rm -f /etc/apt/sources.list.d/ubuntu-arm64.list || true
+            deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe multiverse
+            deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe multiverse
+            deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse
+            deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble-backports main restricted universe multiverse
+            EOF
           fi
-          # Restrict default Ubuntu repos to amd64 to avoid 404s for foreign arches
-          if [ -f /etc/apt/sources.list ]; then
-            sudo sed -i -E 's@^deb (\[.*\] )?http@deb [arch=amd64] http@g' /etc/apt/sources.list
-            sudo sed -i -E 's@^deb (\[.*\] )?https@deb [arch=amd64] https@g' /etc/apt/sources.list
-          fi
-          for f in /etc/apt/sources.list.d/*.list; do
-            case "$f" in
-              */ubuntu-arm64.list|*/ubuntu-armhf.list) continue ;;
-            esac
-            sudo sed -i -E 's@^deb (\[.*\] )?http@deb [arch=amd64] http@g' "$f" || true
-            sudo sed -i -E 's@^deb (\[.*\] )?https@deb [arch=amd64] https@g' "$f" || true
-          done
+
           sudo apt-get update -o Acquire::Retries=5
 
       - name: Install build deps (host)
         run: |
-          sudo apt-get update
+          sudo apt-get update -o Acquire::Retries=5
           sudo apt-get install -y libudev-dev pkgconf
 
       - name: Install cross toolchain (aarch64)
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: |
-          sudo dpkg --add-architecture arm64 || true
-          sudo apt-get update -o Acquire::Retries=5
-          sudo apt-get install -y gcc-aarch64-linux-gnu libc6-dev-arm64-cross libudev-dev:arm64 pkgconf:arm64
+          sudo apt-get install -y \
+            gcc-aarch64-linux-gnu libc6-dev-arm64-cross \
+            libudev-dev:arm64 pkgconf:arm64
 
       - name: Install cross toolchain (armhf)
         if: matrix.target == 'armv7-unknown-linux-gnueabihf'
         run: |
-          sudo dpkg --add-architecture armhf || true
-          sudo apt-get update -o Acquire::Retries=5
-          sudo apt-get install -y gcc-arm-linux-gnueabihf libc6-dev-armhf-cross libudev-dev:armhf pkgconf:armhf
+          sudo apt-get install -y \
+            gcc-arm-linux-gnueabihf libc6-dev-armhf-cross \
+            libudev-dev:armhf pkgconf:armhf
 
       - name: Build
         env:
@@ -118,11 +133,8 @@ EOF
           ROOT=package_root
           BIN=target/${{ matrix.target }}/release/${CRATE_NAME}
           mkdir -p "$ROOT/bin" dist
-          # Copy runtime skeleton and docs
           cp -a packaging/runtime-skel/. "$ROOT/"
-          # Overwrite with real example config from repo root
           cp config.example.toml "$ROOT/config.example.toml"
-          # Ensure topics.json included
           mkdir -p "$ROOT/data"
           cp packaging/runtime-skel/data/topics.json "$ROOT/data/topics.json"
           cp "$BIN" "$ROOT/bin/${CRATE_NAME}"
@@ -151,6 +163,7 @@ EOF
           - { distro: debian,  target: aarch64-unknown-linux-gnu, arch: arm64, debarch: arm64, runner: ubuntu-24.04 }
           - { distro: ubuntu,  target: x86_64-unknown-linux-gnu, arch: x86_64, debarch: amd64, runner: ubuntu-24.04 }
           - { distro: ubuntu,  target: aarch64-unknown-linux-gnu, arch: arm64, debarch: arm64, runner: ubuntu-24.04 }
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -165,63 +178,65 @@ EOF
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Install deb tooling
+      # Pin mirrors and enable foreign arch when building non amd64 debs
+      - name: Prepare APT for multiarch on Noble, pin mirrors by arch
+        if: matrix.runner == 'ubuntu-24.04' && (matrix.debarch == 'arm64' || matrix.debarch == 'armhf')
         run: |
-          sudo apt-get update
-          sudo apt-get install -y dpkg-dev pkgconf libudev-dev
+          set -eux
+
+          sudo rm -rf /var/lib/apt/lists/*
+
+          if [ -f /etc/apt/sources.list ]; then
+            sudo sed -i -E \
+              's|^(deb\s+)(http(s)?://[^ ]*ubuntu\.com/ubuntu)|\1[arch=amd64] \2|g' \
+              /etc/apt/sources.list
+            sudo sed -i -E \
+              's|^(deb\s+)(http(s)?://azure\.archive\.ubuntu\.com/ubuntu)|\1[arch=amd64] \2|g' \
+              /etc/apt/sources.list
+          fi
+
+          if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
+            sudo awk '
+              BEGIN{RS="\\n\\n"; ORS="\\n\\n"}
+              /^Types:/{
+                if ($0 !~ /Architectures:/) $0 = $0 "\nArchitectures: amd64";
+                gsub(/Enabled: no/, "Enabled: yes");
+                print; next
+              }
+              {print}
+            ' /etc/apt/sources.list.d/ubuntu.sources | sudo tee /etc/apt/sources.list.d/ubuntu.sources >/dev/null
+          fi
+
           if [ "${{ matrix.debarch }}" = "arm64" ]; then
             sudo dpkg --add-architecture arm64 || true
-            # Prepare ports sources for noble
-            if [ "${{ matrix.runner }}" = "ubuntu-24.04" ]; then
-              sudo rm -rf /var/lib/apt/lists/*
-              cat <<'EOF' | sudo tee /etc/apt/sources.list.d/ubuntu-arm64.list
-deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe multiverse
-deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe multiverse
-deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse
-deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-backports main restricted universe multiverse
-EOF
-              sudo rm -f /etc/apt/sources.list.d/ubuntu-armhf.list || true
-              # Restrict default Ubuntu repos to amd64 to avoid 404s for foreign arch
-              if [ -f /etc/apt/sources.list ]; then
-                sudo sed -i -E 's@^deb (\[.*\] )?http@deb [arch=amd64] http@g' /etc/apt/sources.list
-                sudo sed -i -E 's@^deb (\[.*\] )?https@deb [arch=amd64] https@g' /etc/apt/sources.list
-              fi
-              for f in /etc/apt/sources.list.d/*.list; do
-                case "$f" in
-                  */ubuntu-arm64.list|*/ubuntu-armhf.list) continue ;;
-                esac
-                sudo sed -i -E 's@^deb (\[.*\] )?http@deb [arch=amd64] http@g' "$f" || true
-                sudo sed -i -E 's@^deb (\[.*\] )?https@deb [arch=amd64] https@g' "$f" || true
-              done
-            fi
-            sudo apt-get update -o Acquire::Retries=5
+            cat <<'EOF' | sudo tee /etc/apt/sources.list.d/ubuntu-arm64.list
+            deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe multiverse
+            deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe multiverse
+            deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse
+            deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-backports main restricted universe multiverse
+            EOF
+          fi
+
+          if [ "${{ matrix.debarch }}" = "armhf" ]; then
+            sudo dpkg --add-architecture armhf || true
+            cat <<'EOF' | sudo tee /etc/apt/sources.list.d/ubuntu-armhf.list
+            deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe multiverse
+            deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe multiverse
+            deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse
+            deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble-backports main restricted universe multiverse
+            EOF
+          fi
+
+          sudo apt-get update -o Acquire::Retries=5
+
+      - name: Install deb tooling
+        run: |
+          sudo apt-get update -o Acquire::Retries=5
+          sudo apt-get install -y dpkg-dev pkgconf libudev-dev
+          if [ "${{ matrix.debarch }}" = "arm64" ]; then
             sudo apt-get install -y gcc-aarch64-linux-gnu libc6-dev-arm64-cross libudev-dev:arm64 pkgconf:arm64
           fi
           if [ "${{ matrix.debarch }}" = "armhf" ]; then
-            sudo dpkg --add-architecture armhf || true
-            if [ "${{ matrix.runner }}" = "ubuntu-24.04" ]; then
-              sudo rm -rf /var/lib/apt/lists/*
-              cat <<'EOF' | sudo tee /etc/apt/sources.list.d/ubuntu-armhf.list
-deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe multiverse
-deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe multiverse
-deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse
-deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble-backports main restricted universe multiverse
-EOF
-              sudo rm -f /etc/apt/sources.list.d/ubuntu-arm64.list || true
-              # Restrict default Ubuntu repos to amd64 to avoid 404s for foreign arch
-              if [ -f /etc/apt/sources.list ]; then
-                sudo sed -i -E 's@^deb (\[.*\] )?http@deb [arch=amd64] http@g' /etc/apt/sources.list
-                sudo sed -i -E 's@^deb (\[.*\] )?https@deb [arch=amd64] https@g' /etc/apt/sources.list
-              fi
-              for f in /etc/apt/sources.list.d/*.list; do
-                case "$f" in
-                  */ubuntu-arm64.list|*/ubuntu-armhf.list) continue ;;
-                esac
-                sudo sed -i -E 's@^deb (\[.*\] )?http@deb [arch=amd64] http@g' "$f" || true
-                sudo sed -i -E 's@^deb (\[.*\] )?https@deb [arch=amd64] https@g' "$f" || true
-              done
-            fi
-            sudo apt-get update -o Acquire::Retries=5
             sudo apt-get install -y gcc-arm-linux-gnueabihf libc6-dev-armhf-cross libudev-dev:armhf pkgconf:armhf
           fi
           cargo install cargo-deb --locked
