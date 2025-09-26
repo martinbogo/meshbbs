@@ -250,7 +250,7 @@ jobs:
   release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: [linux-cross-build, deb-packages, macos, windows]
+    needs: [linux-builds, deb-packages, macos, windows]
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
