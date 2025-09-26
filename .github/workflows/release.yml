@@ -105,18 +105,21 @@ jobs:
       - name: Install cross toolchain (aarch64)
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: |
+          # host tools are amd64, target libs are arm64
           sudo apt-get install -y \
-            gcc-aarch64-linux-gnu:amd64 binutils-aarch64-linux-gnu:amd64 \
-            libc6-dev-arm64-cross \
-            libudev-dev:arm64 pkgconf:arm64
+            gcc-aarch64-linux-gnu:amd64 g++-aarch64-linux-gnu:amd64 \
+            libc6-dev-arm64-cross libudev-dev:arm64 pkgconf
+          # sanity check the tool is x86-64, not AArch64
+          file "$(command -v aarch64-linux-gnu-gcc)" || true
 
       - name: Install cross toolchain (armhf)
         if: matrix.target == 'armv7-unknown-linux-gnueabihf'
         run: |
+          # host tools are amd64, target libs are armhf
           sudo apt-get install -y \
-            gcc-arm-linux-gnueabihf:amd64 binutils-arm-linux-gnueabihf:amd64 \
-            libc6-dev-armhf-cross \
-            libudev-dev:armhf pkgconf:armhf
+            gcc-arm-linux-gnueabihf:amd64 g++-arm-linux-gnueabihf:amd64 \
+            libc6-dev-armhf-cross libudev-dev:armhf pkgconf
+          file "$(command -v arm-linux-gnueabihf-gcc)" || true
 
       - name: Build
         env:
@@ -126,8 +129,10 @@ jobs:
           CC_armv7_unknown_linux_gnueabihf: arm-linux-gnueabihf-gcc
           AR_armv7_unknown_linux_gnueabihf: arm-linux-gnueabihf-ar
           CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER: arm-linux-gnueabihf-gcc
+          PKG_CONFIG: pkg-config
           PKG_CONFIG_ALLOW_CROSS: "1"
-          PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig:/usr/aarch64-linux-gnu/lib/pkgconfig:/usr/lib/arm-linux-gnueabihf/pkgconfig:/usr/arm-linux-gnueabihf/lib/pkgconfig
+          PKG_CONFIG_SYSROOT_DIR: /
+          PKG_CONFIG_PATH: /usr/aarch64-linux-gnu/lib/pkgconfig:/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/arm-linux-gnueabihf/lib/pkgconfig:/usr/lib/arm-linux-gnueabihf/pkgconfig
         run: cargo build --release --target ${{ matrix.target }}
 
       - name: Package tar.gz with runtime
@@ -238,10 +243,10 @@ jobs:
           sudo apt-get update -o Acquire::Retries=5
           sudo apt-get install -y dpkg-dev pkgconf libudev-dev
           if [ "${{ matrix.debarch }}" = "arm64" ]; then
-            sudo apt-get install -y gcc-aarch64-linux-gnu:amd64 binutils-aarch64-linux-gnu:amd64 libc6-dev-arm64-cross libudev-dev:arm64 pkgconf:arm64
+            sudo apt-get install -y gcc-aarch64-linux-gnu:amd64 g++-aarch64-linux-gnu:amd64 libc6-dev-arm64-cross libudev-dev:arm64 pkgconf
           fi
           if [ "${{ matrix.debarch }}" = "armhf" ]; then
-            sudo apt-get install -y gcc-arm-linux-gnueabihf:amd64 binutils-arm-linux-gnueabihf:amd64 libc6-dev-armhf-cross libudev-dev:armhf pkgconf:armhf
+            sudo apt-get install -y gcc-arm-linux-gnueabihf:amd64 g++-arm-linux-gnueabihf:amd64 libc6-dev-armhf-cross libudev-dev:armhf pkgconf
           fi
           cargo install cargo-deb --locked
 
@@ -253,8 +258,10 @@ jobs:
           CC_armv7_unknown_linux_gnueabihf: arm-linux-gnueabihf-gcc
           AR_armv7_unknown_linux_gnueabihf: arm-linux-gnueabihf-ar
           CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER: arm-linux-gnueabihf-gcc
+          PKG_CONFIG: pkg-config
           PKG_CONFIG_ALLOW_CROSS: "1"
-          PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig:/usr/aarch64-linux-gnu/lib/pkgconfig:/usr/lib/arm-linux-gnueabihf/pkgconfig:/usr/arm-linux-gnueabihf/lib/pkgconfig
+          PKG_CONFIG_SYSROOT_DIR: /
+          PKG_CONFIG_PATH: /usr/aarch64-linux-gnu/lib/pkgconfig:/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/arm-linux-gnueabihf/lib/pkgconfig:/usr/lib/arm-linux-gnueabihf/pkgconfig
         run: |
           cargo deb --target ${{ matrix.target }}
           VERSION=${GITHUB_REF_NAME#v}
