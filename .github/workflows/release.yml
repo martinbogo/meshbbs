@@ -23,7 +23,7 @@ jobs:
           - { distro: generic, target: x86_64-unknown-linux-gnu, arch: x86_64, runner: ubuntu-24.04 }
           - { distro: generic, target: aarch64-unknown-linux-gnu, arch: arm64, runner: ubuntu-24.04 }
           - { distro: raspios, target: aarch64-unknown-linux-gnu, arch: arm64, runner: ubuntu-24.04 }
-          - { distro: raspios, target: armv7-unknown-linux-gnueabihf, arch: armhf, runner: ubuntu-22.04 }
+          - { distro: raspios, target: armv7-unknown-linux-gnueabihf, arch: armhf, runner: ubuntu-24.04 }
           - { distro: debian,  target: x86_64-unknown-linux-gnu, arch: x86_64, runner: ubuntu-24.04 }
           - { distro: debian,  target: aarch64-unknown-linux-gnu, arch: arm64, runner: ubuntu-24.04 }
           - { distro: ubuntu,  target: x86_64-unknown-linux-gnu, arch: x86_64, runner: ubuntu-24.04 }
@@ -42,24 +42,44 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
 
+      - name: Prepare APT for multiarch (noble ports)
+        if: matrix.runner == 'ubuntu-24.04' && (matrix.arch == 'arm64' || matrix.arch == 'armhf')
+        run: |
+          sudo rm -rf /var/lib/apt/lists/*
+          sudo dpkg --add-architecture arm64 || true
+          sudo dpkg --add-architecture armhf || true
+          cat <<'EOF' | sudo tee /etc/apt/sources.list.d/ubuntu-arm64.list
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-backports main restricted universe multiverse
+          EOF
+          cat <<'EOF' | sudo tee /etc/apt/sources.list.d/ubuntu-armhf.list
+          deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe multiverse
+          deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe multiverse
+          deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse
+          deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble-backports main restricted universe multiverse
+          EOF
+          sudo apt-get update -o Acquire::Retries=5
+
       - name: Install build deps (host)
         run: |
           sudo apt-get update
-          sudo apt-get install -y libudev-dev pkg-config
+          sudo apt-get install -y libudev-dev pkgconf
 
       - name: Install cross toolchain (aarch64)
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: |
-          sudo dpkg --add-architecture arm64
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu libc6-dev-arm64-cross libudev-dev:arm64
+          sudo dpkg --add-architecture arm64 || true
+          sudo apt-get update -o Acquire::Retries=5
+          sudo apt-get install -y gcc-aarch64-linux-gnu libc6-dev-arm64-cross libudev-dev:arm64 pkgconf:arm64
 
       - name: Install cross toolchain (armhf)
         if: matrix.target == 'armv7-unknown-linux-gnueabihf'
         run: |
-          sudo dpkg --add-architecture armhf
-          sudo apt-get update
-          sudo apt-get install -y gcc-arm-linux-gnueabihf libc6-dev-armhf-cross libudev-dev:armhf
+          sudo dpkg --add-architecture armhf || true
+          sudo apt-get update -o Acquire::Retries=5
+          sudo apt-get install -y gcc-arm-linux-gnueabihf libc6-dev-armhf-cross libudev-dev:armhf pkgconf:armhf
 
       - name: Build
         env:
@@ -99,14 +119,14 @@ jobs:
 
   linux-deb:
     name: linux-${{ matrix.distro }}-${{ matrix.arch }}-deb
-    runs-on: ${{ matrix.runner }}
+  runs-on: ${{ matrix.runner }}
     needs: linux-tar
     strategy:
       fail-fast: false
       matrix:
         include:
           - { distro: raspios, target: aarch64-unknown-linux-gnu, arch: arm64, debarch: arm64, runner: ubuntu-24.04 }
-          - { distro: raspios, target: armv7-unknown-linux-gnueabihf, arch: armhf, debarch: armhf, runner: ubuntu-22.04 }
+          - { distro: raspios, target: armv7-unknown-linux-gnueabihf, arch: armhf, debarch: armhf, runner: ubuntu-24.04 }
           - { distro: debian,  target: x86_64-unknown-linux-gnu, arch: x86_64, debarch: amd64, runner: ubuntu-24.04 }
           - { distro: debian,  target: aarch64-unknown-linux-gnu, arch: arm64, debarch: arm64, runner: ubuntu-24.04 }
           - { distro: ubuntu,  target: x86_64-unknown-linux-gnu, arch: x86_64, debarch: amd64, runner: ubuntu-24.04 }
@@ -128,16 +148,35 @@ jobs:
       - name: Install deb tooling
         run: |
           sudo apt-get update
-          sudo apt-get install -y dpkg-dev pkg-config libudev-dev
+          sudo apt-get install -y dpkg-dev pkgconf libudev-dev
           if [ "${{ matrix.debarch }}" = "arm64" ]; then
-            sudo dpkg --add-architecture arm64
-            sudo apt-get update
-            sudo apt-get install -y gcc-aarch64-linux-gnu libc6-dev-arm64-cross libudev-dev:arm64
+            sudo dpkg --add-architecture arm64 || true
+            # Prepare ports sources for noble
+            if [ "${{ matrix.runner }}" = "ubuntu-24.04" ]; then
+              sudo rm -rf /var/lib/apt/lists/*
+              cat <<'EOF' | sudo tee /etc/apt/sources.list.d/ubuntu-arm64.list
+              deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe multiverse
+              deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe multiverse
+              deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse
+              deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-backports main restricted universe multiverse
+              EOF
+            fi
+            sudo apt-get update -o Acquire::Retries=5
+            sudo apt-get install -y gcc-aarch64-linux-gnu libc6-dev-arm64-cross libudev-dev:arm64 pkgconf:arm64
           fi
           if [ "${{ matrix.debarch }}" = "armhf" ]; then
-            sudo dpkg --add-architecture armhf
-            sudo apt-get update
-            sudo apt-get install -y gcc-arm-linux-gnueabihf libc6-dev-armhf-cross libudev-dev:armhf
+            sudo dpkg --add-architecture armhf || true
+            if [ "${{ matrix.runner }}" = "ubuntu-24.04" ]; then
+              sudo rm -rf /var/lib/apt/lists/*
+              cat <<'EOF' | sudo tee /etc/apt/sources.list.d/ubuntu-armhf.list
+              deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe multiverse
+              deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe multiverse
+              deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse
+              deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble-backports main restricted universe multiverse
+              EOF
+            fi
+            sudo apt-get update -o Acquire::Retries=5
+            sudo apt-get install -y gcc-arm-linux-gnueabihf libc6-dev-armhf-cross libudev-dev:armhf pkgconf:armhf
           fi
           cargo install cargo-deb --locked
 
