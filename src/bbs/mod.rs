@@ -70,6 +70,7 @@ pub mod public;
 pub mod roles;
 pub mod dispatch;
 pub mod slotmachine;
+pub mod eightball;
 
 pub use server::BbsServer;
 

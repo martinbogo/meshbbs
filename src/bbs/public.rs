@@ -17,6 +17,9 @@ pub struct PublicState {
     // Separate, lighter cooldown for high-churn public commands like ^SLOT
     pub slot_last_spin: HashMap<String, Instant>, // node_id -> last spin time
     pub slot_cooldown: Duration,
+    // Lightweight cooldown for ^8BALL
+    pub eightball_last: HashMap<String, Instant>,
+    pub eightball_cooldown: Duration,
 }
 
 impl PublicState {
@@ -28,6 +31,8 @@ impl PublicState {
             pending_timeout,
             slot_last_spin: HashMap::new(),
             slot_cooldown: Duration::from_secs(3),
+            eightball_last: HashMap::new(),
+            eightball_cooldown: Duration::from_secs(2),
         }
     }
 
@@ -37,6 +42,8 @@ impl PublicState {
         // Keep slot entries reasonably small; drop entries not touched for 30 minutes
         let slot_ttl = Duration::from_secs(30 * 60);
         self.slot_last_spin.retain(|_, t| now.duration_since(*t) < slot_ttl);
+        // Same TTL policy for eightball
+        self.eightball_last.retain(|_, t| now.duration_since(*t) < slot_ttl);
     }
 
     pub fn set_pending(&mut self, node_id: &str, username: String) {
@@ -63,6 +70,15 @@ impl PublicState {
             _ => { self.slot_last_spin.insert(node_id.to_string(), now); true }
         }
     }
+
+    /// Lightweight, per-node rate limit for ^8BALL. Defaults to 2s between questions.
+    pub fn allow_8ball(&mut self, node_id: &str) -> bool {
+        let now = Instant::now();
+        match self.eightball_last.get(node_id) {
+            Some(last) if now.duration_since(*last) < self.eightball_cooldown => false,
+            _ => { self.eightball_last.insert(node_id.to_string(), now); true }
+        }
+    }
 }
 
 /// Minimal public channel command parser
@@ -87,6 +103,11 @@ impl PublicCommandParser {
         if body.eq_ignore_ascii_case("SLOTMACHINE") || body.eq_ignore_ascii_case("SLOT") {
             trace!("Parsed SLOTMACHINE from '{}'", raw);
             return PublicCommand::SlotMachine;
+        }
+        // Magic 8-Ball: ^8BALL
+        if body.eq_ignore_ascii_case("8BALL") {
+            trace!("Parsed 8BALL from '{}'", raw);
+            return PublicCommand::EightBall;
         }
         // Slot stats: ^SLOTSTATS
         if body.eq_ignore_ascii_case("SLOTSTATS") {
@@ -116,6 +137,7 @@ pub enum PublicCommand {
     Weather,
     SlotMachine,
     SlotStats,
+    EightBall,
     Unknown,
     Invalid(String),
 }
