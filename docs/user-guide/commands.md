@@ -2,6 +2,8 @@
 
 Complete reference for all meshbbs commands available to users.
 
+See also: the [Games](./games.md) page for public channel mini‑games (e.g., Slot Machine).
+
 ## Connection Commands
 
 ### Initial Discovery (Public Channel)
