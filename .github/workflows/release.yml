@@ -15,19 +15,19 @@ env:
 jobs:
   linux-tar:
     name: linux-${{ matrix.distro }}-${{ matrix.arch }}-tar
-    runs-on: ubuntu-22.04
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { distro: generic, target: x86_64-unknown-linux-gnu, arch: x86_64 }
-          - { distro: generic, target: aarch64-unknown-linux-gnu, arch: arm64 }
-          - { distro: raspios, target: aarch64-unknown-linux-gnu, arch: arm64 }
-          - { distro: raspios, target: armv7-unknown-linux-gnueabihf, arch: armhf }
-          - { distro: debian,  target: x86_64-unknown-linux-gnu, arch: x86_64 }
-          - { distro: debian,  target: aarch64-unknown-linux-gnu, arch: arm64 }
-          - { distro: ubuntu,  target: x86_64-unknown-linux-gnu, arch: x86_64 }
-          - { distro: ubuntu,  target: aarch64-unknown-linux-gnu, arch: arm64 }
+          - { distro: generic, target: x86_64-unknown-linux-gnu, arch: x86_64, runner: ubuntu-24.04 }
+          - { distro: generic, target: aarch64-unknown-linux-gnu, arch: arm64, runner: ubuntu-24.04 }
+          - { distro: raspios, target: aarch64-unknown-linux-gnu, arch: arm64, runner: ubuntu-24.04 }
+          - { distro: raspios, target: armv7-unknown-linux-gnueabihf, arch: armhf, runner: ubuntu-22.04 }
+          - { distro: debian,  target: x86_64-unknown-linux-gnu, arch: x86_64, runner: ubuntu-24.04 }
+          - { distro: debian,  target: aarch64-unknown-linux-gnu, arch: arm64, runner: ubuntu-24.04 }
+          - { distro: ubuntu,  target: x86_64-unknown-linux-gnu, arch: x86_64, runner: ubuntu-24.04 }
+          - { distro: ubuntu,  target: aarch64-unknown-linux-gnu, arch: arm64, runner: ubuntu-24.04 }
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -99,18 +99,18 @@ jobs:
 
   linux-deb:
     name: linux-${{ matrix.distro }}-${{ matrix.arch }}-deb
-    runs-on: ubuntu-22.04
+    runs-on: ${{ matrix.runner }}
     needs: linux-tar
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { distro: raspios, target: aarch64-unknown-linux-gnu, arch: arm64, debarch: arm64 }
-          - { distro: raspios, target: armv7-unknown-linux-gnueabihf, arch: armhf, debarch: armhf }
-          - { distro: debian,  target: x86_64-unknown-linux-gnu, arch: x86_64, debarch: amd64 }
-          - { distro: debian,  target: aarch64-unknown-linux-gnu, arch: arm64, debarch: arm64 }
-          - { distro: ubuntu,  target: x86_64-unknown-linux-gnu, arch: x86_64, debarch: amd64 }
-          - { distro: ubuntu,  target: aarch64-unknown-linux-gnu, arch: arm64, debarch: arm64 }
+          - { distro: raspios, target: aarch64-unknown-linux-gnu, arch: arm64, debarch: arm64, runner: ubuntu-24.04 }
+          - { distro: raspios, target: armv7-unknown-linux-gnueabihf, arch: armhf, debarch: armhf, runner: ubuntu-22.04 }
+          - { distro: debian,  target: x86_64-unknown-linux-gnu, arch: x86_64, debarch: amd64, runner: ubuntu-24.04 }
+          - { distro: debian,  target: aarch64-unknown-linux-gnu, arch: arm64, debarch: arm64, runner: ubuntu-24.04 }
+          - { distro: ubuntu,  target: x86_64-unknown-linux-gnu, arch: x86_64, debarch: amd64, runner: ubuntu-24.04 }
+          - { distro: ubuntu,  target: aarch64-unknown-linux-gnu, arch: arm64, debarch: arm64, runner: ubuntu-24.04 }
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -275,7 +275,7 @@ jobs:
 
   release:
     name: Create GitHub Release
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [linux-tar, linux-deb, macos-zip, windows-zip]
     steps:
       - name: Download artifacts
