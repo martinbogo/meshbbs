@@ -119,7 +119,7 @@ jobs:
 
   linux-deb:
     name: linux-${{ matrix.distro }}-${{ matrix.arch }}-deb
-  runs-on: ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner }}
     needs: linux-tar
     strategy:
       fail-fast: false
