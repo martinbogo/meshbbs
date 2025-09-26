@@ -45,21 +45,41 @@ jobs:
       - name: Prepare APT for multiarch (noble ports)
         if: matrix.runner == 'ubuntu-24.04' && (matrix.arch == 'arm64' || matrix.arch == 'armhf')
         run: |
+          set -euo pipefail
           sudo rm -rf /var/lib/apt/lists/*
-          sudo dpkg --add-architecture arm64 || true
-          sudo dpkg --add-architecture armhf || true
-          cat <<'EOF' | sudo tee /etc/apt/sources.list.d/ubuntu-arm64.list
-          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe multiverse
-          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe multiverse
-          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse
-          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-backports main restricted universe multiverse
-          EOF
-          cat <<'EOF' | sudo tee /etc/apt/sources.list.d/ubuntu-armhf.list
-          deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe multiverse
-          deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe multiverse
-          deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse
-          deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble-backports main restricted universe multiverse
-          EOF
+          # Add only the needed foreign architecture and its ports sources
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            sudo dpkg --add-architecture arm64 || true
+            cat <<'EOF' | sudo tee /etc/apt/sources.list.d/ubuntu-arm64.list
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe multiverse
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe multiverse
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-backports main restricted universe multiverse
+EOF
+            sudo rm -f /etc/apt/sources.list.d/ubuntu-armhf.list || true
+          fi
+          if [ "${{ matrix.arch }}" = "armhf" ]; then
+            sudo dpkg --add-architecture armhf || true
+            cat <<'EOF' | sudo tee /etc/apt/sources.list.d/ubuntu-armhf.list
+deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe multiverse
+deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe multiverse
+deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse
+deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble-backports main restricted universe multiverse
+EOF
+            sudo rm -f /etc/apt/sources.list.d/ubuntu-arm64.list || true
+          fi
+          # Restrict default Ubuntu repos to amd64 to avoid 404s for foreign arches
+          if [ -f /etc/apt/sources.list ]; then
+            sudo sed -i -E 's@^deb (\[.*\] )?http@deb [arch=amd64] http@g' /etc/apt/sources.list
+            sudo sed -i -E 's@^deb (\[.*\] )?https@deb [arch=amd64] https@g' /etc/apt/sources.list
+          fi
+          for f in /etc/apt/sources.list.d/*.list; do
+            case "$f" in
+              */ubuntu-arm64.list|*/ubuntu-armhf.list) continue ;;
+            esac
+            sudo sed -i -E 's@^deb (\[.*\] )?http@deb [arch=amd64] http@g' "$f" || true
+            sudo sed -i -E 's@^deb (\[.*\] )?https@deb [arch=amd64] https@g' "$f" || true
+          done
           sudo apt-get update -o Acquire::Retries=5
 
       - name: Install build deps (host)
@@ -155,11 +175,24 @@ jobs:
             if [ "${{ matrix.runner }}" = "ubuntu-24.04" ]; then
               sudo rm -rf /var/lib/apt/lists/*
               cat <<'EOF' | sudo tee /etc/apt/sources.list.d/ubuntu-arm64.list
-              deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe multiverse
-              deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe multiverse
-              deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse
-              deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-backports main restricted universe multiverse
-              EOF
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe multiverse
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe multiverse
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-backports main restricted universe multiverse
+EOF
+              sudo rm -f /etc/apt/sources.list.d/ubuntu-armhf.list || true
+              # Restrict default Ubuntu repos to amd64 to avoid 404s for foreign arch
+              if [ -f /etc/apt/sources.list ]; then
+                sudo sed -i -E 's@^deb (\[.*\] )?http@deb [arch=amd64] http@g' /etc/apt/sources.list
+                sudo sed -i -E 's@^deb (\[.*\] )?https@deb [arch=amd64] https@g' /etc/apt/sources.list
+              fi
+              for f in /etc/apt/sources.list.d/*.list; do
+                case "$f" in
+                  */ubuntu-arm64.list|*/ubuntu-armhf.list) continue ;;
+                esac
+                sudo sed -i -E 's@^deb (\[.*\] )?http@deb [arch=amd64] http@g' "$f" || true
+                sudo sed -i -E 's@^deb (\[.*\] )?https@deb [arch=amd64] https@g' "$f" || true
+              done
             fi
             sudo apt-get update -o Acquire::Retries=5
             sudo apt-get install -y gcc-aarch64-linux-gnu libc6-dev-arm64-cross libudev-dev:arm64 pkgconf:arm64
@@ -169,11 +202,24 @@ jobs:
             if [ "${{ matrix.runner }}" = "ubuntu-24.04" ]; then
               sudo rm -rf /var/lib/apt/lists/*
               cat <<'EOF' | sudo tee /etc/apt/sources.list.d/ubuntu-armhf.list
-              deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe multiverse
-              deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe multiverse
-              deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse
-              deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble-backports main restricted universe multiverse
-              EOF
+deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe multiverse
+deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe multiverse
+deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse
+deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports noble-backports main restricted universe multiverse
+EOF
+              sudo rm -f /etc/apt/sources.list.d/ubuntu-arm64.list || true
+              # Restrict default Ubuntu repos to amd64 to avoid 404s for foreign arch
+              if [ -f /etc/apt/sources.list ]; then
+                sudo sed -i -E 's@^deb (\[.*\] )?http@deb [arch=amd64] http@g' /etc/apt/sources.list
+                sudo sed -i -E 's@^deb (\[.*\] )?https@deb [arch=amd64] https@g' /etc/apt/sources.list
+              fi
+              for f in /etc/apt/sources.list.d/*.list; do
+                case "$f" in
+                  */ubuntu-arm64.list|*/ubuntu-armhf.list) continue ;;
+                esac
+                sudo sed -i -E 's@^deb (\[.*\] )?http@deb [arch=amd64] http@g' "$f" || true
+                sudo sed -i -E 's@^deb (\[.*\] )?https@deb [arch=amd64] https@g' "$f" || true
+              done
             fi
             sudo apt-get update -o Acquire::Retries=5
             sudo apt-get install -y gcc-arm-linux-gnueabihf libc6-dev-armhf-cross libudev-dev:armhf pkgconf:armhf
