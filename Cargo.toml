@@ -101,7 +101,7 @@ assets = [
 	["target/release/meshbbs", "opt/meshbbs/bin/", "755"],
 
 	# Runtime skeleton
-	["packaging/runtime-skel/config.example.toml", "opt/meshbbs/config.example.toml", "644"],
+	["config.example.toml", "opt/meshbbs/config.example.toml", "644"],
 	["packaging/runtime-skel/data/files/.keep", "opt/meshbbs/data/files/.keep", "644"],
 	["packaging/runtime-skel/data/messages/.keep", "opt/meshbbs/data/messages/.keep", "644"],
 	["packaging/runtime-skel/data/users/.keep", "opt/meshbbs/data/users/.keep", "644"],

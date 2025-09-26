@@ -80,6 +80,8 @@ jobs:
           mkdir -p "$ROOT/bin" dist
           # Copy runtime skeleton and docs
           cp -a packaging/runtime-skel/. "$ROOT/"
+          # Overwrite with real example config from repo root
+          cp config.example.toml "$ROOT/config.example.toml"
           cp "$BIN" "$ROOT/bin/${CRATE_NAME}"
           strip -s "$ROOT/bin/${CRATE_NAME}" || true
           cp README.md LICENSE "$ROOT/"
@@ -195,6 +197,7 @@ jobs:
           BIN=target/${{ matrix.target }}/release/${CRATE_NAME}
           mkdir -p "$ROOT/bin" dist
           cp -a packaging/runtime-skel/. "$ROOT/"
+          cp config.example.toml "$ROOT/config.example.toml"
           cp "$BIN" "$ROOT/bin/${CRATE_NAME}"
           strip -x "$ROOT/bin/${CRATE_NAME}" || true
           cp README.md LICENSE "$ROOT/"
@@ -250,6 +253,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path "dist" | Out-Null
           New-Item -ItemType Directory -Force -Path "$ROOT/bin" | Out-Null
           Copy-Item -Recurse -Force packaging/runtime-skel/* "$ROOT/"
+          Copy-Item -Force config.example.toml "$ROOT/config.example.toml"
           $BIN = "target/${{ matrix.target }}/release/${env:CRATE_NAME}.exe"
           Copy-Item $BIN "$ROOT/bin/${env:CRATE_NAME}.exe"
           Copy-Item README.md, LICENSE "$ROOT/"
