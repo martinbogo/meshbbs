@@ -5,7 +5,7 @@
   
   **A modern Bulletin Board System for Meshtastic mesh networks**
   
-  [![Version](https://img.shields.io/badge/version-1.0.5-blue.svg)](https://github.com/martinbogo/meshbbs/releases)
+   [![Version](https://img.shields.io/badge/version-1.0.6-blue.svg)](https://github.com/martinbogo/meshbbs/releases)
   [![License](https://img.shields.io/badge/license-CC--BY--NC--4.0-green.svg)](LICENSE)
   [![Language](https://img.shields.io/badge/language-Rust-orange.svg)](https://www.rust-lang.org/)
   [![Platform](https://img.shields.io/badge/platform-Meshtastic-purple.svg)](https://meshtastic.org/)
@@ -48,6 +48,7 @@ Comprehensive documentation is available in the [`docs/`](docs/) directory and h
 - **📜 Enhanced Help System**: Compact `HELP` + verbose `HELP+` with detailed command reference
 - **📏 Optimized Message Size**: 230-byte limit optimized for Meshtastic constraints
  - **🎰 Public Slot Machine**: Fun `^SLOT` mini‑game with daily coin refills and jackpots
+ - **✅ Broadcast ACK Confirmation (optional)**: Broadcasts can now request an ACK and treat any single ACK as “at least one hop” success; lightweight tracking with short TTL and new metrics (see below)
 
 ### 👥 **User Management & Security**
 - **🔐 Robust Security**: Argon2id password hashing with configurable parameters
@@ -190,6 +191,11 @@ These pacing controls reduce airtime contention and avoid triggering device / ne
 * `post_dm_broadcast_gap_ms` – Additional gap before a broadcast that immediately follows a reliable DM
 * `dm_to_dm_gap_ms` – Gap enforced between consecutive reliable DMs
 * `help_broadcast_delay_ms` – Higher-level scheduling delay for the public HELP notice after its DM reply; effective delay is `max(help_broadcast_delay_ms, min_send_gap_ms + post_dm_broadcast_gap_ms)` (default 3500ms) to prevent an immediate broadcast rate-limit right after a DM
+
+Metrics (preview):
+
+- Reliable DMs: `reliable_sent`, `reliable_acked`, `reliable_failed`, `reliable_retries`, `ack_latency_avg_ms`
+- Broadcasts: `broadcast_ack_confirmed` (at least one ACK observed), `broadcast_ack_expired` (no ACK before TTL)
 
 | `[storage]` | Data management | `max_message_size` |
 | `topics.json` | Forum topics (runtime) | Create/manage interactively; persisted to `data/topics.json` |

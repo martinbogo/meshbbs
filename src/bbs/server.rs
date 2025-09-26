@@ -532,6 +532,7 @@ impl BbsServer {
                             content: msg.clone(),
                             priority: MessagePriority::High,
                             kind: crate::meshtastic::OutgoingKind::Normal,
+                            request_ack: false,
                         };
                         let env = crate::bbs::dispatch::MessageEnvelope::new(
                             crate::bbs::dispatch::MessageCategory::Direct,
@@ -548,6 +549,7 @@ impl BbsServer {
                             content: msg.clone(),
                             priority: MessagePriority::High,
                             kind: crate::meshtastic::OutgoingKind::Normal,
+                            request_ack: false,
                         };
                         if tx.send(outgoing).is_err() { warn!("Failed to send pending DM to {dest} on channel {channel}"); still_pending.push((dest, channel, msg)); }
                     } else {
@@ -1521,7 +1523,7 @@ impl BbsServer {
                         };
                         if let Some(scheduler) = &self.scheduler {
                             info!("Scheduling HELP public notice in {}ms (text='{}')", delay_ms, escape_log(&public_notice));
-                            let outgoing = crate::meshtastic::OutgoingMessage { to_node: None, channel: 0, content: public_notice.clone(), priority: crate::meshtastic::MessagePriority::Normal, kind: crate::meshtastic::OutgoingKind::Normal };
+                            let outgoing = crate::meshtastic::OutgoingMessage { to_node: None, channel: 0, content: public_notice.clone(), priority: crate::meshtastic::MessagePriority::Normal, kind: crate::meshtastic::OutgoingKind::Normal, request_ack: true };
                                 let env = crate::bbs::dispatch::MessageEnvelope::new(
                                 crate::bbs::dispatch::MessageCategory::HelpBroadcast,
                                 crate::bbs::dispatch::Priority::Low,
@@ -1534,7 +1536,7 @@ impl BbsServer {
                             info!("Scheduling HELP public notice in {}ms (legacy path) text='{}'", delay_ms, escape_log(&notice));
                             tokio::spawn(async move {
                                 tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
-                                let outgoing = crate::meshtastic::OutgoingMessage { to_node: None, channel: 0, content: notice.clone(), priority: crate::meshtastic::MessagePriority::Normal, kind: crate::meshtastic::OutgoingKind::Normal };
+                                let outgoing = crate::meshtastic::OutgoingMessage { to_node: None, channel: 0, content: notice.clone(), priority: crate::meshtastic::MessagePriority::Normal, kind: crate::meshtastic::OutgoingKind::Normal, request_ack: true };
                                 if let Err(e) = tx.send(outgoing) { log::warn!("Failed to queue scheduled HELP public notice: {}", e); } else { log::debug!("Queued scheduled HELP public notice after delay (legacy)"); }
                             });
                         } else { warn!("Cannot schedule HELP public notice: no outgoing path"); }
@@ -1652,7 +1654,7 @@ impl BbsServer {
             if let Some(scheduler) = &self.scheduler {
                 let node_id = if let Some(hex) = to_node.strip_prefix("0x").or_else(|| to_node.strip_prefix("0X")) { u32::from_str_radix(hex, 16).ok() } else { to_node.parse::<u32>().ok() };
                 if let Some(id) = node_id {
-                    let outgoing = OutgoingMessage { to_node: Some(id), channel: 0, content: message.to_string(), priority: MessagePriority::High, kind: crate::meshtastic::OutgoingKind::Normal };
+                    let outgoing = OutgoingMessage { to_node: Some(id), channel: 0, content: message.to_string(), priority: MessagePriority::High, kind: crate::meshtastic::OutgoingKind::Normal, request_ack: false };
                     let env = crate::bbs::dispatch::MessageEnvelope::new(
                         crate::bbs::dispatch::MessageCategory::Direct,
                         crate::bbs::dispatch::Priority::High,
@@ -1668,7 +1670,7 @@ impl BbsServer {
                 let node_id = if let Some(hex) = to_node.strip_prefix("0x").or_else(|| to_node.strip_prefix("0X")) { u32::from_str_radix(hex, 16).ok() } else { to_node.parse::<u32>().ok() };
 
                 if let Some(id) = node_id {
-                    let outgoing = OutgoingMessage { to_node: Some(id), channel: 0, content: message.to_string(), priority: MessagePriority::High, kind: crate::meshtastic::OutgoingKind::Normal };
+                    let outgoing = OutgoingMessage { to_node: Some(id), channel: 0, content: message.to_string(), priority: MessagePriority::High, kind: crate::meshtastic::OutgoingKind::Normal, request_ack: false };
 
                     match tx.send(outgoing) {
                         Ok(_) => {
@@ -1709,7 +1711,7 @@ impl BbsServer {
     #[cfg(feature = "meshtastic-proto")]
     pub async fn send_broadcast(&mut self, message: &str) -> Result<()> {
         if let Some(scheduler) = &self.scheduler {
-            let outgoing = OutgoingMessage { to_node: None, channel: 0, content: message.to_string(), priority: MessagePriority::Normal, kind: crate::meshtastic::OutgoingKind::Normal };
+            let outgoing = OutgoingMessage { to_node: None, channel: 0, content: message.to_string(), priority: MessagePriority::Normal, kind: crate::meshtastic::OutgoingKind::Normal, request_ack: true };
             let env = crate::bbs::dispatch::MessageEnvelope::new(
                 crate::bbs::dispatch::MessageCategory::Broadcast,
                 crate::bbs::dispatch::Priority::Low,
@@ -1719,7 +1721,7 @@ impl BbsServer {
             scheduler.enqueue(env);
             Ok(())
         } else {
-            let outgoing = OutgoingMessage { to_node: None, channel: 0, content: message.to_string(), priority: MessagePriority::Normal, kind: crate::meshtastic::OutgoingKind::Normal };
+            let outgoing = OutgoingMessage { to_node: None, channel: 0, content: message.to_string(), priority: MessagePriority::Normal, kind: crate::meshtastic::OutgoingKind::Normal, request_ack: true };
             if let Some(ref tx) = self.outgoing_tx {
                 match tx.send(outgoing) { Ok(_) => { debug!("Queued broadcast message: {}", escape_log(message)); Ok(()) }, Err(e) => { warn!("Failed to queue broadcast message: {}", e); Err(anyhow!("Failed to queue broadcast: {}", e)) } }
             } else {

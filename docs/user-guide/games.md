@@ -12,7 +12,7 @@ Meshbbs includes optional, lightweight games you can access from the public chan
   - New players start with 100 coins
   - If your balance reaches 0, you’ll be refilled to 100 after ~24 hours
 - Payouts (multiplier × bet):
-  - 7️⃣7️⃣7️⃣ ×100 (jackpot), 🟦🟦🟦 ×50, 🔔🔔🔔 ×20, 🍇🍇🍇 ×14, 🍊🍊🍊 ×10, 🍋🍋🍋 ×8, 🍒🍒🍒 ×5
+  - 7️⃣7️⃣7️⃣ = JACKPOT (progressive pot, minimum 500 coins; grows by 5 coins per losing spin), 🟦🟦🟦 ×50, 🔔🔔🔔 ×20, 🍇🍇🍇 ×14, 🍊🍊🍊 ×10, 🍋🍋🍋 ×8, 🍒🍒🍒 ×5
   - Two 🍒 ×3, one 🍒 ×2, otherwise ×0
 - Visibility: Results are broadcast to the mesh; if broadcast can’t be sent immediately, a DM fallback is used
 - Persistence: Player balances and stats are stored under `data/slotmachine/players.json`

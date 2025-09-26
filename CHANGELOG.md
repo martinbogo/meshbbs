@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 This file records notable changes for meshbbs. Starting with the 1.0.0 BETA baseline, new entries will be added above this section over time (e.g., 1.0.1, 1.0.2).
 
+## [1.0.6] - 2025-09-26
+
+Broadcast reliability telemetry and optional confirmation for public messages.
+
+### Added
+- Optional broadcast ACK request: broadcasts can set `want_ack`; if any node ACKs, we consider it a success ("at least one hop").
+- Lightweight broadcast ACK tracking in the writer with a short TTL (no retries) to avoid ACK storms.
+- Metrics: `broadcast_ack_confirmed` and `broadcast_ack_expired` counters for trend visibility.
+
+### Changed
+- Updated HELP/public broadcast paths to request ACKs for visibility (DMs remain reliable with retries/backoff).
+- Documentation updates in `README.md` to describe broadcast confirmation semantics and new metrics.
+
+### Notes
+- Direct messages remain fully reliable with ACK tracking, retries, and latency metrics; broadcasts remain best‑effort but can now indicate basic delivery when at least one ACK is observed.
+
 ## [1.0.5] - 2025-09-25
 
 Added a public‑channel slot machine mini‑game and related documentation updates.

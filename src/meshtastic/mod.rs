@@ -98,6 +98,10 @@ pub struct OutgoingMessage {
     pub content: String,       // Message content
     pub priority: MessagePriority,
     pub kind: OutgoingKind,    // Normal or Retry
+    /// Request an ACK even for broadcasts. When true, writer will set want_ack and
+    /// assign a non-zero id for correlation. For direct messages this flag is ignored
+    /// because DMs are always sent reliable with want_ack.
+    pub request_ack: bool,
 }
 
 /// Writer tuning parameters, typically sourced from Config
@@ -399,6 +403,8 @@ pub struct MeshtasticWriter {
     last_want_config_sent: Option<std::time::Instant>,
     // Track pending reliable sends awaiting ACK
     pending: std::collections::HashMap<u32, PendingSend>,
+    // Track broadcast ACKs (no retries). Keyed by packet id, expires after short TTL.
+    pending_broadcast: std::collections::HashMap<u32, BroadcastPending>,
     // Pacing: time of the last high-priority (reliable DM) send to avoid rate limiting
     last_high_priority_sent: Option<std::time::Instant>,
     // Gating: enforce a minimum interval between any text packet transmissions
@@ -422,6 +428,13 @@ struct PendingSend {
     backoff_idx: u8,
     // Original send timestamp for latency metrics
     sent_at: std::time::Instant,
+}
+
+#[derive(Debug, Clone)]
+struct BroadcastPending {
+    channel: u32,
+    preview: String,
+    expires_at: std::time::Instant,
 }
 
 impl MeshtasticDevice {
@@ -1677,6 +1690,7 @@ impl MeshtasticWriter {
             config_request_id: None,
             last_want_config_sent: None,
             pending: std::collections::HashMap::new(),
+            pending_broadcast: std::collections::HashMap::new(),
             last_high_priority_sent: None,
             last_text_send: None,
             tuning,
@@ -1700,6 +1714,7 @@ impl MeshtasticWriter {
             config_request_id: None,
             last_want_config_sent: None,
             pending: std::collections::HashMap::new(),
+            pending_broadcast: std::collections::HashMap::new(),
             last_high_priority_sent: None,
             last_text_send: None,
             tuning,
@@ -1769,7 +1784,7 @@ impl MeshtasticWriter {
                                                                     MessageCategory::Retry,
                                                                     Priority::High,
                                                                     next_delay,
-                                                                    OutgoingMessage { to_node: Some(to), channel, content: String::new(), priority: MessagePriority::High, kind: OutgoingKind::Retry { id } }
+                                                                    OutgoingMessage { to_node: Some(to), channel, content: String::new(), priority: MessagePriority::High, kind: OutgoingKind::Retry { id }, request_ack: false }
                                                                 );
                                                                 sched.enqueue(retry_env);
                                                             }
@@ -1786,7 +1801,7 @@ impl MeshtasticWriter {
                                                     MessageCategory::Retry,
                                                     Priority::High,
                                                     remaining,
-                                                    OutgoingMessage { to_node: Some(ready.to), channel: ready.channel, content: String::new(), priority: MessagePriority::High, kind: OutgoingKind::Retry { id } }
+                                                    OutgoingMessage { to_node: Some(ready.to), channel: ready.channel, content: String::new(), priority: MessagePriority::High, kind: OutgoingKind::Retry { id }, request_ack: false }
                                                 );
                                                 sched.enqueue(retry_env);
                                             }
@@ -1816,6 +1831,12 @@ impl MeshtasticWriter {
                                 metrics::observe_ack_latency(p.sent_at);
                                 metrics::inc_reliable_acked();
                                 info!("Delivered id={} to=0x{:08x} ({}), attempts={} latency_ms={}", id, p.to, p.content_preview, p.attempts, p.sent_at.elapsed().as_millis());
+                            } else if let Some(bp) = self.pending_broadcast.remove(&id) {
+                                metrics::inc_broadcast_ack_confirmed();
+                                info!(
+                                    "Broadcast confirmed by at least one ack: id={} channel={} preview='{}'",
+                                    id, bp.channel, escape_log(&bp.preview)
+                                );
                             } else {
                                 debug!("Delivered id={} (no pending entry)", id);
                             }
@@ -1895,6 +1916,20 @@ impl MeshtasticWriter {
                 _ = heartbeat_interval.tick() => {
                     // periodic heartbeat
                     if let Err(e) = self.send_heartbeat() { debug!("Heartbeat send error: {:?}", e); }
+                    // expire stale broadcast ack trackers
+                    let now = std::time::Instant::now();
+                    let expired: Vec<u32> = self.pending_broadcast.iter()
+                        .filter_map(|(id, bp)| if bp.expires_at <= now { Some(*id) } else { None })
+                        .collect();
+                    for id in expired {
+                        if let Some(bp) = self.pending_broadcast.remove(&id) {
+                            metrics::inc_broadcast_ack_expired();
+                            debug!(
+                                "Broadcast id={} expired without ack (channel={}, preview='{}')",
+                                id, bp.channel, escape_log(&bp.preview)
+                            );
+                        }
+                    }
                 }
                 
             }
@@ -1932,7 +1967,8 @@ impl MeshtasticWriter {
         )?;
         
         let is_dm = msg.to_node.is_some() && dest != 0xffffffff;
-        let packet_id = if is_dm {
+        let wants_ack_broadcast = !is_dm && dest == 0xffffffff && msg.request_ack;
+        let packet_id = if is_dm || wants_ack_broadcast {
             use std::time::{SystemTime, UNIX_EPOCH};
             let since_epoch = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
             (since_epoch.as_secs() as u32) ^ (since_epoch.subsec_nanos())
@@ -1975,7 +2011,7 @@ impl MeshtasticWriter {
             rx_time: 0,
             rx_snr: 0.0,
             hop_limit: 3,
-            want_ack: is_dm,
+            want_ack: is_dm || wants_ack_broadcast,
             priority,
             ..Default::default()
         };
@@ -2011,14 +2047,14 @@ impl MeshtasticWriter {
                 escape_log(&msg.content)
             };
             
-            let msg_type = if is_dm { "DM (reliable)" } else { "broadcast" };
+            let msg_type = if is_dm { "DM (reliable)" } else if wants_ack_broadcast { "broadcast (want_ack)" } else { "broadcast" };
             debug!(
                 "Sent TextPacket ({}): to=0x{:08x} channel={} id={} want_ack={} priority={} ({} bytes) text='{}'",
                 msg_type,
                 dest,
                 msg.channel,
                 packet_id,
-                is_dm,
+                is_dm || wants_ack_broadcast,
                 priority,
                 payload.len(),
                 display_text
@@ -2055,6 +2091,7 @@ impl MeshtasticWriter {
                             content: String::new(), // content not needed (will lookup pending)
                             priority: MessagePriority::High,
                             kind: OutgoingKind::Retry { id: packet_id },
+                            request_ack: false,
                         }
                     );
                     sched.enqueue(retry_env);
@@ -2066,8 +2103,13 @@ impl MeshtasticWriter {
                 }
                 // Update pacing marker for high-priority
                 self.last_high_priority_sent = Some(std::time::Instant::now());
+            } else if wants_ack_broadcast {
+                // Track this broadcast awaiting at-least-one ack; no retries, short TTL
+                let preview = if msg.content.len() > 40 { let t = &msg.content[..37]; format!("{}...", escape_log(t)) } else { escape_log(&msg.content) };
+                let ttl = std::time::Duration::from_secs(10);
+                self.pending_broadcast.insert(packet_id, BroadcastPending { channel: msg.channel, preview, expires_at: std::time::Instant::now() + ttl });
             } else if priority == 0 {
-                // For broadcasts, do not update high-priority marker
+                // For broadcasts without ack request, do not update high-priority marker
             }
         }
         

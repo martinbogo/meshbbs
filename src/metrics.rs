@@ -9,6 +9,8 @@ static RELIABLE_FAILED: AtomicU64 = AtomicU64::new(0);
 static RELIABLE_RETRIES: AtomicU64 = AtomicU64::new(0);
 static ACK_LATENCY_SUM_MS: AtomicU64 = AtomicU64::new(0);
 static ACK_LATENCY_COUNT: AtomicU64 = AtomicU64::new(0);
+static BROADCAST_ACK_CONFIRMED: AtomicU64 = AtomicU64::new(0);
+static BROADCAST_ACK_EXPIRED: AtomicU64 = AtomicU64::new(0);
 
 #[allow(dead_code)]
 pub fn inc_reliable_sent() { RELIABLE_SENT.fetch_add(1, Ordering::Relaxed); }
@@ -25,6 +27,11 @@ pub fn observe_ack_latency(sent_at: Instant) {
     ACK_LATENCY_COUNT.fetch_add(1, Ordering::Relaxed);
 }
 
+#[allow(dead_code)]
+pub fn inc_broadcast_ack_confirmed() { BROADCAST_ACK_CONFIRMED.fetch_add(1, Ordering::Relaxed); }
+#[allow(dead_code)]
+pub fn inc_broadcast_ack_expired() { BROADCAST_ACK_EXPIRED.fetch_add(1, Ordering::Relaxed); }
+
 #[derive(Debug, Default, Clone)]
 #[allow(dead_code)] // Fields read primarily in tests / future metrics endpoint
 pub struct Snapshot {
@@ -33,6 +40,8 @@ pub struct Snapshot {
     pub reliable_failed: u64,
     pub reliable_retries: u64,
     pub ack_latency_avg_ms: Option<u64>,
+    pub broadcast_ack_confirmed: u64,
+    pub broadcast_ack_expired: u64,
 }
 
 #[allow(dead_code)]
@@ -43,11 +52,15 @@ pub fn snapshot() -> Snapshot {
     let retries = RELIABLE_RETRIES.load(Ordering::Relaxed);
     let sum = ACK_LATENCY_SUM_MS.load(Ordering::Relaxed);
     let count = ACK_LATENCY_COUNT.load(Ordering::Relaxed);
+    let bcast_ok = BROADCAST_ACK_CONFIRMED.load(Ordering::Relaxed);
+    let bcast_exp = BROADCAST_ACK_EXPIRED.load(Ordering::Relaxed);
     Snapshot {
         reliable_sent: sent,
         reliable_acked: acked,
         reliable_failed: failed,
         reliable_retries: retries,
         ack_latency_avg_ms: if count > 0 { Some(sum / count) } else { None },
+        broadcast_ack_confirmed: bcast_ok,
+        broadcast_ack_expired: bcast_exp,
     }
 }

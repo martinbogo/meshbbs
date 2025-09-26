@@ -11,8 +11,8 @@
 //! - `^SLOT` / `^SLOTMACHINE` — spin once and broadcast the result (with DM fallback)
 //! - `^SLOTSTATS` — show per‑player stats and current coin balance
 //!
-//! Payouts (multiplier × bet):
-//! - 7️⃣7️⃣7️⃣ = ×100 (JACKPOT)
+//! Payouts:
+//! - 7️⃣7️⃣7️⃣ = JACKPOT — pays the progressive pot (minimum 500 coins; grows by the bet amount (5 coins) for every losing spin across all players)
 //! - 🟦🟦🟦 = ×50
 //! - 🔔🔔🔔 = ×20
 //! - 🍇🍇🍇 = ×14
@@ -22,6 +22,10 @@
 //! - Two 🍒 = ×3
 //! - One 🍒 = ×2
 //! - Otherwise = ×0
+//!
+//! Jackpot pot: The global jackpot starts at 500 coins and increases by the bet amount for
+//! every losing spin across all players. When a player hits 7️⃣7️⃣7️⃣, they win the current
+//! jackpot (>= 500). After payout, the jackpot resets back to 500 (loss counter to 0).
 //!
 //! The module is intentionally self‑contained and exposes a small API that the BBS server calls
 //! to perform spins and query player status.
@@ -90,6 +94,10 @@ fn players_file_path(base_dir: &str) -> PathBuf {
     Path::new(base_dir).join("slotmachine").join("players.json")
 }
 
+fn jackpot_file_path(base_dir: &str) -> PathBuf {
+    Path::new(base_dir).join("slotmachine").join("jackpot.json")
+}
+
 fn load_players(base_dir: &str) -> PlayersFile {
     let dir = Path::new(base_dir).join("slotmachine");
     if let Err(e) = ensure_dir(&dir) {
@@ -128,6 +136,106 @@ fn save_players(base_dir: &str, players: &PlayersFile) {
             }
         }
         Err(e) => log::warn!("slotmachine: serialize error: {}", e),
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+struct GlobalJackpot {
+    /// Count of losing spins across all players since the last jackpot payout
+    #[serde(default)]
+    losses: u64,
+    /// Time of last jackpot payout
+    #[serde(default)]
+    last_win: Option<DateTime<Utc>>,
+    /// Node ID string of last jackpot winner (Meshtastic node id as string)
+    #[serde(default)]
+    last_win_node: Option<String>,
+}
+
+// load/save helpers removed in favor of atomic read-modify-write functions below
+
+fn jackpot_payout_and_reset(base_dir: &str, now: DateTime<Utc>, winner: &str) -> u32 {
+    let dir = Path::new(base_dir).join("slotmachine");
+    let _ = ensure_dir(&dir);
+    let path = jackpot_file_path(base_dir);
+    // Open with read/write to allow locking and persistence
+    let mut jackpot = GlobalJackpot::default();
+    if let Ok(mut f) = fs::OpenOptions::new().create(true).read(true).write(true).truncate(false).open(&path) {
+        let _ = f.lock_exclusive();
+        // Read current
+        let mut s = String::new();
+        let _ = f.read_to_string(&mut s);
+        if !s.is_empty() {
+            jackpot = serde_json::from_str(&s).unwrap_or_default();
+        }
+    // Compute payout: 500 base + losses * BET_COINS
+    let mut payout_u64 = 500u64 + jackpot.losses.saturating_mul(BET_COINS as u64);
+        if payout_u64 > u32::MAX as u64 { payout_u64 = u32::MAX as u64; }
+        let payout = payout_u64 as u32;
+    // Reset and save
+        jackpot.losses = 0;
+        jackpot.last_win = Some(now);
+    jackpot.last_win_node = Some(winner.to_string());
+        let data = serde_json::to_string_pretty(&jackpot).unwrap_or_else(|_| "{}".to_string());
+        let _ = f.set_len(0);
+        let _ = f.write_all(data.as_bytes());
+        let _ = f.flush();
+        let _ = f.unlock();
+        payout
+    } else {
+        // File open failed, still honor minimum jackpot
+        500
+    }
+}
+
+fn jackpot_record_loss(base_dir: &str) {
+    let dir = Path::new(base_dir).join("slotmachine");
+    let _ = ensure_dir(&dir);
+    let path = jackpot_file_path(base_dir);
+    if let Ok(mut f) = fs::OpenOptions::new().create(true).read(true).write(true).truncate(false).open(&path) {
+        let _ = f.lock_exclusive();
+        let mut s = String::new();
+        let _ = f.read_to_string(&mut s);
+        let mut jackpot: GlobalJackpot = if s.is_empty() { GlobalJackpot::default() } else { serde_json::from_str(&s).unwrap_or_default() };
+        jackpot.losses = jackpot.losses.saturating_add(1);
+        let data = serde_json::to_string_pretty(&jackpot).unwrap_or_else(|_| "{}".to_string());
+        let _ = f.set_len(0);
+        let _ = f.write_all(data.as_bytes());
+        let _ = f.flush();
+        let _ = f.unlock();
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct JackpotSummary {
+    /// Current jackpot amount in coins if won now (max(losses, 500))
+    pub amount: u64,
+    /// Date of last jackpot payout (UTC, date only)
+    pub last_win_date: Option<chrono::NaiveDate>,
+    /// Node ID of last winner (string), if known
+    pub last_win_node: Option<String>,
+}
+
+/// Read the current global jackpot summary. This uses a shared lock for consistency.
+pub fn get_jackpot_summary(base_dir: &str) -> JackpotSummary {
+    let dir = Path::new(base_dir).join("slotmachine");
+    let _ = ensure_dir(&dir);
+    let path = jackpot_file_path(base_dir);
+    let mut jackpot: GlobalJackpot = GlobalJackpot::default();
+    if let Ok(mut f) = fs::OpenOptions::new().read(true).open(&path) {
+        let _ = f.lock_shared();
+        let mut s = String::new();
+        let _ = f.read_to_string(&mut s);
+        if !s.is_empty() {
+            jackpot = serde_json::from_str(&s).unwrap_or_default();
+        }
+        let _ = f.unlock();
+    }
+    let amt = 500u64 + jackpot.losses.saturating_mul(BET_COINS as u64);
+    JackpotSummary {
+        amount: amt,
+        last_win_date: jackpot.last_win.map(|t| t.date_naive()),
+        last_win_node: jackpot.last_win_node,
     }
 }
 
@@ -194,13 +302,11 @@ pub fn perform_spin(base_dir: &str, player_id: &str) -> (SpinOutcome, u32) {
             .or_insert(PlayerState { coins: DAILY_GRANT, last_reset: now, total_spins: 0, total_wins: 0, jackpots: 0, last_spin: None, last_jackpot: None });
 
         // Handle zero-balance refill window
-        if entry.coins < BET_COINS {
-            if entry.coins == 0 {
-                let elapsed = now.signed_duration_since(entry.last_reset);
-                if elapsed >= ChronoDuration::hours(REFILL_HOURS) {
-                    entry.coins = DAILY_GRANT;
-                    entry.last_reset = now;
-                }
+        if entry.coins < BET_COINS && entry.coins == 0 {
+            let elapsed = now.signed_duration_since(entry.last_reset);
+            if elapsed >= ChronoDuration::hours(REFILL_HOURS) {
+                entry.coins = DAILY_GRANT;
+                entry.last_reset = now;
             }
         }
 
@@ -229,8 +335,19 @@ pub fn perform_spin(base_dir: &str, player_id: &str) -> (SpinOutcome, u32) {
             let r2 = spin_reel(&REEL2);
             let r3 = spin_reel(&REEL3);
             let (mult, desc) = evaluate(r1, r2, r3);
-            let winnings = BET_COINS * mult;
-            entry.coins = entry.coins.saturating_add(winnings);
+            let winnings: u32;
+            if mult == 100 {
+                // Jackpot payout: number of losses (coins) with a floor of 500 coins, atomically reset
+                winnings = jackpot_payout_and_reset(base_dir, now, player_id);
+                entry.coins = entry.coins.saturating_add(winnings);
+            } else {
+                winnings = BET_COINS.saturating_mul(mult);
+                entry.coins = entry.coins.saturating_add(winnings);
+                // Accumulate pot on losses only (multiplier == 0)
+                if mult == 0 {
+                    jackpot_record_loss(base_dir);
+                }
+            }
             // Stats
             entry.total_spins = entry.total_spins.saturating_add(1);
             entry.last_spin = Some(now);
@@ -249,6 +366,7 @@ pub fn perform_spin(base_dir: &str, player_id: &str) -> (SpinOutcome, u32) {
 
     // Persist after mutation
     save_players(base_dir, &file);
+    // Jackpot state already updated atomically above if needed
 
     (outcome, balance_after)
 }
@@ -333,7 +451,7 @@ mod tests {
         let (_out, bal) = perform_spin(base, "node2");
         // After refill and one spin, balance should be at least DAILY_GRANT - BET
         assert!(bal >= DAILY_GRANT - BET_COINS);
-        // Upper bound: won jackpot => +BET*100
-        assert!(bal <= DAILY_GRANT - BET_COINS + BET_COINS * 100);
+    // Upper bound for fresh state: jackpot minimum equals BET*100 (500 coins). Pot can be larger over time.
+    assert!(bal <= DAILY_GRANT - BET_COINS + BET_COINS * 100);
     }
 }
