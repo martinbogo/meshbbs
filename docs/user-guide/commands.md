@@ -2,7 +2,7 @@
 
 Complete reference for all meshbbs commands available to users.
 
-See also: the [Games](./games.md) page for public channel mini‑games (e.g., Slot Machine).
+See also: the [Games](./games.md) page for public channel mini‑games (e.g., Slot Machine, Magic 8‑Ball).
 
 ## Connection Commands
 
@@ -21,6 +21,7 @@ Reliability:
 | `^WEATHER` | Show current weather | `^WEATHER` |
 | `^SLOT` / `^SLOTMACHINE` | Spin the emoji slot machine (5 coins per spin; daily refill) | `^SLOT` |
 | `^SLOTSTATS` | Show your coin balance and slot stats | `^SLOTSTATS` |
+| `^8BALL` | Ask the Magic 8‑Ball a question; get a random response | `^8BALL` |
 
 ## Session Commands (Direct Message)
 

@@ -12,7 +12,7 @@ Welcome to the comprehensive documentation for meshbbs, a modern Bulletin Board 
 ### User Guide
 - [Connecting to the BBS](user-guide/connecting.md) - How to connect via Meshtastic
 - [Command Reference](user-guide/commands.md) - Complete command documentation
-- [Games](user-guide/games.md) - Public channel mini‑games like the Slot Machine
+- [Games](user-guide/games.md) - Public channel mini‑games like Slot Machine and Magic 8‑Ball
 - [Message Topics](user-guide/message-topics.md) - Using the bulletin board system
 - [Troubleshooting](user-guide/troubleshooting.md) - Common issues and solutions
 
