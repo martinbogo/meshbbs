@@ -15,7 +15,7 @@ env:
 jobs:
   linux-builds:
     name: Linux builds (x86_64, aarch64, armv7)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
@@ -100,7 +100,7 @@ jobs:
 
   deb-packages:
     name: Debian packages (amd64, arm64)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: linux-builds
     strategy:
       fail-fast: false
@@ -249,7 +249,7 @@ jobs:
 
   release:
     name: Create GitHub Release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: [linux-builds, deb-packages, macos, windows]
     steps:
       - name: Download artifacts
