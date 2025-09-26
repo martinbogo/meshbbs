@@ -1,0 +1,28 @@
+{
+  "topics": {
+    "community": {
+      "name": "community",
+      "description": "General community chat and announcements.",
+      "read_level": 1,
+      "post_level": 1,
+      "created_by": "system",
+      "created_at": "2025-01-01T00:00:00Z"
+    },
+    "general": {
+      "name": "general",
+      "description": "General discussion about MeshBBS and Meshtastic.",
+      "read_level": 1,
+      "post_level": 1,
+      "created_by": "system",
+      "created_at": "2025-01-01T00:00:00Z"
+    },
+    "technical": {
+      "name": "technical",
+      "description": "Technical support, development, and troubleshooting.",
+      "read_level": 1,
+      "post_level": 1,
+      "created_by": "system",
+      "created_at": "2025-01-01T00:00:00Z"
+    }
+  }
+}

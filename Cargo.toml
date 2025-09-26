@@ -105,6 +105,7 @@ assets = [
 	["packaging/runtime-skel/data/files/.keep", "opt/meshbbs/data/files/.keep", "644"],
 	["packaging/runtime-skel/data/messages/.keep", "opt/meshbbs/data/messages/.keep", "644"],
 	["packaging/runtime-skel/data/users/.keep", "opt/meshbbs/data/users/.keep", "644"],
+	["packaging/runtime-skel/data/topics.json", "opt/meshbbs/data/topics.json", "644"],
 
 	# Docs
 	["README.md", "opt/meshbbs/README.md", "644"],
