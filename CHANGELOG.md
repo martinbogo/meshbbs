@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 This file records notable changes for meshbbs. Starting with the 1.0.0 BETA baseline, new entries will be added above this section over time (e.g., 1.0.1, 1.0.2).
 
+## [1.0.8-beta] - 2025-09-26
+
+### Changed
+- Logging hygiene: demote noisy INFO logs to DEBUG in HELP flow, weather fetch/success, cache loads, serial open, reader/writer init, resend attempts, and per-message delivered ACK logs.
+
+### Fixed
+- Public `^SLOT` behavior corrected to be broadcast-only (no DM). `^SLOTSTATS` remains broadcast-first with DM fallback for reliability.
+
 ## [1.0.7] - 2025-09-26
 
 Documentation alignment follow-up for the 1.0.6 release.
