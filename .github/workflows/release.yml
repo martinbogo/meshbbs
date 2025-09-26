@@ -13,7 +13,7 @@ env:
   CRATE_NAME: meshbbs
 
 jobs:
-  linux-cross-build:
+  linux-builds:
     name: Linux builds (x86_64, aarch64, armv7)
     runs-on: ubuntu-latest
     strategy:
@@ -47,12 +47,41 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Install cross
-        run: cargo install cross --locked
-
-      - name: Build (release)
+      - name: Install ARM64 toolchain and libs (aarch64)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: |
-          cross build --release --target ${{ matrix.target }}
+          sudo dpkg --add-architecture arm64
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu libc6-dev-arm64-cross libudev-dev:arm64 pkg-config
+
+      - name: Install ARMv7 toolchain and libs (armhf)
+        if: matrix.target == 'armv7-unknown-linux-gnueabihf'
+        run: |
+          sudo dpkg --add-architecture armhf
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-linux-gnueabihf libc6-dev-armhf-cross libudev-dev:armhf pkg-config
+
+      - name: Build (release) x86_64
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Build (release) aarch64
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        env:
+          CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+          PKG_CONFIG_ALLOW_CROSS: "1"
+          PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig:/usr/aarch64-linux-gnu/lib/pkgconfig
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Build (release) armv7
+        if: matrix.target == 'armv7-unknown-linux-gnueabihf'
+        env:
+          CC_armv7_unknown_linux_gnueabihf: arm-linux-gnueabihf-gcc
+          CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER: arm-linux-gnueabihf-gcc
+          PKG_CONFIG_ALLOW_CROSS: "1"
+          PKG_CONFIG_PATH: /usr/lib/arm-linux-gnueabihf/pkgconfig
+        run: cargo build --release --target ${{ matrix.target }}
 
       - name: Package tar.gz
         run: |
@@ -72,7 +101,7 @@ jobs:
   deb-packages:
     name: Debian packages (amd64, arm64)
     runs-on: ubuntu-latest
-    needs: linux-cross-build
+    needs: linux-builds
     strategy:
       fail-fast: false
       matrix:
@@ -99,12 +128,25 @@ jobs:
       - name: Install tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y dpkg-dev gcc-aarch64-linux-gnu libudev-dev
+          sudo dpkg --add-architecture arm64
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev gcc-aarch64-linux-gnu libc6-dev-arm64-cross libudev-dev libudev-dev:arm64 pkg-config
           cargo install cargo-deb --locked
 
       - name: Build .deb
+        env:
+          CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+          PKG_CONFIG_ALLOW_CROSS: "1"
+          PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig:/usr/aarch64-linux-gnu/lib/pkgconfig
         run: |
-          cargo deb --no-build --target ${{ matrix.target }} || cargo deb --target ${{ matrix.target }}
+          # Rebuild for target to ensure correct arch and dependencies
+          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
+            cargo build --release --target ${{ matrix.target }}
+            cargo deb --target ${{ matrix.target }}
+          else
+            cargo deb --target ${{ matrix.target }}
+          fi
           VERSION=${GITHUB_REF_NAME#v}
           # Locate resulting .deb
           DEB=$(ls target/${{ matrix.target }}/debian/*.deb | head -n1)
