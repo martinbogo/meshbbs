@@ -1571,7 +1571,8 @@ impl BbsServer {
                     }
                 }
                 PublicCommand::SlotMachine => {
-                    if self.public_state.should_reply(&node_key) {
+                    // Use a lighter, per-node slot cooldown (does not block other public replies)
+                    if self.public_state.allow_slot(&node_key) {
                         let base = self.storage.base_dir().to_string();
                         let (outcome, coins) = crate::bbs::slotmachine::perform_spin(&base, &node_key);
                         let msg = if outcome.r1 == "⛔" {
@@ -1593,30 +1594,33 @@ impl BbsServer {
                                 outcome.r1, outcome.r2, outcome.r3, crate::bbs::slotmachine::BET_COINS, coins
                             )
                         };
-                        let mut broadcasted = false;
+                        // Always DM the user their result promptly so it isn't lost on scheduler overflow
+                        let _ = self.send_message(&node_key, &msg).await;
+                        // Additionally attempt a broadcast for room visibility (best-effort)
                         #[cfg(feature = "meshtastic-proto")]
                         {
-                            match self.send_broadcast(&msg).await {
-                                Ok(_) => { trace!("Broadcasted slot result: '{}'", msg); broadcasted = true; },
-                                Err(e) => { warn!("Slot result broadcast failed: {e:?} (will fallback DM)"); }
-                            }
+                            if let Err(e) = self.send_broadcast(&msg).await { warn!("Slot result broadcast failed (best-effort): {e:?}"); }
                         }
-                        if !broadcasted { let _ = self.send_message(&node_key, &msg).await; }
                     }
                 }
                 PublicCommand::SlotStats => {
                     if self.public_state.should_reply(&node_key) {
                         let base = self.storage.base_dir().to_string();
                         let summary = crate::bbs::slotmachine::get_player_summary(&base, &node_key);
+                        let j = crate::bbs::slotmachine::get_jackpot_summary(&base);
+                        let jdate = j.last_win_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into());
+                        let jwinner_short = if let Some(id_str) = j.last_win_node.as_deref() {
+                            self.lookup_short_name_from_cache(id_str.parse().ok().unwrap_or(0))
+                                .unwrap_or_else(|| id_str.to_string())
+                        } else { "—".to_string() };
                         let msg = if let Some(s) = summary {
                             let rate = if s.total_spins > 0 { (s.total_wins as f32) * 100.0 / (s.total_spins as f32) } else { 0.0 };
-                            let lj = s.last_jackpot.map(|t| t.format("%Y-%m-%d %H:%MZ").to_string()).unwrap_or_else(|| "—".into());
                             format!(
-                                "^SLOTSTATS ⟶ Coins: {} | Spins: {} | Wins: {} ({:.1}%) | Jackpots: {} | Last Jackpot: {}",
-                                s.coins, s.total_spins, s.total_wins, rate, s.jackpots, lj
+                                "^SLOTSTATS ⟶ Coins: {} | Spins: {} | Wins: {} ({:.1}%) | Jackpots: {} | Pot: {} | Last Win: {} by {}",
+                                s.coins, s.total_spins, s.total_wins, rate, s.jackpots, j.amount, jdate, jwinner_short
                             )
                         } else {
-                            "^SLOTSTATS ⟶ No stats yet. Spin with ^SLOT to begin!".to_string()
+                            format!("^SLOTSTATS ⟶ No stats yet. Spin with ^SLOT to begin! | Pot: {} | Last Win: {} by {}", j.amount, jdate, jwinner_short)
                         };
                         let mut broadcasted = false;
                         #[cfg(feature = "meshtastic-proto")]

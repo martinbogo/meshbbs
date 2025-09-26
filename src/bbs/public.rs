@@ -14,16 +14,29 @@ pub struct PublicState {
     pub last_public_reply: HashMap<String, Instant>, // rate limit map
     pub reply_cooldown: Duration,
     pub pending_timeout: Duration,
+    // Separate, lighter cooldown for high-churn public commands like ^SLOT
+    pub slot_last_spin: HashMap<String, Instant>, // node_id -> last spin time
+    pub slot_cooldown: Duration,
 }
 
 impl PublicState {
     pub fn new(reply_cooldown: Duration, pending_timeout: Duration) -> Self {
-        Self { pending: HashMap::new(), last_public_reply: HashMap::new(), reply_cooldown, pending_timeout }
+        Self {
+            pending: HashMap::new(),
+            last_public_reply: HashMap::new(),
+            reply_cooldown,
+            pending_timeout,
+            slot_last_spin: HashMap::new(),
+            slot_cooldown: Duration::from_secs(3),
+        }
     }
 
     pub fn prune_expired(&mut self) {
         let now = Instant::now();
         self.pending.retain(|_, v| now.duration_since(v.created_at) < self.pending_timeout);
+        // Keep slot entries reasonably small; drop entries not touched for 30 minutes
+        let slot_ttl = Duration::from_secs(30 * 60);
+        self.slot_last_spin.retain(|_, t| now.duration_since(*t) < slot_ttl);
     }
 
     pub fn set_pending(&mut self, node_id: &str, username: String) {
@@ -39,6 +52,15 @@ impl PublicState {
         match self.last_public_reply.get(node_id) {
             Some(last) if now.duration_since(*last) < self.reply_cooldown => false,
             _ => { self.last_public_reply.insert(node_id.to_string(), now); true }
+        }
+    }
+
+    /// Lightweight, per-node rate limit for ^SLOT. Defaults to 3s between spins.
+    pub fn allow_slot(&mut self, node_id: &str) -> bool {
+        let now = Instant::now();
+        match self.slot_last_spin.get(node_id) {
+            Some(last) if now.duration_since(*last) < self.slot_cooldown => false,
+            _ => { self.slot_last_spin.insert(node_id.to_string(), now); true }
         }
     }
 }
