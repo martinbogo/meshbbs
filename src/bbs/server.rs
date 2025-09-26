@@ -1574,6 +1574,7 @@ impl BbsServer {
                 }
                 PublicCommand::SlotMachine => {
                     // Use a lighter, per-node slot cooldown (does not block other public replies)
+                    // Broadcast-only: do not DM slot results.
                     if self.public_state.allow_slot(&node_key) {
                         let base = self.storage.base_dir().to_string();
                         let (outcome, coins) = crate::bbs::slotmachine::perform_spin(&base, &node_key);
@@ -1596,9 +1597,7 @@ impl BbsServer {
                                 outcome.r1, outcome.r2, outcome.r3, crate::bbs::slotmachine::BET_COINS, coins
                             )
                         };
-                        // Always DM the user their result promptly so it isn't lost on scheduler overflow
-                        let _ = self.send_message(&node_key, &msg).await;
-                        // Additionally attempt a broadcast for room visibility (best-effort)
+                        // Broadcast result for room visibility (best-effort)
                         #[cfg(feature = "meshtastic-proto")]
                         {
                             if let Err(e) = self.send_broadcast(&msg).await { warn!("Slot result broadcast failed (best-effort): {e:?}"); }
