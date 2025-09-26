@@ -5,7 +5,7 @@
   
   **A modern Bulletin Board System for Meshtastic mesh networks**
   
-   [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/martinbogo/meshbbs/releases)
+      [![Version](https://img.shields.io/badge/version-1.0.5-blue.svg)](https://github.com/martinbogo/meshbbs/releases)
   [![License](https://img.shields.io/badge/license-CC--BY--NC--4.0-green.svg)](LICENSE)
   [![Language](https://img.shields.io/badge/language-Rust-orange.svg)](https://www.rust-lang.org/)
   [![Platform](https://img.shields.io/badge/platform-Meshtastic-purple.svg)](https://meshtastic.org/)
@@ -47,6 +47,7 @@ Comprehensive documentation is available in the [`docs/`](docs/) directory and h
 - **🎯 Dynamic Contextual Prompts**: Smart prompts showing current state (`unauth>`, `user@topic>`, `post@topic>`)
 - **📜 Enhanced Help System**: Compact `HELP` + verbose `HELP+` with detailed command reference
 - **📏 Optimized Message Size**: 230-byte limit optimized for Meshtastic constraints
+ - **🎰 Public Slot Machine**: Fun `^SLOT` mini‑game with daily coin refills and jackpots
 
 ### 👥 **User Management & Security**
 - **🔐 Robust Security**: Argon2id password hashing with configurable parameters
@@ -226,6 +227,8 @@ Commands require `^` prefix to address the BBS:
 - `^HELP` - Returns onboarding message
 - `^LOGIN <username>` - Registers pending login for your node ID
 - `^WEATHER` - Get current weather information
+ - `^SLOT` / `^SLOTMACHINE` - Spin the emoji slot machine (costs 5 coins; daily refill to 100 when at 0)
+ - `^SLOTSTATS` - Show your slot coin balance, wins, and jackpots
 
 #### 💬 **Step 2: Start Your Private Conversation**
 After public `LOGIN`, open a private message to the BBS node to start your authenticated session.

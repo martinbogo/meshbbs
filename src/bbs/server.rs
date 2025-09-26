@@ -127,7 +127,7 @@ const VERBOSE_HELP: &str = concat!(
     "Sysop (level 10):\n  G @user=LEVEL|ROLE      Grant level (1/5/10) or USER/MOD/SYSOP\n\n",
     "Administration (mod/sysop):\n  USERS [pattern]         List users (filter optional)\n  WHO                     Show logged-in users\n  USERINFO <user>         Detailed user info\n  SESSIONS                List all sessions\n  KICK <user>             Force logout user\n  BROADCAST <msg>         Broadcast to all\n  ADMIN / DASHBOARD       System overview\n\n",
     "Legacy commands (compat):\n  TOPICS / LIST           List topics\n  READ <topic>            Read recent messages\n  POST <topic> <text>     Post a message\n\n",
-    "Misc:\n  HELP        Compact help\n  HELP+ / HELP V  Verbose help (this)\n  Weather (public)  Send WEATHER on public channel\n  Slot Machine (public)  ^SLOT or ^SLOTMACHINE to play\n  Slot Stats (public)    ^SLOTSTATS or ^STATS\n\n",
+    "Misc:\n  HELP        Compact help\n  HELP+ / HELP V  Verbose help (this)\n  Weather (public)  Send WEATHER on public channel\n  Slot Machine (public)  ^SLOT or ^SLOTMACHINE to play\n  Slot Stats (public)    ^SLOTSTATS\n\n",
     "Limits:\n  Max frame ~230 bytes; verbose help auto-splits.\n"
 );
 
@@ -1612,11 +1612,11 @@ impl BbsServer {
                             let rate = if s.total_spins > 0 { (s.total_wins as f32) * 100.0 / (s.total_spins as f32) } else { 0.0 };
                             let lj = s.last_jackpot.map(|t| t.format("%Y-%m-%d %H:%MZ").to_string()).unwrap_or_else(|| "—".into());
                             format!(
-                                "^STATS ⟶ Coins: {} | Spins: {} | Wins: {} ({:.1}%) | Jackpots: {} | Last Jackpot: {}",
+                                "^SLOTSTATS ⟶ Coins: {} | Spins: {} | Wins: {} ({:.1}%) | Jackpots: {} | Last Jackpot: {}",
                                 s.coins, s.total_spins, s.total_wins, rate, s.jackpots, lj
                             )
                         } else {
-                            "^STATS ⟶ No stats yet. Spin with ^SLOT to begin!".to_string()
+                            "^SLOTSTATS ⟶ No stats yet. Spin with ^SLOT to begin!".to_string()
                         };
                         let mut broadcasted = false;
                         #[cfg(feature = "meshtastic-proto")]

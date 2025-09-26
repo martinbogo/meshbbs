@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 This file records notable changes for meshbbs. Starting with the 1.0.0 BETA baseline, new entries will be added above this section over time (e.g., 1.0.1, 1.0.2).
 
+## [1.0.5] - 2025-09-25
+
+Added a public‑channel slot machine mini‑game and related documentation updates.
+
+### Added
+- New public commands:
+	- `^SLOT` / `^SLOTMACHINE` — spin the slot machine (5 coins per spin; daily refill to 100 when at 0)
+	- `^SLOTSTATS` — show your coin balance, total spins, wins, and jackpots
+- Persistent per‑player state under `data/slotmachine/players.json` with safe file locking
+- Jackpot and stats tracking (total_spins, total_wins, jackpots, last_spin, last_jackpot)
+- Runtime packaging skeleton includes `data/slotmachine/.keep`
+
+### Changed
+- Updated user documentation (`docs/user-guide/commands.md`) and `README.md` to include new commands and feature blurb
+- Bumped crate version to 1.0.5
+
 ## [1.0.0 BETA] - 2025-09-25
 
 This is the first public beta for the 1.x series of meshbbs. It stabilizes the core architecture and user experience for Meshtastic devices while inviting broader testing and feedback before the final 1.0.0 release.

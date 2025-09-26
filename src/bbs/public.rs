@@ -66,8 +66,8 @@ impl PublicCommandParser {
             trace!("Parsed SLOTMACHINE from '{}'", raw);
             return PublicCommand::SlotMachine;
         }
-        // Slot stats: ^SLOTSTATS or ^STATS
-        if body.eq_ignore_ascii_case("SLOTSTATS") || body.eq_ignore_ascii_case("STATS") {
+        // Slot stats: ^SLOTSTATS
+        if body.eq_ignore_ascii_case("SLOTSTATS") {
             trace!("Parsed SLOTSTATS from '{}'", raw);
             return PublicCommand::SlotStats;
         }

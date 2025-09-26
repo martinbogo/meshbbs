@@ -1,3 +1,31 @@
+//! Slot machine mini‑game used by public channel commands ^SLOT and ^SLOTMACHINE.
+//!
+//! Overview
+//! - Emoji reels with fixed distributions and deterministic payout table
+//! - Economy: 100 coins starting balance, 5 coins per spin, 24h refill when balance reaches 0
+//! - Persistence: JSON file at `<data_dir>/slotmachine/players.json` keyed by Meshtastic node ID
+//! - Concurrency: file access guarded with fs2 file locks (shared for read, exclusive for write)
+//! - Stats: total spins, wins, jackpots, last spin and last jackpot timestamps
+//!
+//! Public commands (handled by `bbs::server`):
+//! - `^SLOT` / `^SLOTMACHINE` — spin once and broadcast the result (with DM fallback)
+//! - `^SLOTSTATS` — show per‑player stats and current coin balance
+//!
+//! Payouts (multiplier × bet):
+//! - 7️⃣7️⃣7️⃣ = ×100 (JACKPOT)
+//! - 🟦🟦🟦 = ×50
+//! - 🔔🔔🔔 = ×20
+//! - 🍇🍇🍇 = ×14
+//! - 🍊🍊🍊 = ×10
+//! - 🍋🍋🍋 = ×8
+//! - 🍒🍒🍒 = ×5
+//! - Two 🍒 = ×3
+//! - One 🍒 = ×2
+//! - Otherwise = ×0
+//!
+//! The module is intentionally self‑contained and exposes a small API that the BBS server calls
+//! to perform spins and query player status.
+
 use chrono::{DateTime, Utc, Duration as ChronoDuration};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -7,9 +35,9 @@ use std::io::{Read, Write};
 use fs2::FileExt;
 use std::path::{Path, PathBuf};
 
-/// Fixed bet cost per spin
+/// Fixed bet cost per spin (coins deducted before spin)
 pub const BET_COINS: u32 = 5;
-/// New player grant and daily refill amount
+/// New player grant and daily refill amount (awarded when creating a record or after 24h at 0)
 pub const DAILY_GRANT: u32 = 100;
 /// Refill cooldown in hours when balance reaches zero
 pub const REFILL_HOURS: i64 = 24;
@@ -28,6 +56,7 @@ const REEL3: [&str; 20] = [
     "🍊","🍒","🔔","🍋","🟦","🍒","🍋","🔔","🍊","🍋",
 ];
 
+/// Persistent state tracked per player (Meshtastic node ID)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlayerState {
     pub coins: u32,
@@ -44,6 +73,7 @@ pub struct PlayerState {
     pub last_jackpot: Option<DateTime<Utc>>,
 }
 
+/// On‑disk file schema for all players. Stored at `<data_dir>/slotmachine/players.json`.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct PlayersFile {
     pub players: HashMap<String, PlayerState>,
@@ -101,6 +131,7 @@ fn save_players(base_dir: &str, players: &PlayersFile) {
     }
 }
 
+/// Result of a spin for UI/formatting by the caller.
 #[derive(Debug, Clone)]
 pub struct SpinOutcome {
     pub r1: &'static str,
@@ -117,6 +148,7 @@ fn spin_reel<const N: usize>(reel: &[&'static str; N]) -> &'static str {
     reel[idx]
 }
 
+/// Evaluate three symbols and return the payout multiplier and a human description.
 fn evaluate(r1: &str, r2: &str, r3: &str) -> (u32, String) {
     // Triple matches first
     if r1 == r2 && r2 == r3 {
@@ -141,6 +173,14 @@ fn evaluate(r1: &str, r2: &str, r3: &str) -> (u32, String) {
     (0, "No win".into())
 }
 
+/// Perform a single spin for `player_id`.
+///
+/// Contract:
+/// - Input: `base_dir` is the configured storage base dir; `player_id` is a stable node ID
+/// - Side effects: updates `<base_dir>/slotmachine/players.json` with coin balance and stats
+/// - Behavior: deducts [`BET_COINS`], spins reels, applies payout, updates stats
+/// - Refill: if balance is 0 and `REFILL_HOURS` elapsed since `last_reset`, grants [`DAILY_GRANT`]
+/// - Returns: `(SpinOutcome, balance_after)`; if unable to afford, `r1=r2=r3="⛔"` and no changes
 pub fn perform_spin(base_dir: &str, player_id: &str) -> (SpinOutcome, u32) {
     // Load players
     let mut file = load_players(base_dir);
@@ -213,6 +253,8 @@ pub fn perform_spin(base_dir: &str, player_id: &str) -> (SpinOutcome, u32) {
     (outcome, balance_after)
 }
 
+/// If `player_id` is out of coins, return `(hours, minutes)` until the next daily refill.
+/// Returns `None` if the player has coins or does not exist.
 pub fn next_refill_eta(base_dir: &str, player_id: &str) -> Option<(i64, i64)> {
     let file = load_players(base_dir);
     let entry = file.players.get(player_id)?;
@@ -222,6 +264,7 @@ pub fn next_refill_eta(base_dir: &str, player_id: &str) -> Option<(i64, i64)> {
     if remaining <= ChronoDuration::zero() { Some((0,0)) } else { Some((remaining.num_hours(), (remaining.num_minutes() % 60))) }
 }
 
+/// Public summary used by `^SLOTSTATS` to report a user's stats.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlayerSummary {
     pub coins: u32,
@@ -232,6 +275,7 @@ pub struct PlayerSummary {
     pub last_jackpot: Option<DateTime<Utc>>,
 }
 
+/// Load and return the `PlayerSummary` for `player_id`, or `None` if no record exists.
 pub fn get_player_summary(base_dir: &str, player_id: &str) -> Option<PlayerSummary> {
     let file = load_players(base_dir);
     let p = file.players.get(player_id)?;

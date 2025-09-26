@@ -12,6 +12,8 @@ These commands are used on the public Meshtastic channel and require the `^` pre
 |---------|-------------|---------|
 | `^HELP` | Get basic information about the BBS | `^HELP` |
 | `^LOGIN username` | Register for a private session | `^LOGIN alice` |
+| `^SLOT` / `^SLOTMACHINE` | Spin the emoji slot machine (5 coins per spin; daily refill) | `^SLOT` |
+| `^SLOTSTATS` | Show your coin balance and slot stats | `^SLOTSTATS` |
 
 ## Session Commands (Direct Message)
 
