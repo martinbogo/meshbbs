@@ -40,6 +40,7 @@ Comprehensive documentation is available in the [`docs/`](docs/) directory and h
 ### � **Connectivity & Integration**
 - **📡 Meshtastic Integration**: Direct communication via serial or Bluetooth
 - **🛎️ Public Discovery + DM Sessions**: Low-noise public channel handshake leading to authenticated Direct Message sessions
+- **📨 Broadcast Semantics**: Broadcasts are best‑effort; we can request an ACK and consider any single ACK as basic delivery confirmation (no retries). DMs remain reliable with ACK tracking and retries.
 - **⚡ Async Design**: Built with Tokio for high performance
 
 ### 💬 **Communication & Messaging**

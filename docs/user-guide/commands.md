@@ -10,10 +10,15 @@ See also: the [Games](./games.md) page for public channel mini‑games (e.g., Sl
 
 These commands are used on the public Meshtastic channel and require the `^` prefix:
 
+Reliability:
+- Public broadcasts are best‑effort; the BBS may request an ACK and treats any single ACK as basic delivery confirmation, but it does not retry broadcasts.
+- Direct messages (DM) are reliable with ACK tracking and retries.
+
 | Command | Description | Example |
 |---------|-------------|---------|
 | `^HELP` | Get basic information about the BBS | `^HELP` |
 | `^LOGIN username` | Register for a private session | `^LOGIN alice` |
+| `^WEATHER` | Show current weather | `^WEATHER` |
 | `^SLOT` / `^SLOTMACHINE` | Spin the emoji slot machine (5 coins per spin; daily refill) | `^SLOT` |
 | `^SLOTSTATS` | Show your coin balance and slot stats | `^SLOTSTATS` |
 
@@ -39,7 +44,7 @@ After using `^LOGIN` on the public channel, open a direct message to the BBS nod
 | `HELP+` or `HELP V` | Show detailed help with examples | `HELP+` |
 | `M` | Quick navigation to message topics | `M` |
 | `WHERE` or `W` | Show current breadcrumb path | `WHERE` |
-| `U` | Quick navigation to user menu | `U` |
+| `U` or `B` | Up/back (to parent) | `U` |
 | `Q` | Quit/logout | `Q` |
 | `B` | Back to previous menu | `B` |
 
@@ -92,6 +97,12 @@ Available to users with moderator privileges:
 | `LOCK topic` | Prevent new posts in topic | `LOCK general` |
 | `UNLOCK topic` | Allow posts in topic again | `UNLOCK general` |
 | `DELLOG [page]` / `DL [page]` | View deletion audit log | `DELLOG`, `DL`, or `DL 2` |
+| `USERS [pattern]` | List users (optional filter) | `USERS`, `USERS al*` |
+| `WHO` | Show logged-in users | `WHO` |
+| `USERINFO user` | Detailed user info | `USERINFO alice` |
+| `SESSIONS` | List all sessions | `SESSIONS` |
+| `KICK user` | Force logout a user | `KICK bob` |
+| `BROADCAST message` | Send a server broadcast | `BROADCAST Maintenance at 18:00` |
 
 ## Sysop Commands (Level 10)
 
@@ -101,6 +112,7 @@ Available only to system operators:
 |---------|-------------|---------|
 | `PROMOTE user` | Increase user's access level | `PROMOTE alice` |
 | `DEMOTE user` | Decrease user's access level | `DEMOTE bob` |
+| `SYSLOG level message` | Write to the admin/security log | `SYSLOG info System check OK` |
 
 ## Dynamic Prompts
 
@@ -190,8 +202,8 @@ Public channel:
 Direct message:
 > LOGIN alice mypassword
 < Welcome alice! Type HELP for commands.
-alice (lvl1)> AREAS
-< Available areas: general, announcements
+alice (lvl1)> TOPICS
+< Available areas: general, community, technical
 alice (lvl1)> READ general
 < [Recent messages from general area...]
 alice@general> POST general Hello everyone from the mesh!
