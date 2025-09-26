@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 This file records notable changes for meshbbs. Starting with the 1.0.0 BETA baseline, new entries will be added above this section over time (e.g., 1.0.1, 1.0.2).
 
+## [1.0.9-beta] - 2025-09-26
+
+### Added
+- Public command `^8BALL` (Magic 8‑Ball): returns one of 20 classic responses (emoji‑prefixed). Broadcast‑only with a lightweight per‑node cooldown like `^SLOT`.
+
+### Changed
+- Docs: README badge bumped to 1.0.9‑beta; user docs updated to include Magic 8‑Ball.
+
+### Fixed
+- Slot machine docs/tests alignment: `^SLOT` clarified as broadcast‑only with a behavior test to prevent regressions.
+
 ## [1.0.8-beta] - 2025-09-26
 
 ### Changed
