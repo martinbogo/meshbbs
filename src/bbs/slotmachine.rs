@@ -32,6 +32,16 @@ const REEL3: [&str; 20] = [
 pub struct PlayerState {
     pub coins: u32,
     pub last_reset: DateTime<Utc>,
+    #[serde(default)]
+    pub total_spins: u32,
+    #[serde(default)]
+    pub total_wins: u32,
+    #[serde(default)]
+    pub jackpots: u32,
+    #[serde(default)]
+    pub last_spin: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub last_jackpot: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -141,7 +151,7 @@ pub fn perform_spin(base_dir: &str, player_id: &str) -> (SpinOutcome, u32) {
         let entry = file
             .players
             .entry(player_id.to_string())
-            .or_insert(PlayerState { coins: DAILY_GRANT, last_reset: now });
+            .or_insert(PlayerState { coins: DAILY_GRANT, last_reset: now, total_spins: 0, total_wins: 0, jackpots: 0, last_spin: None, last_jackpot: None });
 
         // Handle zero-balance refill window
         if entry.coins < BET_COINS {
@@ -181,6 +191,14 @@ pub fn perform_spin(base_dir: &str, player_id: &str) -> (SpinOutcome, u32) {
             let (mult, desc) = evaluate(r1, r2, r3);
             let winnings = BET_COINS * mult;
             entry.coins = entry.coins.saturating_add(winnings);
+            // Stats
+            entry.total_spins = entry.total_spins.saturating_add(1);
+            entry.last_spin = Some(now);
+            if mult > 0 { entry.total_wins = entry.total_wins.saturating_add(1); }
+            if mult == 100 {
+                entry.jackpots = entry.jackpots.saturating_add(1);
+                entry.last_jackpot = Some(now);
+            }
             let bal = entry.coins;
             (
                 SpinOutcome { r1, r2, r3, multiplier: mult, winnings, description: desc },
@@ -202,6 +220,29 @@ pub fn next_refill_eta(base_dir: &str, player_id: &str) -> Option<(i64, i64)> {
     let now = Utc::now();
     let remaining = ChronoDuration::hours(REFILL_HOURS) - now.signed_duration_since(entry.last_reset);
     if remaining <= ChronoDuration::zero() { Some((0,0)) } else { Some((remaining.num_hours(), (remaining.num_minutes() % 60))) }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlayerSummary {
+    pub coins: u32,
+    pub total_spins: u32,
+    pub total_wins: u32,
+    pub jackpots: u32,
+    pub last_spin: Option<DateTime<Utc>>,
+    pub last_jackpot: Option<DateTime<Utc>>,
+}
+
+pub fn get_player_summary(base_dir: &str, player_id: &str) -> Option<PlayerSummary> {
+    let file = load_players(base_dir);
+    let p = file.players.get(player_id)?;
+    Some(PlayerSummary {
+        coins: p.coins,
+        total_spins: p.total_spins,
+        total_wins: p.total_wins,
+        jackpots: p.jackpots,
+        last_spin: p.last_spin,
+        last_jackpot: p.last_jackpot,
+    })
 }
 
 #[cfg(test)]
@@ -226,7 +267,7 @@ mod tests {
         let mut file = PlayersFile::default();
         file.players.insert(
             "node1".to_string(),
-            PlayerState { coins: 0, last_reset: Utc::now() }
+            PlayerState { coins: 0, last_reset: Utc::now(), total_spins: 0, total_wins: 0, jackpots: 0, last_spin: None, last_jackpot: None }
         );
         write_players(base, &file);
         let (out, bal) = perform_spin(base, "node1");
@@ -242,7 +283,7 @@ mod tests {
         let mut file = PlayersFile::default();
         file.players.insert(
             "node2".to_string(),
-            PlayerState { coins: 0, last_reset: Utc::now() - Duration::hours(REFILL_HOURS + 1) }
+            PlayerState { coins: 0, last_reset: Utc::now() - Duration::hours(REFILL_HOURS + 1), total_spins: 0, total_wins: 0, jackpots: 0, last_spin: None, last_jackpot: None }
         );
         write_players(base, &file);
         let (_out, bal) = perform_spin(base, "node2");
