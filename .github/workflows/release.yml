@@ -43,6 +43,19 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
 
+      - name: Install host toolchain (amd64)
+        run: |
+          sudo apt-get update -o Acquire::Retries=5
+          sudo apt-get install -y build-essential libc6-dev pkgconf
+          # sanity: cc exists and can link a trivial host program
+          echo 'int main(){}' > t.c
+          cc t.c -o t && ./t
+
+      - name: Pin host cc and ar for x86_64
+        run: |
+          echo "CC_x86_64_unknown_linux_gnu=gcc" >> $GITHUB_ENV
+          echo "AR_x86_64_unknown_linux_gnu=ar" >> $GITHUB_ENV
+
       # Only needed for arm64 or armhf on Noble
       - name: Prepare APT for multiarch on Noble, pin mirrors by arch
         if: matrix.runner == 'ubuntu-24.04' && (matrix.arch == 'arm64' || matrix.arch == 'armhf')
@@ -186,6 +199,18 @@ jobs:
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
+
+      - name: Install host toolchain (amd64)
+        run: |
+          sudo apt-get update -o Acquire::Retries=5
+          sudo apt-get install -y build-essential libc6-dev pkgconf
+          echo 'int main(){}' > t.c
+          cc t.c -o t && ./t
+
+      - name: Pin host cc and ar for x86_64
+        run: |
+          echo "CC_x86_64_unknown_linux_gnu=gcc" >> $GITHUB_ENV
+          echo "AR_x86_64_unknown_linux_gnu=ar" >> $GITHUB_ENV
 
       # Pin mirrors and enable foreign arch when building non amd64 debs
       - name: Prepare APT for multiarch on Noble, pin mirrors by arch
