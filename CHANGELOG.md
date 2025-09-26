@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 This file records notable changes for meshbbs. Starting with the 1.0.0 BETA baseline, new entries will be added above this section over time (e.g., 1.0.1, 1.0.2).
 
+## [1.0.7] - 2025-09-26
+
+Documentation alignment follow-up for the 1.0.6 release.
+
+### Changed
+- README and docs tweaks to clarify public broadcast ACK confirmation semantics and command examples. No functional code changes.
+
 ## [1.0.6] - 2025-09-26
 
 Broadcast reliability telemetry and optional confirmation for public messages.
