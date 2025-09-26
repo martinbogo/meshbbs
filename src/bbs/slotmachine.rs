@@ -8,7 +8,7 @@
 //! - Stats: total spins, wins, jackpots, last spin and last jackpot timestamps
 //!
 //! Public commands (handled by `bbs::server`):
-//! - `^SLOT` / `^SLOTMACHINE` — spin once and broadcast the result (with DM fallback)
+//! - `^SLOT` / `^SLOTMACHINE` — spin once and broadcast the result (broadcast-only; no DM fallback)
 //! - `^SLOTSTATS` — show per‑player stats and current coin balance
 //!
 //! Payouts:
