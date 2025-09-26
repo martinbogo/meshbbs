@@ -127,7 +127,7 @@ const VERBOSE_HELP: &str = concat!(
     "Sysop (level 10):\n  G @user=LEVEL|ROLE      Grant level (1/5/10) or USER/MOD/SYSOP\n\n",
     "Administration (mod/sysop):\n  USERS [pattern]         List users (filter optional)\n  WHO                     Show logged-in users\n  USERINFO <user>         Detailed user info\n  SESSIONS                List all sessions\n  KICK <user>             Force logout user\n  BROADCAST <msg>         Broadcast to all\n  ADMIN / DASHBOARD       System overview\n\n",
     "Legacy commands (compat):\n  TOPICS / LIST           List topics\n  READ <topic>            Read recent messages\n  POST <topic> <text>     Post a message\n\n",
-    "Misc:\n  HELP        Compact help\n  HELP+ / HELP V  Verbose help (this)\n  Weather (public)  Send WEATHER on public channel\n\n",
+    "Misc:\n  HELP        Compact help\n  HELP+ / HELP V  Verbose help (this)\n  Weather (public)  Send WEATHER on public channel\n  Slot Machine (public)  ^SLOT or ^SLOTMACHINE to play\n\n",
     "Limits:\n  Max frame ~230 bytes; verbose help auto-splits.\n"
 );
 
@@ -1568,6 +1568,40 @@ impl BbsServer {
                             let reply = format!("Weather: {}", weather);
                             if let Err(e) = self.send_message(&node_key, &reply).await { warn!("Weather DM fallback failed: {e:?}"); }
                         }
+                    }
+                }
+                PublicCommand::SlotMachine => {
+                    if self.public_state.should_reply(&node_key) {
+                        let base = self.storage.base_dir().to_string();
+                        let (outcome, coins) = crate::bbs::slotmachine::perform_spin(&base, &node_key);
+                        let msg = if outcome.r1 == "⛔" {
+                            let eta = crate::bbs::slotmachine::next_refill_eta(&base, &node_key)
+                                .map(|(h,m)| format!(" Next refill in ~{}h {}m.", h.max(0), m.max(0)))
+                                .unwrap_or_default();
+                            format!(
+                                "^SLOT ⟶ {} | {} | {}  — {}{}",
+                                outcome.r1, outcome.r2, outcome.r3, outcome.description, eta
+                            )
+                        } else if outcome.multiplier > 0 {
+                            format!(
+                                "^SLOT ⟶ {} | {} | {}  — WIN x{} (+{} coins). Balance: {}",
+                                outcome.r1, outcome.r2, outcome.r3, outcome.multiplier, outcome.winnings, coins
+                            )
+                        } else {
+                            format!(
+                                "^SLOT ⟶ {} | {} | {}  — Loss (-{} coins). Balance: {}",
+                                outcome.r1, outcome.r2, outcome.r3, crate::bbs::slotmachine::BET_COINS, coins
+                            )
+                        };
+                        let mut broadcasted = false;
+                        #[cfg(feature = "meshtastic-proto")]
+                        {
+                            match self.send_broadcast(&msg).await {
+                                Ok(_) => { trace!("Broadcasted slot result: '{}'", msg); broadcasted = true; },
+                                Err(e) => { warn!("Slot result broadcast failed: {e:?} (will fallback DM)"); }
+                            }
+                        }
+                        if !broadcasted { let _ = self.send_message(&node_key, &msg).await; }
                     }
                 }
                 PublicCommand::Invalid(reason) => {

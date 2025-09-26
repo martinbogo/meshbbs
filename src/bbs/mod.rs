@@ -69,6 +69,7 @@ pub mod commands;
 pub mod public;
 pub mod roles;
 pub mod dispatch;
+pub mod slotmachine;
 
 pub use server::BbsServer;
 

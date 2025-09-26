@@ -61,6 +61,11 @@ impl PublicCommandParser {
         trace!("Parsed WEATHER from '{}' (args ignored)", raw);
         return PublicCommand::Weather;
     }
+        // SLOT machine command: ^SLOTMACHINE or ^SLOT
+        if body.eq_ignore_ascii_case("SLOTMACHINE") || body.eq_ignore_ascii_case("SLOT") {
+            trace!("Parsed SLOTMACHINE from '{}'", raw);
+            return PublicCommand::SlotMachine;
+        }
         if body.len() >= 5 && body[..5].eq_ignore_ascii_case("LOGIN") {
             if body.len() == 5 { return PublicCommand::Invalid("Username required".into()); }
             let after = &body[5..];
@@ -82,6 +87,7 @@ pub enum PublicCommand {
     Help,
     Login(String),
     Weather,
+    SlotMachine,
     Unknown,
     Invalid(String),
 }
