@@ -494,7 +494,7 @@ impl MeshtasticDevice {
         if Path::new(&self.cache_file_path).exists() {
             match NodeCache::load_from_file(&self.cache_file_path) {
                 Ok(cache) => {
-                    info!("Loaded {} cached nodes from {}", cache.nodes.len(), self.cache_file_path);
+                    debug!("Loaded {} cached nodes from {}", cache.nodes.len(), self.cache_file_path);
                     // Merge cached nodes into runtime nodes
                     for (node_id, cached_node) in &cache.nodes {
                         if !self.nodes.contains_key(node_id) {
@@ -519,7 +519,7 @@ impl MeshtasticDevice {
                 }
             }
         } else {
-            info!("No node cache file found at {}, starting fresh", self.cache_file_path);
+            debug!("No node cache file found at {}, starting fresh", self.cache_file_path);
             Ok(())
         }
     }
@@ -540,7 +540,7 @@ impl MeshtasticDevice {
     pub fn cleanup_stale_nodes(&mut self, max_age_days: u32) -> anyhow::Result<usize> {
         let removed = self.node_cache.remove_stale_nodes(max_age_days);
         if removed > 0 {
-            info!("Cleaned up {} stale nodes from cache", removed);
+            debug!("Cleaned up {} stale nodes from cache", removed);
             self.save_node_cache()?;
         }
         Ok(removed)
@@ -920,7 +920,7 @@ impl MeshtasticDevice {
                 } else if !long_name.is_empty() { 
                     // Generate short name from long name (first 4 chars or similar)
                     let generated = long_name.chars().take(4).collect::<String>().to_uppercase();
-                    info!("Generated short name '{}' from long name '{}' for node {}", generated, long_name, id);
+                    debug!("Generated short name '{}' from long name '{}' for node {}", generated, long_name, id);
                     generated
                 } else { 
                     format!("{:04X}", id & 0xFFFF) 
@@ -1132,7 +1132,7 @@ impl MeshtasticDevice {
 /// Create a shared serial port connection for both reader and writer
 #[cfg(feature = "serial")]
 async fn create_shared_serial_port(port_name: &str, baud_rate: u32) -> Result<Arc<Mutex<Box<dyn SerialPort>>>> {
-    info!("Opening shared serial port {} at {} baud", port_name, baud_rate);
+    debug!("Opening shared serial port {} at {} baud", port_name, baud_rate);
     
     let mut builder = serialport::new(port_name, baud_rate)
         .timeout(Duration::from_millis(500));
@@ -1171,7 +1171,7 @@ impl MeshtasticReader {
         control_rx: mpsc::UnboundedReceiver<ControlMessage>,
         writer_control_tx: mpsc::UnboundedSender<ControlMessage>,
     ) -> Result<Self> {
-        info!("Initializing Meshtastic reader with shared port");
+    debug!("Initializing Meshtastic reader with shared port");
         
         Ok(MeshtasticReader {
             #[cfg(feature = "serial")]
@@ -1631,7 +1631,7 @@ impl MeshtasticReader {
         if std::path::Path::new(&self.cache_file_path).exists() {
             match NodeCache::load_from_file(&self.cache_file_path) {
                 Ok(cache) => {
-                    info!("Loaded {} cached nodes from {}", cache.nodes.len(), self.cache_file_path);
+                    debug!("Loaded {} cached nodes from {}", cache.nodes.len(), self.cache_file_path);
                     // Merge cached nodes into runtime nodes
                     for (node_id, cached_node) in &cache.nodes {
                         if !self.nodes.contains_key(node_id) {
@@ -1656,7 +1656,7 @@ impl MeshtasticReader {
                 }
             }
         } else {
-            info!("No node cache file found at {}, starting fresh", self.cache_file_path);
+            debug!("No node cache file found at {}, starting fresh", self.cache_file_path);
             Ok(())
         }
     }
@@ -1679,7 +1679,7 @@ impl MeshtasticWriter {
         control_rx: mpsc::UnboundedReceiver<ControlMessage>,
         tuning: WriterTuning,
     ) -> Result<Self> {
-        info!("Initializing Meshtastic writer with shared port");
+    debug!("Initializing Meshtastic writer with shared port");
         
         Ok(MeshtasticWriter {
             #[cfg(feature = "serial")]
@@ -1705,7 +1705,7 @@ impl MeshtasticWriter {
         control_rx: mpsc::UnboundedReceiver<ControlMessage>,
         tuning: WriterTuning,
     ) -> Result<Self> {
-        info!("Initializing mock Meshtastic writer");
+    debug!("Initializing mock Meshtastic writer");
         
         Ok(MeshtasticWriter {
             outgoing_rx,
@@ -1724,7 +1724,7 @@ impl MeshtasticWriter {
 
     /// Run the writer task
     pub async fn run(mut self) -> Result<()> {
-        info!("Starting Meshtastic writer task");
+    info!("Starting Meshtastic writer task");
         
         // Send a single WantConfigId at startup to fetch node db and config
         if self.config_request_id.is_none() {
@@ -1775,7 +1775,7 @@ impl MeshtasticWriter {
                                                         let next_delay = std::time::Duration::from_secs(backoffs[pmut.backoff_idx as usize]);
                                                         pmut.next_due = std::time::Instant::now() + next_delay;
                                                         metrics::inc_reliable_retries();
-                                                        info!("Resent id={} to=0x{:08x} (attempt {})", id, to, pmut.attempts);
+                                                        debug!("Resent id={} to=0x{:08x} (attempt {})", id, to, pmut.attempts);
                                                         // Enqueue next retry if we haven't exhausted attempts
                                                         if pmut.attempts < MAX_ATTEMPTS {
                                                             if let Some(sched) = &self.scheduler {
@@ -1830,7 +1830,7 @@ impl MeshtasticWriter {
                             if let Some(p) = self.pending.remove(&id) {
                                 metrics::observe_ack_latency(p.sent_at);
                                 metrics::inc_reliable_acked();
-                                info!("Delivered id={} to=0x{:08x} ({}), attempts={} latency_ms={}", id, p.to, p.content_preview, p.attempts, p.sent_at.elapsed().as_millis());
+                                debug!("Delivered id={} to=0x{:08x} ({}), attempts={} latency_ms={}", id, p.to, p.content_preview, p.attempts, p.sent_at.elapsed().as_millis());
                             } else if let Some(bp) = self.pending_broadcast.remove(&id) {
                                 metrics::inc_broadcast_ack_confirmed();
                                 debug!(

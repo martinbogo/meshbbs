@@ -1522,7 +1522,7 @@ impl BbsServer {
                             if base < required { required } else { base }
                         };
                         if let Some(scheduler) = &self.scheduler {
-                            info!("Scheduling HELP public notice in {}ms (text='{}')", delay_ms, escape_log(&public_notice));
+                            debug!("Scheduling HELP public notice in {}ms (text='{}')", delay_ms, escape_log(&public_notice));
                             let outgoing = crate::meshtastic::OutgoingMessage { to_node: None, channel: 0, content: public_notice.clone(), priority: crate::meshtastic::MessagePriority::Normal, kind: crate::meshtastic::OutgoingKind::Normal, request_ack: true };
                                 let env = crate::bbs::dispatch::MessageEnvelope::new(
                                 crate::bbs::dispatch::MessageCategory::HelpBroadcast,
@@ -1533,7 +1533,7 @@ impl BbsServer {
                             scheduler.enqueue(env);
                         } else if let Some(tx) = self.outgoing_tx.clone() { // fallback legacy path
                             let notice = public_notice.clone();
-                            info!("Scheduling HELP public notice in {}ms (legacy path) text='{}'", delay_ms, escape_log(&notice));
+                            debug!("Scheduling HELP public notice in {}ms (legacy path) text='{}'", delay_ms, escape_log(&notice));
                             tokio::spawn(async move {
                                 tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
                                 let outgoing = crate::meshtastic::OutgoingMessage { to_node: None, channel: 0, content: notice.clone(), priority: crate::meshtastic::MessagePriority::Normal, kind: crate::meshtastic::OutgoingKind::Normal, request_ack: true };
@@ -1904,7 +1904,7 @@ impl BbsServer {
         };
         match result {
             Some(v) => { 
-                info!("Weather fetched successfully: {}", v.chars().take(50).collect::<String>());
+                debug!("Weather fetched successfully: {}", v.chars().take(50).collect::<String>());
                 self.weather_cache = Some((Instant::now(), v.clone())); 
                 Some(v) 
             },
