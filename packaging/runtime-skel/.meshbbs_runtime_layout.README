@@ -1,0 +1,6 @@
+This directory contains the runtime skeleton that gets included in release artifacts:
+- bin/meshbbs (added during packaging, not stored here)
+- config.example.toml (copied from this folder)
+- data/files/, data/messages/, data/users/ (created here via .keep files)
+
+Do not add real user data or logs here. These are just empty directories to make the app runnable out-of-the-box after extraction.

@@ -1,0 +1,8 @@
+# Example configuration for meshbbs
+# Copy to config.toml and adjust as needed.
+
+# Sysop username (must exist in users data)
+sysop = "sysop"
+
+# Networking and other settings live here
+# ... see README for details

@@ -13,31 +13,26 @@ env:
   CRATE_NAME: meshbbs
 
 jobs:
-  linux-builds:
-    name: Linux builds (x86_64, aarch64, armv7)
+  linux-tar:
+    name: linux-${{ matrix.distro }}-${{ matrix.arch }}-tar
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
-        target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu, armv7-unknown-linux-gnueabihf]
+        include:
+          - { distro: generic, target: x86_64-unknown-linux-gnu, arch: x86_64 }
+          - { distro: generic, target: aarch64-unknown-linux-gnu, arch: arm64 }
+          - { distro: raspios, target: aarch64-unknown-linux-gnu, arch: arm64 }
+          - { distro: raspios, target: armv7-unknown-linux-gnueabihf, arch: armhf }
+          - { distro: debian,  target: x86_64-unknown-linux-gnu, arch: x86_64 }
+          - { distro: debian,  target: aarch64-unknown-linux-gnu, arch: arm64 }
+          - { distro: ubuntu,  target: x86_64-unknown-linux-gnu, arch: x86_64 }
+          - { distro: ubuntu,  target: aarch64-unknown-linux-gnu, arch: arm64 }
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: recursive
-
-      - name: Enable QEMU for cross-compilation
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: all
-
-      - name: Install libudev-dev (Linux host)
-        run: sudo apt-get update && sudo apt-get install -y libudev-dev
-
-      - name: Show pkg-config state
-        run: |
-          pkg-config --version || true
-          pkg-config --libs --cflags libudev || true
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -47,70 +42,70 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Install ARM64 toolchain and libs (aarch64)
+      - name: Install build deps (host)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libudev-dev pkg-config
+
+      - name: Install cross toolchain (aarch64)
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: |
           sudo dpkg --add-architecture arm64
           sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu libc6-dev-arm64-cross libudev-dev:arm64 pkg-config
+          sudo apt-get install -y gcc-aarch64-linux-gnu libc6-dev-arm64-cross libudev-dev:arm64
 
-      - name: Install ARMv7 toolchain and libs (armhf)
+      - name: Install cross toolchain (armhf)
         if: matrix.target == 'armv7-unknown-linux-gnueabihf'
         run: |
           sudo dpkg --add-architecture armhf
           sudo apt-get update
-          sudo apt-get install -y gcc-arm-linux-gnueabihf libc6-dev-armhf-cross libudev-dev:armhf pkg-config
+          sudo apt-get install -y gcc-arm-linux-gnueabihf libc6-dev-armhf-cross libudev-dev:armhf
 
-      - name: Build (release) x86_64
-        if: matrix.target == 'x86_64-unknown-linux-gnu'
-        run: cargo build --release --target ${{ matrix.target }}
-
-      - name: Build (release) aarch64
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
+      - name: Build
         env:
           CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
-          PKG_CONFIG_ALLOW_CROSS: "1"
-          PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig:/usr/aarch64-linux-gnu/lib/pkgconfig
-        run: cargo build --release --target ${{ matrix.target }}
-
-      - name: Build (release) armv7
-        if: matrix.target == 'armv7-unknown-linux-gnueabihf'
-        env:
           CC_armv7_unknown_linux_gnueabihf: arm-linux-gnueabihf-gcc
           CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER: arm-linux-gnueabihf-gcc
           PKG_CONFIG_ALLOW_CROSS: "1"
-          PKG_CONFIG_PATH: /usr/lib/arm-linux-gnueabihf/pkgconfig
+          PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig:/usr/aarch64-linux-gnu/lib/pkgconfig:/usr/lib/arm-linux-gnueabihf/pkgconfig
         run: cargo build --release --target ${{ matrix.target }}
 
-      - name: Package tar.gz
+      - name: Package tar.gz with runtime
         run: |
+          set -euo pipefail
           VERSION=${GITHUB_REF_NAME#v}
+          ROOT=package_root
           BIN=target/${{ matrix.target }}/release/${CRATE_NAME}
-          OUT=${CRATE_NAME}-v${VERSION}-${{ matrix.target }}.tar.gz
-          mkdir -p dist
-          strip -s "$BIN" || true
-          tar -czf dist/$OUT -C target/${{ matrix.target }}/release ${CRATE_NAME}
+          mkdir -p "$ROOT/bin" dist
+          # Copy runtime skeleton and docs
+          cp -a packaging/runtime-skel/. "$ROOT/"
+          cp "$BIN" "$ROOT/bin/${CRATE_NAME}"
+          strip -s "$ROOT/bin/${CRATE_NAME}" || true
+          cp README.md LICENSE "$ROOT/"
+          OUT=${CRATE_NAME}-v${VERSION}-${{ matrix.distro }}-${{ matrix.arch }}.tar.gz
+          tar -C "$ROOT" -czf dist/$OUT .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: linux-${{ matrix.target }}
+          name: linux-${{ matrix.distro }}-${{ matrix.arch }}-tar
           path: dist/*.tar.gz
 
-  deb-packages:
-    name: Debian packages (amd64, arm64)
+  linux-deb:
+    name: linux-${{ matrix.distro }}-${{ matrix.arch }}-deb
     runs-on: ubuntu-22.04
-    needs: linux-builds
+    needs: linux-tar
     strategy:
       fail-fast: false
       matrix:
-        target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu]
         include:
-          - target: x86_64-unknown-linux-gnu
-            debarch: amd64
-          - target: aarch64-unknown-linux-gnu
-            debarch: arm64
+          - { distro: raspios, target: aarch64-unknown-linux-gnu, arch: arm64, debarch: arm64 }
+          - { distro: raspios, target: armv7-unknown-linux-gnueabihf, arch: armhf, debarch: armhf }
+          - { distro: debian,  target: x86_64-unknown-linux-gnu, arch: x86_64, debarch: amd64 }
+          - { distro: debian,  target: aarch64-unknown-linux-gnu, arch: arm64, debarch: arm64 }
+          - { distro: ubuntu,  target: x86_64-unknown-linux-gnu, arch: x86_64, debarch: amd64 }
+          - { distro: ubuntu,  target: aarch64-unknown-linux-gnu, arch: arm64, debarch: arm64 }
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -125,51 +120,52 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Install tools
+      - name: Install deb tooling
         run: |
           sudo apt-get update
-          sudo dpkg --add-architecture arm64
-          sudo apt-get update
-          sudo apt-get install -y dpkg-dev gcc-aarch64-linux-gnu libc6-dev-arm64-cross libudev-dev libudev-dev:arm64 pkg-config
+          sudo apt-get install -y dpkg-dev pkg-config libudev-dev
+          if [ "${{ matrix.debarch }}" = "arm64" ]; then
+            sudo dpkg --add-architecture arm64
+            sudo apt-get update
+            sudo apt-get install -y gcc-aarch64-linux-gnu libc6-dev-arm64-cross libudev-dev:arm64
+          fi
+          if [ "${{ matrix.debarch }}" = "armhf" ]; then
+            sudo dpkg --add-architecture armhf
+            sudo apt-get update
+            sudo apt-get install -y gcc-arm-linux-gnueabihf libc6-dev-armhf-cross libudev-dev:armhf
+          fi
           cargo install cargo-deb --locked
 
       - name: Build .deb
         env:
           CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+          CC_armv7_unknown_linux_gnueabihf: arm-linux-gnueabihf-gcc
+          CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER: arm-linux-gnueabihf-gcc
           PKG_CONFIG_ALLOW_CROSS: "1"
-          PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig:/usr/aarch64-linux-gnu/lib/pkgconfig
+          PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig:/usr/aarch64-linux-gnu/lib/pkgconfig:/usr/lib/arm-linux-gnueabihf/pkgconfig
         run: |
-          # Rebuild for target to ensure correct arch and dependencies
-          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
-            cargo build --release --target ${{ matrix.target }}
-            cargo deb --target ${{ matrix.target }}
-          else
-            cargo deb --target ${{ matrix.target }}
-          fi
+          cargo deb --target ${{ matrix.target }}
           VERSION=${GITHUB_REF_NAME#v}
-          # Locate resulting .deb
           DEB=$(ls target/${{ matrix.target }}/debian/*.deb | head -n1)
-          OUT=${CRATE_NAME}_${VERSION}_${{ matrix.debarch }}.deb
+          OUT=${CRATE_NAME}_${VERSION}_${{ matrix.distro }}_${{ matrix.debarch }}.deb
           mkdir -p dist
           cp "$DEB" dist/$OUT
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: deb-${{ matrix.debarch }}
+          name: linux-${{ matrix.distro }}-${{ matrix.arch }}-deb
           path: dist/*.deb
 
-  macos:
-    name: macOS builds (Intel/Apple Silicon)
+  macos-zip:
+    name: macos-${{ matrix.arch }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: macos-13
-            target: x86_64-apple-darwin
-          - os: macos-14
-            target: aarch64-apple-darwin
+          - { os: macos-13, target: x86_64-apple-darwin, arch: intel }
+          - { os: macos-14, target: aarch64-apple-darwin, arch: apple_silicon }
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -188,27 +184,38 @@ jobs:
       - name: Install protobuf
         run: brew install protobuf
 
-      - name: Build (release)
+      - name: Build
         run: cargo build --release --target ${{ matrix.target }}
 
-      - name: Package tar.gz
+      - name: Package zip with runtime
         run: |
+          set -euo pipefail
           VERSION=${GITHUB_REF_NAME#v}
+          ROOT=package_root
           BIN=target/${{ matrix.target }}/release/${CRATE_NAME}
-          OUT=${CRATE_NAME}-v${VERSION}-${{ matrix.target }}.tar.gz
-          mkdir -p dist
-          strip -x "$BIN" || true
-          tar -czf dist/$OUT -C target/${{ matrix.target }}/release ${CRATE_NAME}
+          mkdir -p "$ROOT/bin" dist
+          cp -a packaging/runtime-skel/. "$ROOT/"
+          cp "$BIN" "$ROOT/bin/${CRATE_NAME}"
+          strip -x "$ROOT/bin/${CRATE_NAME}" || true
+          cp README.md LICENSE "$ROOT/"
+          OUT=${CRATE_NAME}-v${VERSION}-macos-${{ matrix.arch }}.zip
+          (cd "$ROOT" && zip -r ../dist/$OUT .)
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: macos-${{ matrix.target }}
-          path: dist/*.tar.gz
+          name: macos-${{ matrix.arch }}
+          path: dist/*.zip
 
-  windows:
-    name: Windows build (x86_64)
+  windows-zip:
+    name: windows-${{ matrix.arch }}
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: x86_64-pc-windows-msvc, arch: x86_64 }
+          - { target: aarch64-pc-windows-msvc, arch: arm64 }
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -217,6 +224,8 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
@@ -229,28 +238,34 @@ jobs:
         run: echo "PROTOC=$(where protoc | Select-Object -First 1)" >> $env:GITHUB_ENV
         shell: powershell
 
-      - name: Build (release)
-        run: cargo build --release --target x86_64-pc-windows-msvc
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
 
-      - name: Package zip
+      - name: Package zip with runtime
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
           $VERSION = $env:GITHUB_REF_NAME.TrimStart('v')
-          $BIN = "target/x86_64-pc-windows-msvc/release/${env:CRATE_NAME}.exe"
-          $OUT = "${env:CRATE_NAME}-v$VERSION-x86_64-pc-windows-msvc.zip"
-          New-Item -ItemType Directory -Force -Path dist | Out-Null
-          if (Test-Path $BIN) { Compress-Archive -Path $BIN -DestinationPath "dist/$OUT" -Force }
+          $ROOT = "package_root"
+          New-Item -ItemType Directory -Force -Path "dist" | Out-Null
+          New-Item -ItemType Directory -Force -Path "$ROOT/bin" | Out-Null
+          Copy-Item -Recurse -Force packaging/runtime-skel/* "$ROOT/"
+          $BIN = "target/${{ matrix.target }}/release/${env:CRATE_NAME}.exe"
+          Copy-Item $BIN "$ROOT/bin/${env:CRATE_NAME}.exe"
+          Copy-Item README.md, LICENSE "$ROOT/"
+          $OUT = "${env:CRATE_NAME}-v$VERSION-windows-${{ matrix.arch }}.zip"
+          if (Test-Path "$ROOT") { Compress-Archive -Path "$ROOT/*" -DestinationPath "dist/$OUT" -Force }
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: windows-x86_64
+          name: windows-${{ matrix.arch }}
           path: dist/*.zip
 
   release:
     name: Create GitHub Release
     runs-on: ubuntu-22.04
-    needs: [linux-builds, deb-packages, macos, windows]
+    needs: [linux-tar, linux-deb, macos-zip, windows-zip]
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
