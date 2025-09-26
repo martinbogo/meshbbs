@@ -1833,7 +1833,7 @@ impl MeshtasticWriter {
                                 info!("Delivered id={} to=0x{:08x} ({}), attempts={} latency_ms={}", id, p.to, p.content_preview, p.attempts, p.sent_at.elapsed().as_millis());
                             } else if let Some(bp) = self.pending_broadcast.remove(&id) {
                                 metrics::inc_broadcast_ack_confirmed();
-                                info!(
+                                debug!(
                                     "Broadcast confirmed by at least one ack: id={} channel={} preview='{}'",
                                     id, bp.channel, escape_log(&bp.preview)
                                 );

@@ -1482,12 +1482,12 @@ impl BbsServer {
                             } else { None };
                             if let Some(id) = id_opt {
                                 if let Some(sn) = self.lookup_short_name_from_cache(id) {
-                                    info!("Help request from node {} (0x{:08x}): using short name '{}'", id, id, sn);
+                                    debug!("Help request from node {} (0x{:08x}): using short name '{}'", id, id, sn);
                                     sn
                                 } else {
                                     // Fallback to compact hex label like Meshtastic short style
                                     let fallback = format!("0x{:06X}", id & 0xFFFFFF);
-                                    info!("Help request from node {} (0x{:08x}): no short name in cache, using '{}'", id, id, fallback);
+                                    debug!("Help request from node {} (0x{:08x}): no short name in cache, using '{}'", id, id, fallback);
                                     fallback
                                 }
                             } else {
@@ -1499,7 +1499,7 @@ impl BbsServer {
 
                         // Send DM first, then public notice. This reduces the chance of a transient rate limit
                         // affecting the DM, since the DM is more time-sensitive for onboarding.
-                        info!("Processing HELP DM for node {} (0x{:08x}). Raw ev.source={}, node_key='{}'", node_key, ev.source, ev.source, node_key);
+                        debug!("Processing HELP DM for node {} (0x{:08x}). Raw ev.source={}, node_key='{}'", node_key, ev.source, ev.source, node_key);
 
                         let help_text = format!(
                             "[{}] HELP: REGISTER <user> <pass>; then LOGIN <user> <pass>. Type HELP in DM for more.",
@@ -1507,7 +1507,7 @@ impl BbsServer {
                         );
 
                         match self.send_message(&node_key, &help_text).await {
-                            Ok(_) => info!("Sent HELP DM to {}", ev.source),
+                            Ok(_) => debug!("Sent HELP DM to {}", ev.source),
                             Err(e) => warn!("Failed to send HELP DM to {}: {}", ev.source, e),
                         }
                         // Schedule the public notice after a configurable delay instead of immediate send
@@ -1872,8 +1872,8 @@ impl BbsServer {
         // Attempt refresh
         let location = self.config.bbs.location.trim();
         let encoded_location = location.replace(" ", "%20");
-        let url = format!("https://wttr.in/{}?format=%l:+%C+%t", encoded_location);
-        info!("Fetching weather from URL: {}", url);
+    let url = format!("https://wttr.in/{}?format=%l:+%C+%t", encoded_location);
+    debug!("Fetching weather from URL: {}", url);
         let fut = async {
             let client = reqwest::Client::new();
             match client.get(&url).send().await {
