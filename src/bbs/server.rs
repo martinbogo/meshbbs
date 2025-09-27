@@ -1496,7 +1496,7 @@ impl BbsServer {
                             }
                         };
                         
-                        // Create broadcast message showing available public commands
+                        // Create broadcast message showing available public commands with chunking
                         let mut public_commands = vec![
                             "^HELP - Show this help",
                             "^LOGIN <user> - Register for BBS",
@@ -1513,11 +1513,8 @@ impl BbsServer {
                             "^8BALL - Magic 8-Ball oracle",
                             "^FORTUNE - Random wisdom",
                         ]);
-                        
-                        let public_notice = format!("[{}] Public Commands (for {}): {} | DM for BBS access", 
-                            self.config.bbs.name, friendly, public_commands.join(" | "));
 
-                        // Send DM first, then public notice. This reduces the chance of a transient rate limit
+                        // Send DM first, then chunked public notices. This reduces the chance of a transient rate limit
                         // affecting the DM, since the DM is more time-sensitive for onboarding.
                         debug!("Processing HELP DM for node {} (0x{:08x}). Raw ev.source={}, node_key='{}'", node_key, ev.source, ev.source, node_key);
 
@@ -1530,8 +1527,50 @@ impl BbsServer {
                             Ok(_) => debug!("Sent HELP DM to {}", ev.source),
                             Err(e) => warn!("Failed to send HELP DM to {}: {}", ev.source, e),
                         }
-                        // Schedule the public notice after a configurable delay instead of immediate send
-                        // to reduce chance of RateLimitExceeded right after a reliable DM.
+
+                        // Create chunked public notices, ensuring each stays under 230 bytes
+                        let mut chunks = Vec::new();
+                        let max_chunk_size = 220; // Leave some margin below 230 bytes
+                        
+                        // First chunk header
+                        let first_header = format!("[{}] Public Commands (for {}): ", self.config.bbs.name, friendly);
+                        let continuation_header = format!("[{}] More: ", self.config.bbs.name);
+                        
+                        let mut current_chunk = first_header.clone();
+                        let mut is_first_chunk = true;
+                        let mut commands_added = 0;
+                        
+                        for command in &public_commands {
+                            let separator = if commands_added == 0 { "" } else { " | " };
+                            let test_chunk = format!("{}{}{}", current_chunk, separator, command);
+                            
+                            // Check if adding this command would exceed the limit
+                            if test_chunk.len() > max_chunk_size {
+                                // Finalize current chunk
+                                if is_first_chunk {
+                                    current_chunk.push_str(" | DM for BBS access");
+                                }
+                                chunks.push(current_chunk);
+                                
+                                // Start new chunk
+                                current_chunk = format!("{}{}", continuation_header, command);
+                                is_first_chunk = false;
+                                commands_added = 1;
+                            } else {
+                                current_chunk = test_chunk;
+                                commands_added += 1;
+                            }
+                        }
+                        
+                        // Finalize last chunk
+                        if !current_chunk.is_empty() {
+                            if is_first_chunk {
+                                current_chunk.push_str(" | DM for BBS access");
+                            }
+                            chunks.push(current_chunk);
+                        }
+
+                        // Schedule all chunks with appropriate delays
                         let delay_ms = {
                             let cfg = &self.config.meshtastic;
                             let base = cfg.help_broadcast_delay_ms.unwrap_or(3500);
@@ -1541,25 +1580,56 @@ impl BbsServer {
                             let required = post_gap.saturating_add(min_gap);
                             if base < required { required } else { base }
                         };
+                        
                         if let Some(scheduler) = &self.scheduler {
-                            debug!("Scheduling HELP public notice in {}ms (text='{}')", delay_ms, escape_log(&public_notice));
-                            let outgoing = crate::meshtastic::OutgoingMessage { to_node: None, channel: 0, content: public_notice.clone(), priority: crate::meshtastic::MessagePriority::Normal, kind: crate::meshtastic::OutgoingKind::Normal, request_ack: true };
+                            for (i, chunk) in chunks.iter().enumerate() {
+                                let chunk_delay = delay_ms + (i as u64 * 2500); // 2.5s between chunks
+                                debug!("Scheduling HELP public chunk {} in {}ms (text='{}')", i + 1, chunk_delay, escape_log(chunk));
+                                let outgoing = crate::meshtastic::OutgoingMessage { 
+                                    to_node: None, 
+                                    channel: 0, 
+                                    content: chunk.clone(), 
+                                    priority: crate::meshtastic::MessagePriority::Normal, 
+                                    kind: crate::meshtastic::OutgoingKind::Normal, 
+                                    request_ack: true 
+                                };
                                 let env = crate::bbs::dispatch::MessageEnvelope::new(
-                                crate::bbs::dispatch::MessageCategory::HelpBroadcast,
-                                crate::bbs::dispatch::Priority::Low,
-                                    Duration::from_millis(delay_ms),
-                                outgoing
-                            );
-                            scheduler.enqueue(env);
-                        } else if let Some(tx) = self.outgoing_tx.clone() { // fallback legacy path
-                            let notice = public_notice.clone();
-                            debug!("Scheduling HELP public notice in {}ms (legacy path) text='{}'", delay_ms, escape_log(&notice));
-                            tokio::spawn(async move {
-                                tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
-                                let outgoing = crate::meshtastic::OutgoingMessage { to_node: None, channel: 0, content: notice.clone(), priority: crate::meshtastic::MessagePriority::Normal, kind: crate::meshtastic::OutgoingKind::Normal, request_ack: true };
-                                if let Err(e) = tx.send(outgoing) { log::warn!("Failed to queue scheduled HELP public notice: {}", e); } else { log::debug!("Queued scheduled HELP public notice after delay (legacy)"); }
-                            });
-                        } else { warn!("Cannot schedule HELP public notice: no outgoing path"); }
+                                    crate::bbs::dispatch::MessageCategory::HelpBroadcast,
+                                    crate::bbs::dispatch::Priority::Low,
+                                    Duration::from_millis(chunk_delay),
+                                    outgoing
+                                );
+                                scheduler.enqueue(env);
+                            }
+                        } else {
+                            // Fallback legacy path - ensure tx is properly cloned for each spawn
+                            if let Some(base_tx) = self.outgoing_tx.clone() {
+                                for (i, chunk) in chunks.iter().enumerate() {
+                                    let chunk_content = chunk.clone();
+                                    let tx_clone = base_tx.clone();
+                                    let chunk_delay = delay_ms + (i as u64 * 2500);
+                                    debug!("Scheduling HELP public chunk {} in {}ms (legacy path) text='{}'", i + 1, chunk_delay, escape_log(&chunk_content));
+                                    tokio::spawn(async move {
+                                        tokio::time::sleep(std::time::Duration::from_millis(chunk_delay)).await;
+                                        let outgoing = crate::meshtastic::OutgoingMessage { 
+                                            to_node: None, 
+                                            channel: 0, 
+                                            content: chunk_content, 
+                                            priority: crate::meshtastic::MessagePriority::Normal, 
+                                            kind: crate::meshtastic::OutgoingKind::Normal, 
+                                            request_ack: true 
+                                        };
+                                        if let Err(e) = tx_clone.send(outgoing) { 
+                                            log::warn!("Failed to queue scheduled HELP public chunk: {}", e); 
+                                        } else { 
+                                            log::debug!("Queued scheduled HELP public chunk after delay (legacy)"); 
+                                        }
+                                    });
+                                }
+                            } else {
+                                warn!("Cannot schedule HELP public chunks: no outgoing path");
+                            }
+                        }
                     }
                 }
                 PublicCommand::Login(username) => {

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 This file records notable changes for meshbbs. Starting with the 1.0.0 BETA baseline, new entries will be added above this section over time (e.g., 1.0.1, 1.0.2).
 
+## [1.0.12-beta] - 2025-09-26
+
+### Fixed
+- **Critical**: `^HELP` messages are now chunked to stay under Meshtastic's 230-byte transmission limit
+- Previous help message was 302 bytes, potentially causing transmission failures
+- Help content now split into multiple chunks (220-byte safety margin): first chunk with main commands + "DM for BBS access", continuation chunks with "More:" header
+- Each chunk sent with 2.5-second delays to respect rate limiting
+- Added comprehensive test coverage for message chunking in `tests/help_message_chunking.rs`
+
+### Technical
+- Implemented intelligent command distribution across chunks to maximize information density
+- Maintains existing scheduler integration and fallback paths
+- Verified worst-case scenarios: long BBS names result in 217 + 185 byte chunks (well under limit)
+
 ## [1.0.11-beta] - 2025-09-26
 
 ### Added

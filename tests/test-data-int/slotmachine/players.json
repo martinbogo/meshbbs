@@ -1,12 +1,12 @@
 {
   "players": {
     "5150": {
-      "coins": 110,
+      "coins": 105,
       "last_reset": "2025-09-26T22:56:18.098835Z",
-      "total_spins": 3,
+      "total_spins": 4,
       "total_wins": 2,
       "jackpots": 0,
-      "last_spin": "2025-09-27T00:14:41.107957Z",
+      "last_spin": "2025-09-27T00:26:54.685231Z",
       "last_jackpot": null
     }
   }
