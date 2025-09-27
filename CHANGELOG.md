@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 This file records notable changes for meshbbs. Starting with the 1.0.0 BETA baseline, new entries will be added above this section over time (e.g., 1.0.1, 1.0.2).
 
+## [1.0.10-beta] - 2025-09-26
+
+### Added
+- Public command `^FORTUNE` (Fortune Cookies): returns random wisdom from 140 curated Unix fortune database entries including programming quotes, philosophy, literature, and clean humor. All entries under 200 characters for mesh-friendly transmission. Broadcast-only with 5-second per-node cooldown.
+- Comprehensive unit test coverage for Fortune module (11 test functions covering database validation, functionality, thread safety, and content quality)
+- Helper functions for Fortune module: `fortune_count()` and `max_fortune_length()` for diagnostics and testing
+- Extensive rustdoc documentation for Fortune module with examples and thread safety notes
+- Development guide for Fortune module at `docs/development/fortune-module.md` with architecture, maintenance, and troubleshooting information
+
 ## [1.0.9-beta] - 2025-09-26
 
 ### Added

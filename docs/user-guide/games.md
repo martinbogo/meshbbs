@@ -35,4 +35,30 @@ Tip: If you see “Out of coins… Next refill in ~Hh Mm”, check back later or
 
 ---
 
+## 🔮 Fortune Cookies (public channel)
+
+- Command:
+  - `^FORTUNE` — receive a random fortune from classic Unix wisdom databases
+- Behavior:
+  - Stateless; draws from 140 curated fortunes including programming quotes, philosophy, literature, and humor
+  - All fortunes under 200 characters for mesh-friendly transmission
+  - Broadcast-only on the public channel (best‑effort)
+  - 5-second cooldown per node to prevent spam
+- Content:
+  - Classic Unix fortune database entries
+  - Programming and technology wisdom
+  - Motivational quotes and life philosophy
+  - Clean humor and wit
+- Quality Assurance:
+  - Comprehensive unit test coverage (11+ tests)
+  - Thread safety validation
+  - Content quality checks and character validation
+  - Randomness and distribution testing
+- Reliability:
+  - Same broadcast behavior as Magic 8‑Ball
+
+> 💡 **Developer Note**: The Fortune module includes extensive documentation and testing. See [`docs/development/fortune-module.md`](../development/fortune-module.md) for implementation details.
+
+---
+
 More games may be added over time. Have an idea? Open a GitHub issue or discussion!

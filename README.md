@@ -5,7 +5,7 @@
   
   **A modern Bulletin Board System for Meshtastic mesh networks**
   
-   [![Version](https://img.shields.io/badge/version-1.0.9--beta-blue.svg)](https://github.com/martinbogo/meshbbs/releases)
+   [![Version](https://img.shields.io/badge/version-1.0.10--beta-blue.svg)](https://github.com/martinbogo/meshbbs/releases)
   [![License](https://img.shields.io/badge/license-CC--BY--NC--4.0-green.svg)](LICENSE)
   [![Language](https://img.shields.io/badge/language-Rust-orange.svg)](https://www.rust-lang.org/)
   [![Platform](https://img.shields.io/badge/platform-Meshtastic-purple.svg)](https://meshtastic.org/)
@@ -50,6 +50,7 @@ Comprehensive documentation is available in the [`docs/`](docs/) directory and h
 - **📏 Optimized Message Size**: 230-byte limit optimized for Meshtastic constraints
  - **🎰 Public Slot Machine**: Fun `^SLOT` mini‑game with daily coin refills and jackpots
  - **🎱 Magic 8‑Ball (public)**: Ask `^8BALL` for a classic, emoji‑prefixed response (broadcast‑only)
+ - **🔮 Fortune Cookies (public)**: Use `^FORTUNE` to get random Unix wisdom, quotes, and humor (broadcast‑only)
  - **✅ Broadcast ACK Confirmation (optional)**: Broadcasts can now request an ACK and treat any single ACK as “at least one hop” success; lightweight tracking with short TTL and new metrics (see below)
 
 ### 👥 **User Management & Security**

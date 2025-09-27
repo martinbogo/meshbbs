@@ -27,6 +27,7 @@ Welcome to the comprehensive documentation for meshbbs, a modern Bulletin Board 
 
 ### Development
 - [API Reference](https://martinbogo.github.io/meshbbs/meshbbs/) - Generated Rust API documentation
+- [Fortune Module Guide](development/fortune-module.md) - In-depth Fortune system documentation
 - [Contributing Guide](../CONTRIBUTING.md) - How to contribute to meshbbs
 - [Architecture Overview](development/architecture.md) - System architecture and design
 - [Building from Source](development/building.md) - Development setup and building

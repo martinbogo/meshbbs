@@ -71,6 +71,7 @@ pub mod roles;
 pub mod dispatch;
 pub mod slotmachine;
 pub mod eightball;
+pub mod fortune;
 
 pub use server::BbsServer;
 

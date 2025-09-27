@@ -20,6 +20,9 @@ pub struct PublicState {
     // Lightweight cooldown for ^8BALL
     pub eightball_last: HashMap<String, Instant>,
     pub eightball_cooldown: Duration,
+    // Lightweight cooldown for ^FORTUNE
+    pub fortune_last: HashMap<String, Instant>,
+    pub fortune_cooldown: Duration,
 }
 
 impl PublicState {
@@ -33,6 +36,8 @@ impl PublicState {
             slot_cooldown: Duration::from_secs(3),
             eightball_last: HashMap::new(),
             eightball_cooldown: Duration::from_secs(2),
+            fortune_last: HashMap::new(),
+            fortune_cooldown: Duration::from_secs(5),
         }
     }
 
@@ -44,6 +49,8 @@ impl PublicState {
         self.slot_last_spin.retain(|_, t| now.duration_since(*t) < slot_ttl);
         // Same TTL policy for eightball
         self.eightball_last.retain(|_, t| now.duration_since(*t) < slot_ttl);
+        // Same TTL policy for fortune
+        self.fortune_last.retain(|_, t| now.duration_since(*t) < slot_ttl);
     }
 
     pub fn set_pending(&mut self, node_id: &str, username: String) {
@@ -79,6 +86,15 @@ impl PublicState {
             _ => { self.eightball_last.insert(node_id.to_string(), now); true }
         }
     }
+
+    /// Lightweight, per-node rate limit for ^FORTUNE. Defaults to 5s between fortunes.
+    pub fn allow_fortune(&mut self, node_id: &str) -> bool {
+        let now = Instant::now();
+        match self.fortune_last.get(node_id) {
+            Some(last) if now.duration_since(*last) < self.fortune_cooldown => false,
+            _ => { self.fortune_last.insert(node_id.to_string(), now); true }
+        }
+    }
 }
 
 /// Minimal public channel command parser
@@ -109,6 +125,11 @@ impl PublicCommandParser {
             trace!("Parsed 8BALL from '{}'", raw);
             return PublicCommand::EightBall;
         }
+        // Fortune cookies: ^FORTUNE
+        if body.eq_ignore_ascii_case("FORTUNE") {
+            trace!("Parsed FORTUNE from '{}'", raw);
+            return PublicCommand::Fortune;
+        }
         // Slot stats: ^SLOTSTATS
         if body.eq_ignore_ascii_case("SLOTSTATS") {
             trace!("Parsed SLOTSTATS from '{}'", raw);
@@ -138,6 +159,7 @@ pub enum PublicCommand {
     SlotMachine,
     SlotStats,
     EightBall,
+    Fortune,
     Unknown,
     Invalid(String),
 }

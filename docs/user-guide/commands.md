@@ -22,6 +22,7 @@ Reliability:
 | `^SLOT` / `^SLOTMACHINE` | Spin the emoji slot machine (5 coins per spin; daily refill) | `^SLOT` |
 | `^SLOTSTATS` | Show your coin balance and slot stats | `^SLOTSTATS` |
 | `^8BALL` | Ask the Magic 8‑Ball a question; get a random response | `^8BALL` |
+| `^FORTUNE` | Get a random fortune from classic Unix wisdom databases | `^FORTUNE` |
 
 ## Session Commands (Direct Message)
 
