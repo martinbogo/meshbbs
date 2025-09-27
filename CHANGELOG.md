@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 This file records notable changes for meshbbs. Starting with the 1.0.0 BETA baseline, new entries will be added above this section over time (e.g., 1.0.1, 1.0.2).
 
+## [1.0.13-beta] - 2025-01-27
+
+### Fixed
+- **Critical**: Fixed BBS becoming unresponsive after extended runtime (~1 hour+)
+- Reader task could permanently exit on serial I/O errors, causing complete message processing failure
+- Implemented resilient error handling: reader continues operating despite transient serial errors
+- Added small delays (50-100ms) in error paths to prevent tight error loops
+- Enhanced error logging with "continuing operation" messages for transparency
+
+### Technical
+- Changed fatal `return Err()` to warning logs in serial read error paths
+- Reader task now only exits on shutdown signal or EINTR (controlled shutdown)
+- Improved production stability for long-running deployments
+
 ## [1.0.12-beta] - 2025-09-26
 
 ### Fixed

@@ -1255,8 +1255,10 @@ impl MeshtasticReader {
                                 break;
                             }
                             _ => {
-                                error!("Reader error: {}", e);
-                                // Continue running unless it's a fatal error
+                                error!("Reader error: {} - continuing operation", e);
+                                // Continue running despite errors for resilience
+                                // Add a small delay to prevent tight error loops
+                                sleep(Duration::from_millis(100)).await;
                             }
                         }
                     }
@@ -1313,7 +1315,10 @@ impl MeshtasticReader {
                     // Timeout is normal
                 }
                 Err(e) => {
-                    return Err(anyhow!("Serial read error: {}", e));
+                    // Log the error but don't kill the reader task
+                    warn!("Serial read error (continuing): {}", e);
+                    // Small delay to prevent tight error loops
+                    sleep(Duration::from_millis(50)).await;
                 }
             }
         }
