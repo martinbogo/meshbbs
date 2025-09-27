@@ -1470,7 +1470,7 @@ impl BbsServer {
             match cmd {
                 PublicCommand::Help => {
                     if self.public_state.should_reply(&node_key) {
-                        // Compose public notice and detailed DM help
+                        // Compose public commands list and detailed DM help
                         // Prefer a friendly node label (short label) if the protobuf node catalog knows it.
                         // Support node keys provided either as plain decimal or hex with 0x prefix.
                         // Prefer short name from node cache; fallback to hex/id
@@ -1495,7 +1495,27 @@ impl BbsServer {
                                 node_key.clone()
                             }
                         };
-                        let public_notice = format!("[{}] - please check your DM's for {} help", friendly, self.config.bbs.name);
+                        
+                        // Create broadcast message showing available public commands
+                        let mut public_commands = vec![
+                            "^HELP - Show this help",
+                            "^LOGIN <user> - Register for BBS",
+                        ];
+                        
+                        // Add optional weather command if enabled
+                        #[cfg(feature = "weather")]
+                        public_commands.push("^WEATHER - Current conditions");
+                        
+                        // Add games and utilities
+                        public_commands.extend_from_slice(&[
+                            "^SLOT - Play slot machine",
+                            "^SLOTSTATS - Show your stats",
+                            "^8BALL - Magic 8-Ball oracle",
+                            "^FORTUNE - Random wisdom",
+                        ]);
+                        
+                        let public_notice = format!("[{}] Public Commands (for {}): {} | DM for BBS access", 
+                            self.config.bbs.name, friendly, public_commands.join(" | "));
 
                         // Send DM first, then public notice. This reduces the chance of a transient rate limit
                         // affecting the DM, since the DM is more time-sensitive for onboarding.

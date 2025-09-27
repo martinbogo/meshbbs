@@ -46,7 +46,7 @@ Comprehensive documentation is available in the [`docs/`](docs/) directory and h
 ### 💬 **Communication & Messaging**
 - **📚 Message Boards**: Traditional BBS-style message topics and forums
 - **🎯 Dynamic Contextual Prompts**: Smart prompts showing current state (`unauth>`, `user@topic>`, `post@topic>`)
-- **📜 Enhanced Help System**: Compact `HELP` + verbose `HELP+` with detailed command reference
+- **📜 Enhanced Help System**: `^HELP` broadcasts all public commands for discovery, with BBS instructions via DM
 - **📏 Optimized Message Size**: 230-byte limit optimized for Meshtastic constraints
  - **🎰 Public Slot Machine**: Fun `^SLOT` mini‑game with daily coin refills and jackpots
  - **🎱 Magic 8‑Ball (public)**: Ask `^8BALL` for a classic, emoji‑prefixed response (broadcast‑only)
@@ -233,11 +233,13 @@ Meshbbs uses a **two-step interaction model** that keeps the shared mesh channel
 
 #### 🔍 **Step 1: Say Hello on the Public Channel**
 Commands require `^` prefix to address the BBS:
-- `^HELP` - Returns onboarding message
+- `^HELP` - Shows all public commands and BBS login info
 - `^LOGIN <username>` - Registers pending login for your node ID
 - `^WEATHER` - Get current weather information
  - `^SLOT` / `^SLOTMACHINE` - Spin the emoji slot machine (costs 5 coins; daily refill to 100 when at 0)
  - `^SLOTSTATS` - Show your slot coin balance, wins, and jackpots
+- `^8BALL <question>` - Magic 8-Ball oracle for life's mysteries
+- `^FORTUNE` - Receive random wisdom and inspiration
 
 #### 💬 **Step 2: Start Your Private Conversation**
 After public `LOGIN`, open a private message to the BBS node to start your authenticated session.
