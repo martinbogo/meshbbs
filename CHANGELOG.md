@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 This file records notable changes for meshbbs. Starting with the 1.0.0 BETA baseline, new entries will be added above this section over time (e.g., 1.0.1, 1.0.2).
 
+## [1.0.11-beta] - 2025-09-26
+
+### Added
+- Enhanced `^HELP` command now broadcasts all available public commands to improve discoverability
+- New behavior: `^HELP` sends BBS instructions via DM while broadcasting public commands list to channel
+- Comprehensive test coverage for new help behavior in `tests/help_public_commands.rs`
+
+### Changed  
+- `^HELP` command now shows: "Public Commands (for {user}): ^HELP - Show this help | ^LOGIN <user> - Register for BBS | ^SLOT - Play slot machine | ^SLOTSTATS - Show your stats | ^8BALL - Magic 8-Ball oracle | ^FORTUNE - Random wisdom | DM for BBS access"
+- Updated documentation in README.md and user guides to reflect improved command discoverability
+- Enhanced help system description in README from "Compact HELP + verbose HELP+" to "^HELP broadcasts all public commands for discovery, with BBS instructions via DM"
+
+### Fixed
+- Resolved critical UX issue where mesh network users had no way to discover available public commands without prior knowledge
+
 ## [1.0.10-beta] - 2025-09-26
 
 ### Added
