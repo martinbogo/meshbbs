@@ -70,7 +70,7 @@ impl TlsConfig {
     /// Generate self-signed certificate
     async fn generate_self_signed(data_dir: &str) -> Result<Option<Self>> {
         use rcgen::{Certificate, CertificateParams, DistinguishedName};
-        use rustls::pki_types::{CertificateDer, PrivateKeyDer};
+        use rustls::pki_types::CertificateDer;
         
         let mut params = CertificateParams::default();
         params.distinguished_name = DistinguishedName::new();
@@ -102,10 +102,15 @@ impl TlsConfig {
         
         info!("Self-signed certificate generated and saved to {:?}", cert_path);
         
-        // Load into rustls
+        // Load into rustls - parse the PEM properly
         let certs = vec![CertificateDer::from(cert_pem.as_bytes().to_vec())];
-        let key = PrivateKeyDer::try_from(key_pem.as_bytes().to_vec())
-            .map_err(|e| anyhow!("Failed to parse private key: {:?}", e))?;
+        
+        // Parse private key from PEM format
+        use std::io::BufReader;
+        let mut key_reader = BufReader::new(key_pem.as_bytes());
+        let key = rustls_pemfile::private_key(&mut key_reader)
+            .map_err(|e| anyhow!("Failed to parse private key: {}", e))?
+            .ok_or_else(|| anyhow!("No private key found in PEM"))?;
         
         let server_config = ServerConfig::builder()
             .with_no_client_auth()

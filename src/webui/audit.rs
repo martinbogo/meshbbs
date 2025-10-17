@@ -197,4 +197,43 @@ impl AuditLogger {
             reason: None,
         });
     }
+    
+    /// Convenience method for logging user list view
+    pub fn log_user_list(&self, username: &str, session_token: &str) {
+        self.log(AuditEntry {
+            action: AuditAction::View,
+            username: username.to_string(),
+            resource: Some("users".to_string()),
+            ip_address: "webui".to_string(),
+            session_token: session_token.to_string(),
+            status: "success".to_string(),
+            reason: None,
+        });
+    }
+    
+    /// Convenience method for logging user detail view
+    pub fn log_user_view(&self, admin_username: &str, target_user: &str, session_token: &str) {
+        self.log(AuditEntry {
+            action: AuditAction::View,
+            username: admin_username.to_string(),
+            resource: Some(format!("user/{}", target_user)),
+            ip_address: "webui".to_string(),
+            session_token: session_token.to_string(),
+            status: "success".to_string(),
+            reason: None,
+        });
+    }
+    
+    /// Convenience method for logging user level update
+    pub fn log_user_update(&self, admin_username: &str, target_user: &str, details: &str, session_token: &str) {
+        self.log(AuditEntry {
+            action: AuditAction::Update,
+            username: admin_username.to_string(),
+            resource: Some(format!("user/{}", target_user)),
+            ip_address: "webui".to_string(),
+            session_token: session_token.to_string(),
+            status: "success".to_string(),
+            reason: Some(details.to_string()),
+        });
+    }
 }

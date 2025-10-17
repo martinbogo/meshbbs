@@ -13,6 +13,8 @@ use std::sync::Arc;
 
 use crate::webui::audit::{AuditLogger, AuditAction, AuditEntry};
 use crate::webui::auth::AuthManager;
+use crate::storage::Storage;
+use tokio::sync::Mutex;
 
 /// Shared application state
 #[derive(Clone)]
@@ -21,6 +23,7 @@ pub struct AppState {
     pub audit_logger: AuditLogger,
     pub sysop_password_hash: String,
     pub sysop_username: String,
+    pub storage: Option<Arc<Mutex<Storage>>>,  // BBS storage for user management (wrapped in Arc<Mutex> for shared mutable access)
 }
 
 /// Login request

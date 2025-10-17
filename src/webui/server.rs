@@ -4,23 +4,25 @@
 
 use anyhow::Result;
 use axum::{
-    routing::{get, post},
+    routing::{get, post, put},
     Router,
 };
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
+use tokio::sync::Mutex;
 use tower_http::services::ServeDir;
 use tracing::{error, info};
 
 use crate::config::Config;
-use crate::webui::api::{login, logout, list_npcs, AppState};
+use crate::storage::Storage;
+use crate::webui::api::{login, logout, list_npcs, list_users, get_user, update_user_level, AppState};
 use crate::webui::audit::AuditLogger;
 use crate::webui::auth::AuthManager;
 use crate::webui::tls::TlsConfig;
 
 /// Start the web UI server
-pub async fn start_webui_server(config: Config) -> Result<()> {
+pub async fn start_webui_server(config: Config, storage: Option<Storage>) -> Result<()> {
     let dashboard_config = &config.admin_dashboard;
     
     // Validate configuration
@@ -53,6 +55,7 @@ pub async fn start_webui_server(config: Config) -> Result<()> {
         audit_logger: audit_logger.clone(),
         sysop_password_hash,
         sysop_username: config.bbs.sysop.clone(),
+        storage: storage.map(|s| Arc::new(Mutex::new(s))),  // Wrap storage in Arc<Mutex> for shared mutable access
     });
     
     // Build router
@@ -60,6 +63,11 @@ pub async fn start_webui_server(config: Config) -> Result<()> {
         // Authentication endpoints
         .route("/api/auth/login", post(login))
         .route("/api/auth/logout", post(logout))
+        
+        // User management endpoints
+        .route("/api/users", get(list_users))
+        .route("/api/users/:username", get(get_user))
+        .route("/api/users/:username/level", put(update_user_level))
         
         // NPC endpoints
         .route("/api/npcs", get(list_npcs))

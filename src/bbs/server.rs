@@ -563,8 +563,18 @@ impl BbsServer {
         #[cfg(feature = "webui")]
         if server.config.admin_dashboard.enabled {
             let config_clone = server.config.clone();
+            let data_dir = server.config.storage.data_dir.clone();
             tokio::spawn(async move {
-                if let Err(e) = crate::webui::start_webui_server(config_clone).await {
+                // Create a separate Storage instance for the web UI
+                let storage = match Storage::new(&data_dir).await {
+                    Ok(s) => Some(s),
+                    Err(e) => {
+                        error!("[webui] Failed to initialize storage for web UI: {}", e);
+                        None
+                    }
+                };
+                
+                if let Err(e) = crate::webui::start_webui_server(config_clone, storage).await {
                     error!("[webui] Failed to start admin dashboard: {}", e);
                 } else {
                     info!("[webui] Admin dashboard started successfully");

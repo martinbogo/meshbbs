@@ -10,13 +10,16 @@
 ## Executive Summary
 
 A web-based administration dashboard that **complements** (not replaces) the existing in-game `@` commands, providing:
-- Visual content management for bulk operations
+- **BBS Administration** - User management, message boards, topics, and system configuration
+- Visual content management for bulk operations (TinyMUSH when enabled)
 - Real-time system monitoring and metrics
 - Player moderation tools
-- Interactive world map and quest flow editors
+- Interactive world map and quest flow editors (TinyMUSH when enabled)
 - Offline JSON file editing
 
 **Core Principle**: Operates on the same data-driven JSON files and sled database as in-game commands. Changes sync bidirectionally.
+
+**Primary Use Case**: BBS administration and user management, with optional TinyMUSH content management when the game is enabled.
 
 ---
 
@@ -26,11 +29,12 @@ A web-based administration dashboard that **complements** (not replaces) the exi
 
 The dashboard addresses needs that text commands cannot efficiently handle:
 
-1. **Scale Management** - Edit 50 NPCs at once vs one-by-one with `@NPC EDIT`
-2. **Visual Feedback** - See world map connections, dialogue trees, quest chains
-3. **Analytics** - Charts for player progression, achievement unlocks, system health
-4. **Easier Onboarding** - GUI lowers barrier for new world builders
-5. **Offline Editing** - Work on content without mesh network connection
+1. **BBS User Management** - View all users, edit roles, ban/unban in bulk vs one-by-one commands
+2. **Message Board Overview** - See all topics and messages, statistics, and trends at a glance
+3. **Scale Management** - Edit 50 NPCs at once vs one-by-one with `@NPC EDIT` (when TinyMUSH enabled)
+4. **Visual Feedback** - Charts for user activity, message volume, achievement unlocks
+5. **Easier Onboarding** - GUI lowers barrier for new administrators
+6. **Offline Editing** - Work on content without mesh network connection
 
 ### Why Keep `@` Commands?
 
