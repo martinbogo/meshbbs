@@ -62,7 +62,14 @@
 - [ ] World events and dynamic content
 
 ### Technical Enhancements
-- [ ] Web-based admin dashboard
+- [~] Web-based admin dashboard (Phase 2 in progress on branch `tinymush_admin_webui`)
+  - [x] Phase 1: Foundation (auth, audit, TLS, basic UI)
+  - [x] Phase 2a: BBS user management API (list, view, update level)
+  - [x] Phase 2b: Topics/messages API (list topics, list messages, topic stats)
+  - [ ] Phase 2c: Statistics API
+  - [ ] Phase 2d: User management UI
+  - [ ] Phase 2e: Dashboard stats UI
+  - [ ] Phase 3: TinyMUSH content management (NPCs, Achievements, etc.)
 - [ ] Metrics and analytics system
 - [ ] A/B testing framework for features
 - [ ] Localization support (multiple languages)

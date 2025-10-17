@@ -16,7 +16,12 @@ use tracing::{error, info};
 
 use crate::config::Config;
 use crate::storage::Storage;
-use crate::webui::api::{login, logout, list_npcs, list_users, get_user, update_user_level, AppState};
+use crate::webui::api::{
+    login, logout, list_npcs, 
+    list_users, get_user, update_user_level,
+    list_topics, list_messages, get_topic_stats,
+    AppState
+};
 use crate::webui::audit::AuditLogger;
 use crate::webui::auth::AuthManager;
 use crate::webui::tls::TlsConfig;
@@ -68,6 +73,11 @@ pub async fn start_webui_server(config: Config, storage: Option<Storage>) -> Res
         .route("/api/users", get(list_users))
         .route("/api/users/:username", get(get_user))
         .route("/api/users/:username/level", put(update_user_level))
+        
+        // Topics and messages endpoints
+        .route("/api/topics", get(list_topics))
+        .route("/api/topics/:topic/messages", get(list_messages))
+        .route("/api/topics/:topic/stats", get(get_topic_stats))
         
         // NPC endpoints
         .route("/api/npcs", get(list_npcs))
