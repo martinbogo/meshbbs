@@ -84,3 +84,6 @@ pub mod protobuf; // always declare; internal stubs handle feature gating
 pub mod storage;
 pub mod tmush;
 pub mod validation;
+
+#[cfg(feature = "webui")]
+pub mod webui;

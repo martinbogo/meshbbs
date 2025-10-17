@@ -558,6 +558,20 @@ impl BbsServer {
         if server.config.games.tinymush_enabled {
             info!("[games] TinyMUSH enabled: available in Games menu");
         }
+        
+        // Start admin web dashboard if enabled
+        #[cfg(feature = "webui")]
+        if server.config.admin_dashboard.enabled {
+            let config_clone = server.config.clone();
+            tokio::spawn(async move {
+                if let Err(e) = crate::webui::start_webui_server(config_clone).await {
+                    error!("[webui] Failed to start admin dashboard: {}", e);
+                } else {
+                    info!("[webui] Admin dashboard started successfully");
+                }
+            });
+        }
+        
         Ok(server)
     }
 

@@ -138,6 +138,9 @@ pub struct Config {
     /// New user welcome system
     #[serde(default)]
     pub welcome: crate::bbs::welcome::WelcomeConfig,
+    /// Admin web dashboard configuration
+    #[serde(default)]
+    pub admin_dashboard: AdminDashboardConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -309,6 +312,193 @@ impl Default for WeatherConfig {
     }
 }
 
+/// Configuration for the admin web dashboard.
+///
+/// The admin dashboard provides a web-based interface for managing BBS content,
+/// monitoring system health, and performing administrative tasks.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AdminDashboardConfig {
+    /// Enable/disable the admin dashboard (disabled by default for security)
+    pub enabled: bool,
+    /// Bind addresses (IPv4/IPv6) with ports. Examples: ["0.0.0.0:9885", "[::]:9885"]
+    pub bind_addresses: Vec<String>,
+    /// Session token timeout in seconds (default 24 hours = 86400)
+    pub session_timeout: u64,
+    /// Minimum admin level required to access dashboard (BBS level 10 / TinyMUSH level 5)
+    pub require_admin_level: u8,
+    
+    // TLS/HTTPS Configuration
+    /// TLS mode: "self_signed", "letsencrypt", "custom", "disabled"
+    pub tls_mode: String,
+    /// Path to TLS certificate (for custom mode)
+    pub tls_cert: Option<String>,
+    /// Path to TLS private key (for custom mode)
+    pub tls_key: Option<String>,
+    /// Domain name for Let's Encrypt (if letsencrypt mode)
+    pub letsencrypt_domain: Option<String>,
+    /// Email for Let's Encrypt notifications
+    pub letsencrypt_email: Option<String>,
+    
+    // Rate Limiting
+    /// Enable rate limiting (recommended)
+    pub rate_limit_enabled: bool,
+    /// Max failed login attempts per IP per window
+    pub login_attempts_per_ip: u32,
+    /// Login attempt window in seconds (default 15 minutes = 900)
+    pub login_attempt_window: u64,
+    /// Max API requests per session per window
+    pub api_requests_per_session: u32,
+    /// API request window in seconds (default 1 minute = 60)
+    pub api_request_window: u64,
+    
+    // Session Management
+    /// Max concurrent sessions per admin user
+    pub max_sessions_per_admin: u32,
+    /// Rotate session token on each request (prevents replay attacks)
+    pub session_token_rotation: bool,
+    /// Strictly enforce token expiry
+    pub enforce_token_expiry: bool,
+    
+    // Audit Logging (mandatory)
+    /// Enable audit logging (cannot be disabled, always true)
+    pub audit_log_enabled: bool,
+    /// Audit log filename (in data directory by default)
+    pub audit_log_file: String,
+    /// Override audit log directory (if set, overrides default)
+    pub audit_log_directory: Option<String>,
+    /// Audit log level: "debug", "info", "warn", "error"
+    pub audit_log_level: String,
+    /// Log rotation: "daily", "weekly", "size"
+    pub audit_log_rotation: String,
+    /// Max size in MB before rotation (if size-based rotation)
+    pub audit_log_max_size_mb: u64,
+    
+    // Feature Flags
+    /// Enable content manager (NPCs, Achievements, Rooms, Objects, Quests, Companions)
+    pub features_content_manager: bool,
+    /// Enable player management and moderation tools
+    pub features_player_management: bool,
+    /// Enable system monitoring and real-time metrics
+    pub features_system_monitor: bool,
+    /// Enable configuration editor
+    pub features_config_editor: bool,
+    /// Enable JSON seed file editor
+    pub features_json_editor: bool,
+    /// Enable analytics and charts
+    pub features_analytics: bool,
+}
+
+impl Default for AdminDashboardConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false, // Disabled by default for security
+            bind_addresses: vec!["0.0.0.0:9885".to_string(), "[::]:9885".to_string()],
+            session_timeout: 86400, // 24 hours
+            require_admin_level: 10, // Sysop level (BBS level 10)
+            
+            // TLS defaults
+            tls_mode: "self_signed".to_string(),
+            tls_cert: None,
+            tls_key: None,
+            letsencrypt_domain: None,
+            letsencrypt_email: None,
+            
+            // Rate limiting defaults (web security best practices)
+            rate_limit_enabled: true,
+            login_attempts_per_ip: 5,
+            login_attempt_window: 900, // 15 minutes
+            api_requests_per_session: 1000,
+            api_request_window: 60, // 1 minute
+            
+            // Session management defaults
+            max_sessions_per_admin: 3,
+            session_token_rotation: true,
+            enforce_token_expiry: true,
+            
+            // Audit logging defaults (mandatory, cannot be disabled)
+            audit_log_enabled: true,
+            audit_log_file: "admin_dashboard.log".to_string(),
+            audit_log_directory: None,
+            audit_log_level: "info".to_string(),
+            audit_log_rotation: "daily".to_string(),
+            audit_log_max_size_mb: 100,
+            
+            // Feature flags (all enabled by default)
+            features_content_manager: true,
+            features_player_management: true,
+            features_system_monitor: true,
+            features_config_editor: true,
+            features_json_editor: true,
+            features_analytics: true,
+        }
+    }
+}
+
+impl AdminDashboardConfig {
+    /// Validate configuration values
+    pub fn validate(&self) -> Result<()> {
+        // Validate TLS mode
+        match self.tls_mode.as_str() {
+            "self_signed" | "letsencrypt" | "custom" | "disabled" => {}
+            _ => return Err(anyhow!("Invalid tls_mode: must be 'self_signed', 'letsencrypt', 'custom', or 'disabled'")),
+        }
+        
+        // Validate custom TLS requires cert and key
+        if self.tls_mode == "custom" {
+            if self.tls_cert.is_none() || self.tls_key.is_none() {
+                return Err(anyhow!("Custom TLS mode requires tls_cert and tls_key paths"));
+            }
+        }
+        
+        // Validate Let's Encrypt requires domain and email
+        if self.tls_mode == "letsencrypt" {
+            if self.letsencrypt_domain.is_none() || self.letsencrypt_email.is_none() {
+                return Err(anyhow!("Let's Encrypt mode requires letsencrypt_domain and letsencrypt_email"));
+            }
+        }
+        
+        // Validate bind addresses
+        if self.bind_addresses.is_empty() {
+            return Err(anyhow!("At least one bind address required"));
+        }
+        
+        // Validate audit log level
+        match self.audit_log_level.as_str() {
+            "debug" | "info" | "warn" | "error" => {}
+            _ => return Err(anyhow!("Invalid audit_log_level: must be 'debug', 'info', 'warn', or 'error'")),
+        }
+        
+        // Validate audit log rotation
+        match self.audit_log_rotation.as_str() {
+            "daily" | "weekly" | "size" => {}
+            _ => return Err(anyhow!("Invalid audit_log_rotation: must be 'daily', 'weekly', or 'size'")),
+        }
+        
+        // Validate session timeout (must be positive)
+        if self.session_timeout == 0 {
+            return Err(anyhow!("session_timeout must be greater than 0"));
+        }
+        
+        // Validate rate limits (must be positive)
+        if self.rate_limit_enabled {
+            if self.login_attempts_per_ip == 0 {
+                return Err(anyhow!("login_attempts_per_ip must be greater than 0"));
+            }
+            if self.login_attempt_window == 0 {
+                return Err(anyhow!("login_attempt_window must be greater than 0"));
+            }
+            if self.api_requests_per_session == 0 {
+                return Err(anyhow!("api_requests_per_session must be greater than 0"));
+            }
+            if self.api_request_window == 0 {
+                return Err(anyhow!("api_request_window must be greater than 0"));
+            }
+        }
+        
+        Ok(())
+    }
+}
+
 impl Config {
     /// Load configuration from a file
     pub async fn load(path: &str) -> Result<Self> {
@@ -421,6 +611,7 @@ impl Default for Config {
                 cooldown_minutes: 5,
                 max_welcomes_per_node: 1,
             },
+            admin_dashboard: AdminDashboardConfig::default(),
         }
     }
 }

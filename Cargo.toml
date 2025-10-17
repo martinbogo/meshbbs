@@ -69,6 +69,27 @@ prost-types = { version = "0.12", optional = true }
 bytes = { version = "1.5", optional = true }
 reqwest = { version = "0.11", optional = true, default-features = false, features = ["rustls-tls", "json"] }
 
+# Optional: Web UI dependencies
+axum = { version = "0.7", optional = true }
+tower = { version = "0.4", optional = true }
+tower-http = { version = "0.5", optional = true, features = ["fs", "trace", "cors"] }
+tokio-tungstenite = { version = "0.21", optional = true }
+tower-sessions = { version = "0.12", optional = true }
+jsonwebtoken = { version = "9.2", optional = true }
+rustls = { version = "0.22", optional = true }
+tokio-rustls = { version = "0.25", optional = true }
+rustls-pemfile = { version = "2.0", optional = true }
+rcgen = { version = "0.12", optional = true }
+acme2 = { version = "0.5", optional = true }
+tower_governor = { version = "0.3", optional = true }
+tracing = { version = "0.1", optional = true }
+tracing-subscriber = { version = "0.3", optional = true, features = ["env-filter"] }
+tracing-appender = { version = "0.2", optional = true }
+time = { version = "0.3", optional = true }
+validator = { version = "0.18", optional = true, features = ["derive"] }
+hyper = { version = "1.0", optional = true, features = ["full"] }
+hyper-util = { version = "0.1", optional = true, features = ["tokio"] }
+
 [build-dependencies]
 prost-build = { version = "0.12" }
 protoc-bin-vendored = "3"
@@ -81,6 +102,27 @@ meshtastic-proto = ["dep:prost", "dep:prost-types", "dep:bytes"]
 weather = ["dep:reqwest"]
 api-reexports = [] # Export internal types (Session, CommandProcessor, PublicState, PublicCommandParser)
 daemon = [] # Optional daemon mode for Unix systems (custom implementation, no dependencies)
+webui = [
+    "dep:axum", 
+    "dep:tower", 
+    "dep:tower-http", 
+    "dep:tokio-tungstenite",
+    "dep:tower-sessions",
+    "dep:jsonwebtoken",
+    "dep:rustls",
+    "dep:tokio-rustls",
+    "dep:rustls-pemfile",
+    "dep:rcgen",
+    "dep:acme2",
+    "dep:tower_governor",
+    "dep:tracing",
+    "dep:tracing-subscriber",
+    "dep:tracing-appender",
+    "dep:time",
+    "dep:validator",
+    "dep:hyper",
+    "dep:hyper-util"
+]
 
 [dev-dependencies]
 # Testing utilities
