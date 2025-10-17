@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Management - MeshBBS Admin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            color: #2d3748;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header nav {
+            display: flex;
+            gap: 15px;
+        }
+
+        .header nav a {
+            color: #667eea;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            transition: background 0.2s;
+        }
+
+        .header nav a:hover {
+            background: #f7fafc;
+        }
+
+        .controls {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 250px;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 10px 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .filter-group label {
+            font-size: 14px;
+            color: #4a5568;
+            font-weight: 500;
+        }
+
+        .filter-group select {
+            padding: 8px 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .filter-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .stats-bar {
+            background: white;
+            padding: 15px 30px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .stat-icon {
+            font-size: 24px;
+        }
+
+        .stat-content {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #718096;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .table-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        thead th {
+            padding: 15px 20px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        tbody tr {
+            border-bottom: 1px solid #e2e8f0;
+            transition: background 0.2s;
+        }
+
+        tbody tr:hover {
+            background: #f7fafc;
+        }
+
+        tbody td {
+            padding: 15px 20px;
+            font-size: 14px;
+            color: #4a5568;
+        }
+
+        .role-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            color: white;
+        }
+
+        .level-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+
+        .username {
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .status-icon {
+            font-size: 16px;
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a67d8;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #718096;
+        }
+
+        .spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #fee;
+            color: #c00;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #c00;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 5px;
+            padding: 20px;
+        }
+
+        .pagination button {
+            padding: 8px 12px;
+            border: 2px solid #e2e8f0;
+            background: white;
+            color: #4a5568;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .pagination button:hover:not(:disabled) {
+            border-color: #667eea;
+            color: #667eea;
+        }
+
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .pagination button.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            font-size: 20px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: #4a5568;
+            margin-bottom: 5px;
+        }
+
+        .form-group select,
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e2e8f0;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .font-mono {
+            font-family: 'Courier New', monospace;
+        }
+
+        .text-sm {
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>👥 User Management</h1>
+            <nav>
+                <a href="dashboard.html">📊 Dashboard</a>
+                <a href="users.html" style="background: #f7fafc;">👥 Users</a>
+                <a href="#">💬 Messages</a>
+                <a href="#">⚙️ Settings</a>
+            </nav>
+        </div>
+
+        <div class="controls">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="🔍 Search users by username or name...">
+            </div>
+            <div class="filter-group">
+                <label for="roleFilter">Role:</label>
+                <select id="roleFilter">
+                    <option value="">All Roles</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="statusFilter">Status:</label>
+                <select id="statusFilter">
+                    <option value="">All</option>
+                    <option value="password">With Password</option>
+                    <option value="no-password">No Password</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="stats-bar" id="statsBar">
+            <!-- Stats will be populated dynamically -->
+        </div>
+
+        <div class="table-container">
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <p>Loading users...</p>
+            </div>
+            <div id="error" class="error" style="display: none;"></div>
+            <table id="userTable" style="display: none;">
+                <thead>
+                    <tr id="tableHeaders">
+                        <!-- Headers will be populated dynamically from schema -->
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <!-- Data will be populated dynamically -->
+                </tbody>
+            </table>
+            <div class="pagination" id="pagination" style="display: none;">
+                <!-- Pagination will be populated dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit User Modal -->
+    <div class="modal" id="editModal">
+        <div class="modal-content">
+            <div class="modal-header">Edit User Level</div>
+            <form id="editForm">
+                <input type="hidden" id="editUsername">
+                <div class="form-group">
+                    <label>Username:</label>
+                    <input type="text" id="editUsernameDisplay" disabled>
+                </div>
+                <div class="form-group">
+                    <label>Current Role:</label>
+                    <input type="text" id="editCurrentRole" disabled>
+                </div>
+                <div class="form-group">
+                    <label for="editLevel">New Access Level:</label>
+                    <select id="editLevel">
+                        <!-- Options populated from schema -->
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let schema = null;
+        let roles = [];
+        let users = [];
+        let filteredUsers = [];
+        let currentPage = 1;
+        const pageSize = 20;
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadSchemaAndRoles();
+            await loadUsers();
+            setupEventListeners();
+        });
+
+        // Load schema and roles from API
+        async function loadSchemaAndRoles() {
+            try {
+                const response = await fetch('/api/schema/user');
+                const data = await response.json();
+                schema = data.schema;
+                roles = data.roles;
+
+                // Populate role filter dropdown
+                const roleFilter = document.getElementById('roleFilter');
+                roles.forEach(role => {
+                    const option = document.createElement('option');
+                    option.value = role.name;
+                    option.textContent = `${role.icon || ''} ${role.name}`.trim();
+                    roleFilter.appendChild(option);
+                });
+
+                // Populate edit level dropdown
+                const editLevel = document.getElementById('editLevel');
+                for (let i = 1; i <= 10; i++) {
+                    const role = roles.find(r => i >= r.min_level && i <= r.max_level);
+                    const option = document.createElement('option');
+                    option.value = i;
+                    option.textContent = `Level ${i} - ${role ? role.name : 'Unknown'}`;
+                    editLevel.appendChild(option);
+                }
+
+            } catch (error) {
+                console.error('Failed to load schema:', error);
+                showError('Failed to load schema configuration');
+            }
+        }
+
+        // Load users from API
+        async function loadUsers() {
+            try {
+                const response = await fetch('/api/users');
+                if (!response.ok) throw new Error('Failed to load users');
+                
+                users = await response.json();
+                filteredUsers = users;
+                renderTable();
+                renderStats();
+                
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('userTable').style.display = 'table';
+                document.getElementById('pagination').style.display = 'flex';
+            } catch (error) {
+                console.error('Failed to load users:', error);
+                showError('Failed to load users. Please refresh the page.');
+            }
+        }
+
+        // Render statistics bar
+        function renderStats() {
+            const statsBar = document.getElementById('statsBar');
+            const total = users.length;
+            const withPassword = users.filter(u => u.has_password).length;
+            
+            // Count by role
+            const roleCounts = {};
+            users.forEach(user => {
+                roleCounts[user.role] = (roleCounts[user.role] || 0) + 1;
+            });
+
+            statsBar.innerHTML = `
+                <div class="stat-item">
+                    <div class="stat-icon">👥</div>
+                    <div class="stat-content">
+                        <div class="stat-label">Total Users</div>
+                        <div class="stat-value">${total}</div>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-icon">🔐</div>
+                    <div class="stat-content">
+                        <div class="stat-label">With Password</div>
+                        <div class="stat-value">${withPassword}</div>
+                    </div>
+                </div>
+                ${roles.map(role => {
+                    const count = roleCounts[role.name] || 0;
+                    return `
+                        <div class="stat-item">
+                            <div class="stat-icon">${role.icon || '👤'}</div>
+                            <div class="stat-content">
+                                <div class="stat-label">${role.name}s</div>
+                                <div class="stat-value">${count}</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            `;
+        }
+
+        // Render table with dynamic columns from schema
+        function renderTable() {
+            if (!schema) return;
+
+            // Generate table headers
+            const headers = document.getElementById('tableHeaders');
+            headers.innerHTML = `
+                <th>Username</th>
+                <th>Role</th>
+                <th>Level</th>
+                <th>Last Seen</th>
+                <th>Created</th>
+                <th>Messages</th>
+                <th>Password</th>
+                <th>Actions</th>
+            `;
+
+            // Paginate
+            const start = (currentPage - 1) * pageSize;
+            const end = start + pageSize;
+            const pageUsers = filteredUsers.slice(start, end);
+
+            // Generate table rows
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = pageUsers.map(user => {
+                const role = roles.find(r => r.name === user.role);
+                const roleColor = role?.color || '#6b7280';
+                const roleIcon = role?.icon || '👤';
+                
+                return `
+                    <tr>
+                        <td><span class="username">${user.username}</span></td>
+                        <td>
+                            <span class="role-badge" style="background: ${roleColor}">
+                                ${roleIcon} ${user.role}
+                            </span>
+                        </td>
+                        <td><span class="level-badge">Level ${user.level}</span></td>
+                        <td class="text-sm">${formatDate(user.last_seen)}</td>
+                        <td class="text-sm">${formatDate(user.created_at)}</td>
+                        <td>${user.message_count}</td>
+                        <td class="status-icon">${user.has_password ? '🔐' : '🔓'}</td>
+                        <td class="actions">
+                            <button class="btn btn-primary" onclick="editUser('${user.username}', ${user.level}, '${user.role}')">
+                                ✏️ Edit
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            renderPagination();
+        }
+
+        // Render pagination controls
+        function renderPagination() {
+            const totalPages = Math.ceil(filteredUsers.length / pageSize);
+            const pagination = document.getElementById('pagination');
+            
+            let html = `
+                <button ${currentPage === 1 ? 'disabled' : ''} onclick="changePage(${currentPage - 1})">
+                    ← Previous
+                </button>
+            `;
+
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+                    html += `
+                        <button class="${i === currentPage ? 'active' : ''}" onclick="changePage(${i})">
+                            ${i}
+                        </button>
+                    `;
+                } else if (i === currentPage - 3 || i === currentPage + 3) {
+                    html += '<span style="padding: 8px;">...</span>';
+                }
+            }
+
+            html += `
+                <button ${currentPage === totalPages ? 'disabled' : ''} onclick="changePage(${currentPage + 1})">
+                    Next →
+                </button>
+            `;
+
+            pagination.innerHTML = html;
+        }
+
+        // Change page
+        function changePage(page) {
+            const totalPages = Math.ceil(filteredUsers.length / pageSize);
+            if (page < 1 || page > totalPages) return;
+            currentPage = page;
+            renderTable();
+        }
+
+        // Filter users
+        function filterUsers() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const roleFilter = document.getElementById('roleFilter').value;
+            const statusFilter = document.getElementById('statusFilter').value;
+
+            filteredUsers = users.filter(user => {
+                const matchesSearch = user.username.toLowerCase().includes(search);
+                const matchesRole = !roleFilter || user.role === roleFilter;
+                const matchesStatus = !statusFilter ||
+                                     (statusFilter === 'password' && user.has_password) ||
+                                     (statusFilter === 'no-password' && !user.has_password);
+                
+                return matchesSearch && matchesRole && matchesStatus;
+            });
+
+            currentPage = 1;
+            renderTable();
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            document.getElementById('searchInput').addEventListener('input', filterUsers);
+            document.getElementById('roleFilter').addEventListener('change', filterUsers);
+            document.getElementById('statusFilter').addEventListener('change', filterUsers);
+            
+            document.getElementById('editForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await saveUserLevel();
+            });
+        }
+
+        // Edit user
+        function editUser(username, level, role) {
+            document.getElementById('editUsername').value = username;
+            document.getElementById('editUsernameDisplay').value = username;
+            document.getElementById('editCurrentRole').value = role;
+            document.getElementById('editLevel').value = level;
+            document.getElementById('editModal').classList.add('active');
+        }
+
+        // Close edit modal
+        function closeEditModal() {
+            document.getElementById('editModal').classList.remove('active');
+        }
+
+        // Save user level
+        async function saveUserLevel() {
+            const username = document.getElementById('editUsername').value;
+            const level = parseInt(document.getElementById('editLevel').value);
+
+            try {
+                const response = await fetch(`/api/users/${username}/level`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ level })
+                });
+
+                if (!response.ok) throw new Error('Failed to update user');
+
+                alert('User level updated successfully!');
+                closeEditModal();
+                await loadUsers();
+            } catch (error) {
+                console.error('Failed to update user:', error);
+                alert('Failed to update user level. Please try again.');
+            }
+        }
+
+        // Format date
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+            if (diffDays === 0) return 'Today';
+            if (diffDays === 1) return 'Yesterday';
+            if (diffDays < 7) return `${diffDays} days ago`;
+            if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+            if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`;
+            return date.toLocaleDateString();
+        }
+
+        // Show error message
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            document.getElementById('loading').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
