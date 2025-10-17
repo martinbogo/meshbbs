@@ -20,6 +20,7 @@ use crate::webui::api::{
     login, logout, list_npcs, 
     list_users, get_user, update_user_level,
     list_topics, list_messages, get_topic_stats,
+    get_system_stats,
     AppState
 };
 use crate::webui::audit::AuditLogger;
@@ -68,6 +69,9 @@ pub async fn start_webui_server(config: Config, storage: Option<Storage>) -> Res
         // Authentication endpoints
         .route("/api/auth/login", post(login))
         .route("/api/auth/logout", post(logout))
+        
+        // System statistics
+        .route("/api/stats", get(get_system_stats))
         
         // User management endpoints
         .route("/api/users", get(list_users))

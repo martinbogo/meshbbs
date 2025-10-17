@@ -66,15 +66,12 @@
   - [x] Phase 1: Foundation (auth, audit, TLS, basic UI)
   - [x] Phase 2a: BBS user management API (list, view, update level)
   - [x] Phase 2b: Topics/messages API (list topics, list messages, topic stats)
-  - [ ] Phase 2c: Statistics API
-  - [ ] Phase 2d: User management UI
+  - [x] Phase 2c: Statistics API (comprehensive system metrics)
+  - [~] Phase 2d: User management UI (in progress)
   - [ ] Phase 2e: Dashboard stats UI
   - [ ] Phase 3: TinyMUSH content management (NPCs, Achievements, etc.)
 - [ ] Metrics and analytics system
-- [ ] A/B testing framework for features
 - [ ] Localization support (multiple languages)
-- [ ] Mobile app integration
-- [ ] Voice chat integration for mesh networks
 
 ### Builder Commands Enhancement (Future)
 - [ ] Builder undo/redo system
