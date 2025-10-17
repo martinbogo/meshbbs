@@ -52,16 +52,6 @@ pub struct UserListQuery {
     pub offset: Option<usize>,      // Pagination
 }
 
-/// Convert user level to human-readable role
-fn level_to_role(level: u8) -> String {
-    match level {
-        10 => "Sysop".to_string(),
-        6..=9 => "Admin".to_string(),
-        3..=5 => "Moderator".to_string(),
-        _ => "User".to_string(),
-    }
-}
-
 /// List all BBS users with optional filtering
 ///
 /// GET /api/users?min_level=5&max_level=10&limit=50&offset=0
@@ -106,7 +96,7 @@ pub async fn list_users(
 
             Some(UserRecord {
                 username: user.username.clone(),
-                role: level_to_role(user.user_level),
+                role: state.config.level_to_role(user.user_level),
                 level: user.user_level,
                 last_seen: user.last_login.to_rfc3339(),
                 message_count: user.total_messages,
@@ -158,7 +148,7 @@ pub async fn get_user(
 
     let record = UserRecord {
         username: user.username.clone(),
-        role: level_to_role(user.user_level),
+        role: state.config.level_to_role(user.user_level),
         level: user.user_level,
         last_seen: user.last_login.to_rfc3339(),
         message_count: user.total_messages,
@@ -224,7 +214,7 @@ pub async fn update_user_level(
             "Updated {} to level {} ({})",
             username,
             req.level,
-            level_to_role(updated_user.user_level)
+            state.config.level_to_role(updated_user.user_level)
         ),
     }))
 }

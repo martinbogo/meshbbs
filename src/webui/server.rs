@@ -21,10 +21,12 @@ use crate::webui::api::{
     list_users, get_user, update_user_level,
     list_topics, list_messages, get_topic_stats,
     get_system_stats,
+    get_all_schemas, get_schema_by_type, get_roles,
     AppState
 };
 use crate::webui::audit::AuditLogger;
 use crate::webui::auth::AuthManager;
+use crate::webui::schema::SchemaRegistry;
 use crate::webui::tls::TlsConfig;
 
 /// Start the web UI server
@@ -55,6 +57,9 @@ pub async fn start_webui_server(config: Config, storage: Option<Storage>) -> Res
             String::new()
         });
     
+    // Initialize schema registry
+    let schema_registry = Arc::new(SchemaRegistry::new());
+    
     // Create shared application state
     let app_state = Arc::new(AppState {
         auth_manager,
@@ -62,6 +67,8 @@ pub async fn start_webui_server(config: Config, storage: Option<Storage>) -> Res
         sysop_password_hash,
         sysop_username: config.bbs.sysop.clone(),
         storage: storage.map(|s| Arc::new(Mutex::new(s))),  // Wrap storage in Arc<Mutex> for shared mutable access
+        config: dashboard_config.clone(),
+        schema_registry,
     });
     
     // Build router
@@ -69,6 +76,11 @@ pub async fn start_webui_server(config: Config, storage: Option<Storage>) -> Res
         // Authentication endpoints
         .route("/api/auth/login", post(login))
         .route("/api/auth/logout", post(logout))
+        
+        // Schema introspection endpoints
+        .route("/api/schema", get(get_all_schemas))
+        .route("/api/schema/:type", get(get_schema_by_type))
+        .route("/api/roles", get(get_roles))
         
         // System statistics
         .route("/api/stats", get(get_system_stats))

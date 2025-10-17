@@ -11,8 +11,10 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
+use crate::config::AdminDashboardConfig;
 use crate::webui::audit::{AuditLogger, AuditAction, AuditEntry};
 use crate::webui::auth::AuthManager;
+use crate::webui::schema::SchemaRegistry;
 use crate::storage::Storage;
 use tokio::sync::Mutex;
 
@@ -24,6 +26,8 @@ pub struct AppState {
     pub sysop_password_hash: String,
     pub sysop_username: String,
     pub storage: Option<Arc<Mutex<Storage>>>,  // BBS storage for user management (wrapped in Arc<Mutex> for shared mutable access)
+    pub config: AdminDashboardConfig,
+    pub schema_registry: Arc<SchemaRegistry>,
 }
 
 /// Login request

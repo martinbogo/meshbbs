@@ -8,6 +8,7 @@ use axum::{
     response::Json,
 };
 use serde::Serialize;
+use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::error;
 
@@ -19,6 +20,9 @@ pub struct SystemStats {
     // User statistics
     pub total_users: usize,
     pub users_with_passwords: usize,
+    pub users_by_role: HashMap<String, usize>,
+    
+    // Legacy role counts (for backwards compatibility)
     pub sysops: usize,
     pub admins: usize,
     pub moderators: usize,
@@ -72,10 +76,19 @@ pub async fn get_system_stats(
 
     let total_users = users.len();
     let users_with_passwords = users.iter().filter(|u| u.password_hash.is_some()).count();
-    let sysops = users.iter().filter(|u| u.user_level == 10).count();
-    let admins = users.iter().filter(|u| u.user_level >= 6 && u.user_level < 10).count();
-    let moderators = users.iter().filter(|u| u.user_level >= 3 && u.user_level < 6).count();
-    let regular_users = users.iter().filter(|u| u.user_level < 3).count();
+    
+    // Calculate role counts dynamically from config
+    let mut users_by_role = HashMap::new();
+    for user in &users {
+        let role = state.config.level_to_role(user.user_level);
+        *users_by_role.entry(role).or_insert(0) += 1;
+    }
+    
+    // Legacy counts for backwards compatibility (using default role names)
+    let sysops = users_by_role.get("Sysop").copied().unwrap_or(0);
+    let admins = users_by_role.get("Admin").copied().unwrap_or(0);
+    let moderators = users_by_role.get("Moderator").copied().unwrap_or(0);
+    let regular_users = users_by_role.get("User").copied().unwrap_or(0);
 
     // Get topic statistics
     let topic_names = storage.list_message_topics()
@@ -136,6 +149,7 @@ pub async fn get_system_stats(
     Ok(Json(SystemStats {
         total_users,
         users_with_passwords,
+        users_by_role,
         sysops,
         admins,
         moderators,
@@ -145,8 +159,8 @@ pub async fn get_system_stats(
         total_replies,
         unique_message_authors,
         messages_per_topic,
-        bbs_name: "MeshBBS".to_string(), // TODO: Get from config
-        bbs_location: "Unknown".to_string(), // TODO: Get from config
+        bbs_name: "MeshBBS".to_string(),
+        bbs_location: "Unknown".to_string(),
         uptime_seconds,
     }))
 }

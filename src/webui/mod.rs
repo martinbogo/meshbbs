@@ -39,6 +39,9 @@ pub mod tls;
 pub mod audit;
 
 #[cfg(feature = "webui")]
+pub mod schema;
+
+#[cfg(feature = "webui")]
 pub mod api;
 
 #[cfg(feature = "webui")]

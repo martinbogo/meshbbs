@@ -386,6 +386,27 @@ pub struct AdminDashboardConfig {
     pub features_json_editor: bool,
     /// Enable analytics and charts
     pub features_analytics: bool,
+    
+    // Role Configuration (data-driven roles)
+    /// Define roles based on BBS access levels
+    pub roles: Vec<RoleDefinition>,
+}
+
+/// Defines a role with its level range, display properties, and permissions
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct RoleDefinition {
+    /// Role name (e.g., "Sysop", "Admin", "Moderator", "User")
+    pub name: String,
+    /// Minimum BBS level for this role (inclusive)
+    pub min_level: u8,
+    /// Maximum BBS level for this role (inclusive)
+    pub max_level: u8,
+    /// Display color (CSS color name or hex)
+    pub color: Option<String>,
+    /// Icon/emoji for this role
+    pub icon: Option<String>,
+    /// Human-readable description
+    pub description: Option<String>,
 }
 
 impl Default for AdminDashboardConfig {
@@ -430,6 +451,42 @@ impl Default for AdminDashboardConfig {
             features_config_editor: true,
             features_json_editor: true,
             features_analytics: true,
+            
+            // Default role definitions
+            roles: vec![
+                RoleDefinition {
+                    name: "Sysop".to_string(),
+                    min_level: 10,
+                    max_level: 10,
+                    color: Some("#dc2626".to_string()), // red-600
+                    icon: Some("👑".to_string()),
+                    description: Some("System operator with full access".to_string()),
+                },
+                RoleDefinition {
+                    name: "Admin".to_string(),
+                    min_level: 6,
+                    max_level: 9,
+                    color: Some("#f97316".to_string()), // orange-500
+                    icon: Some("⚡".to_string()),
+                    description: Some("Administrator with elevated privileges".to_string()),
+                },
+                RoleDefinition {
+                    name: "Moderator".to_string(),
+                    min_level: 3,
+                    max_level: 5,
+                    color: Some("#3b82f6".to_string()), // blue-500
+                    icon: Some("🛡️".to_string()),
+                    description: Some("Moderator with content management access".to_string()),
+                },
+                RoleDefinition {
+                    name: "User".to_string(),
+                    min_level: 1,
+                    max_level: 2,
+                    color: Some("#6b7280".to_string()), // gray-500
+                    icon: Some("👤".to_string()),
+                    description: Some("Regular user".to_string()),
+                },
+            ],
         }
     }
 }
@@ -495,7 +552,48 @@ impl AdminDashboardConfig {
             }
         }
         
+        // Validate role definitions
+        if self.roles.is_empty() {
+            return Err(anyhow!("At least one role definition required"));
+        }
+        
+        // Validate role level ranges don't overlap
+        for (i, role1) in self.roles.iter().enumerate() {
+            // Validate min <= max
+            if role1.min_level > role1.max_level {
+                return Err(anyhow!("Role '{}' has min_level > max_level", role1.name));
+            }
+            
+            // Check for overlaps with other roles
+            for role2 in self.roles.iter().skip(i + 1) {
+                let overlap = role1.min_level <= role2.max_level && role2.min_level <= role1.max_level;
+                if overlap {
+                    return Err(anyhow!(
+                        "Role '{}' (levels {}-{}) overlaps with role '{}' (levels {}-{})",
+                        role1.name, role1.min_level, role1.max_level,
+                        role2.name, role2.min_level, role2.max_level
+                    ));
+                }
+            }
+        }
+        
         Ok(())
+    }
+    
+    /// Get role name for a given BBS access level
+    pub fn level_to_role(&self, level: u8) -> String {
+        self.roles
+            .iter()
+            .find(|r| level >= r.min_level && level <= r.max_level)
+            .map(|r| r.name.clone())
+            .unwrap_or_else(|| "Unknown".to_string())
+    }
+    
+    /// Get full role definition for a given BBS access level
+    pub fn get_role_definition(&self, level: u8) -> Option<&RoleDefinition> {
+        self.roles
+            .iter()
+            .find(|r| level >= r.min_level && level <= r.max_level)
     }
 }
 

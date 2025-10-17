@@ -47,3 +47,36 @@ features_system_monitor = true
 features_config_editor = true
 features_json_editor = true
 features_analytics = true
+
+# Role definitions (data-driven roles based on BBS access levels)
+[[admin_dashboard.roles]]
+name = "Sysop"
+min_level = 10
+max_level = 10
+color = "#dc2626"  # red-600
+icon = "👑"
+description = "System operator with full access"
+
+[[admin_dashboard.roles]]
+name = "Admin"
+min_level = 6
+max_level = 9
+color = "#f97316"  # orange-500
+icon = "⚡"
+description = "Administrator with elevated privileges"
+
+[[admin_dashboard.roles]]
+name = "Moderator"
+min_level = 3
+max_level = 5
+color = "#3b82f6"  # blue-500
+icon = "🛡️"
+description = "Moderator with content management access"
+
+[[admin_dashboard.roles]]
+name = "User"
+min_level = 1
+max_level = 2
+color = "#6b7280"  # gray-500
+icon = "👤"
+description = "Regular user"
