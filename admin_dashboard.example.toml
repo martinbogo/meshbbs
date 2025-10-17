@@ -1,0 +1,49 @@
+# Admin Dashboard Test Configuration
+# Add this section to your config.toml to enable the web UI
+
+[admin_dashboard]
+# Enable the admin dashboard (disabled by default for security)
+enabled = true
+
+# Bind addresses - supports IPv4 and IPv6
+# Default binds to all interfaces on port 9885
+bind_addresses = ["0.0.0.0:9885", "[::]:9885"]
+
+# Session configuration
+session_timeout = 86400  # 24 hours in seconds
+require_admin_level = 10  # Sysop level required
+
+# TLS/HTTPS configuration
+tls_mode = "self_signed"  # Options: "self_signed", "letsencrypt", "custom", "disabled"
+# tls_cert = "/path/to/cert.pem"  # For custom mode
+# tls_key = "/path/to/key.pem"    # For custom mode
+# letsencrypt_domain = "example.com"  # For letsencrypt mode
+# letsencrypt_email = "admin@example.com"  # For letsencrypt mode
+
+# Rate limiting (web security best practices)
+rate_limit_enabled = true
+login_attempts_per_ip = 5
+login_attempt_window = 900  # 15 minutes
+api_requests_per_session = 1000
+api_request_window = 60  # 1 minute
+
+# Session management
+max_sessions_per_admin = 3
+session_token_rotation = true
+enforce_token_expiry = true
+
+# Audit logging (mandatory - cannot be disabled)
+audit_log_enabled = true
+audit_log_file = "admin_dashboard.log"
+# audit_log_directory = "/var/log/meshbbs"  # Optional: override default directory
+audit_log_level = "info"
+audit_log_rotation = "daily"  # Options: "daily", "weekly", "size"
+audit_log_max_size_mb = 100
+
+# Feature flags (control which dashboard sections are available)
+features_content_manager = true
+features_player_management = true
+features_system_monitor = true
+features_config_editor = true
+features_json_editor = true
+features_analytics = true
