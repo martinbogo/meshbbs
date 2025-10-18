@@ -4,7 +4,7 @@
 
 use anyhow::Result;
 use axum::{
-    routing::{get, post, put},
+    routing::{delete, get, post, put},
     Router,
 };
 use std::net::SocketAddr;
@@ -20,6 +20,7 @@ use crate::webui::api::{
     login, logout, list_npcs, 
     list_users, get_user, update_user_level,
     list_topics, list_messages, get_topic_stats,
+    delete_message, toggle_pin_message, update_message_title,
     get_system_stats,
     get_all_schemas, get_schema_by_type, get_roles,
     AppState
@@ -94,6 +95,11 @@ pub async fn start_webui_server(config: Config, storage: Option<Storage>) -> Res
         .route("/api/topics", get(list_topics))
         .route("/api/topics/:topic/messages", get(list_messages))
         .route("/api/topics/:topic/stats", get(get_topic_stats))
+        
+        // Message moderation endpoints (moderator+)
+        .route("/api/topics/:topic/messages/:id", delete(delete_message))
+        .route("/api/topics/:topic/messages/:id/pin", put(toggle_pin_message))
+        .route("/api/topics/:topic/messages/:id/title", put(update_message_title))
         
         // NPC endpoints
         .route("/api/npcs", get(list_npcs))
