@@ -1,0 +1,509 @@
+/* ============================================
+   MESHBBS ADMIN - NATURE-INSPIRED DESIGN SYSTEM
+   Following organic patterns, warm tones, natural motion
+   ============================================ */
+
+:root {
+    /* Color Palette - Earth & Forest Tones */
+    --color-earth-dark: #2d3436;
+    --color-earth: #4a5759;
+    --color-earth-light: #636e72;
+    --color-stone: #b2bec3;
+    --color-stone-light: #dfe6e9;
+    
+    --color-forest-deep: #2d7059;
+    --color-forest: #38a169;
+    --color-forest-light: #68d391;
+    --color-forest-mist: #c6f6d5;
+    
+    --color-clay: #a0522d;
+    --color-amber: #d97706;
+    --color-amber-light: #fbbf24;
+    
+    --color-sky: #7c9cb5;
+    --color-sky-light: #a8c5da;
+    
+    --color-moss: #4a6741;
+    --color-sage: #8a9a8e;
+    
+    /* Semantic Colors */
+    --color-bg-body: #f7f6f3;
+    --color-bg-surface: #ffffff;
+    --color-bg-elevated: #ffffff;
+    
+    --color-text-primary: #2d3436;
+    --color-text-secondary: #636e72;
+    --color-text-muted: #95a5a6;
+    
+    --color-success: #38a169;
+    --color-warning: #d97706;
+    --color-error: #c44536;
+    --color-info: #7c9cb5;
+    
+    /* Organic Spacing Scale (Fibonacci-inspired) */
+    --space-xs: 0.375rem;    /* 6px */
+    --space-sm: 0.625rem;    /* 10px */
+    --space-md: 1rem;        /* 16px */
+    --space-lg: 1.625rem;    /* 26px */
+    --space-xl: 2.625rem;    /* 42px */
+    --space-2xl: 4.25rem;    /* 68px */
+    
+    /* Organic Border Radius (Natural curves, no 8px!) */
+    --radius-sm: 0.75rem;    /* 12px */
+    --radius-md: 1rem;       /* 16px */
+    --radius-lg: 1.5rem;     /* 24px */
+    --radius-xl: 2rem;       /* 32px */
+    --radius-full: 9999px;
+    
+    /* Natural Shadows (Soft, diffused light) */
+    --shadow-sm: 0 2px 8px rgba(45, 52, 54, 0.04), 0 1px 3px rgba(45, 52, 54, 0.06);
+    --shadow-md: 0 4px 16px rgba(45, 52, 54, 0.08), 0 2px 6px rgba(45, 52, 54, 0.06);
+    --shadow-lg: 0 12px 32px rgba(45, 52, 54, 0.12), 0 4px 12px rgba(45, 52, 54, 0.08);
+    --shadow-glow: 0 0 32px rgba(56, 161, 105, 0.15);
+    
+    /* Typography */
+    --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', monospace;
+    
+    /* Natural Transitions (Ease curves mimicking gravity/wind) */
+    --transition-swift: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-smooth: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-gentle: 500ms cubic-bezier(0.4, 0, 0.1, 1);
+}
+
+/* ============================================
+   RESET & BASE STYLES
+   ============================================ */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-body);
+    background: var(--color-bg-body);
+    color: var(--color-text-primary);
+    line-height: 1.6;
+    overflow-x: hidden;
+}
+
+/* ============================================
+   HEADER (Consistent across all pages)
+   ============================================ */
+.header {
+    background: linear-gradient(165deg, var(--color-forest-deep) 0%, var(--color-forest) 100%);
+    color: white;
+    padding: var(--space-lg) var(--space-md);
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+    margin-bottom: var(--space-xl);
+}
+
+.header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
+    pointer-events: none;
+}
+
+.header-content {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    z-index: 1;
+    flex-wrap: wrap;
+    gap: var(--space-md);
+}
+
+.header h1 {
+    font-size: 1.75rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+}
+
+.header nav {
+    display: flex;
+    gap: var(--space-sm);
+    flex-wrap: wrap;
+}
+
+.header nav a {
+    color: white;
+    text-decoration: none;
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-full);
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all var(--transition-swift);
+    font-weight: 500;
+    font-size: 0.9375rem;
+}
+
+.header nav a:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-1px);
+}
+
+.header nav a.active {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* ============================================
+   CONTAINER
+   ============================================ */
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 var(--space-md) var(--space-xl);
+}
+
+/* ============================================
+   CARDS & SURFACES
+   ============================================ */
+.card {
+    background: var(--color-bg-surface);
+    padding: var(--space-xl);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    margin-bottom: var(--space-lg);
+}
+
+.card-compact {
+    padding: var(--space-lg);
+}
+
+.card:hover {
+    box-shadow: var(--shadow-md);
+}
+
+/* ============================================
+   BUTTONS (Filled icons, warm interactions)
+   ============================================ */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-md) var(--space-lg);
+    border-radius: var(--radius-md);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9375rem;
+    transition: all var(--transition-smooth);
+    border: none;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left var(--transition-gentle);
+}
+
+.btn:hover::before {
+    left: 100%;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--color-forest) 0%, var(--color-forest-deep) 100%);
+    color: white;
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md), var(--shadow-glow);
+}
+
+.btn-secondary {
+    background: linear-gradient(135deg, var(--color-sky) 0%, var(--color-sky-light) 100%);
+    color: white;
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-secondary:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.btn-accent {
+    background: linear-gradient(135deg, var(--color-amber) 0%, var(--color-amber-light) 100%);
+    color: white;
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-accent:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, var(--color-error) 0%, #d44535 100%);
+    color: white;
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-danger:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.btn-warning {
+    background: linear-gradient(135deg, var(--color-amber) 0%, var(--color-amber-light) 100%);
+    color: white;
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-warning:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.btn-sm {
+    padding: var(--space-sm) var(--space-md);
+    font-size: 0.875rem;
+}
+
+/* ============================================
+   FORM INPUTS (Warm, inviting)
+   ============================================ */
+.input {
+    width: 100%;
+    padding: var(--space-md);
+    border: 2px solid var(--color-stone-light);
+    border-radius: var(--radius-md);
+    font-size: 1rem;
+    font-family: var(--font-body);
+    color: var(--color-text-primary);
+    background: var(--color-bg-surface);
+    transition: all var(--transition-swift);
+}
+
+.input:focus {
+    outline: none;
+    border-color: var(--color-forest);
+    box-shadow: 0 0 0 3px var(--color-forest-mist);
+}
+
+.select {
+    width: 100%;
+    padding: var(--space-md);
+    border: 2px solid var(--color-stone-light);
+    border-radius: var(--radius-md);
+    font-size: 1rem;
+    font-family: var(--font-body);
+    color: var(--color-text-primary);
+    background: var(--color-bg-surface);
+    cursor: pointer;
+    transition: all var(--transition-swift);
+}
+
+.select:focus {
+    outline: none;
+    border-color: var(--color-forest);
+    box-shadow: 0 0 0 3px var(--color-forest-mist);
+}
+
+/* ============================================
+   TABLES (Organic, readable)
+   ============================================ */
+.table-container {
+    background: var(--color-bg-surface);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    box-shadow: var(--shadow-sm);
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+th {
+    text-align: left;
+    padding: var(--space-md);
+    background: linear-gradient(135deg, var(--color-bg-body) 0%, var(--color-stone-light) 100%);
+    color: var(--color-forest-deep);
+    font-weight: 700;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border-bottom: 2px solid var(--color-forest-mist);
+}
+
+th:first-child {
+    border-top-left-radius: var(--radius-md);
+}
+
+th:last-child {
+    border-top-right-radius: var(--radius-md);
+}
+
+td {
+    padding: var(--space-md);
+    border-bottom: 1px solid var(--color-stone-light);
+    color: var(--color-text-secondary);
+}
+
+tr:hover td {
+    background: var(--color-bg-body);
+}
+
+tr:last-child td {
+    border-bottom: none;
+}
+
+tr:last-child td:first-child {
+    border-bottom-left-radius: var(--radius-md);
+}
+
+tr:last-child td:last-child {
+    border-bottom-right-radius: var(--radius-md);
+}
+
+/* ============================================
+   BADGES & LABELS
+   ============================================ */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    padding: var(--space-xs) var(--space-md);
+    border-radius: var(--radius-full);
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.badge-success {
+    background: var(--color-forest-mist);
+    color: var(--color-forest-deep);
+}
+
+.badge-warning {
+    background: #fef3c7;
+    color: var(--color-amber);
+}
+
+.badge-error {
+    background: #fee2e2;
+    color: var(--color-error);
+}
+
+.badge-info {
+    background: #e0f2fe;
+    color: var(--color-sky);
+}
+
+/* ============================================
+   LOADING SPINNER (Natural rotation)
+   ============================================ */
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--color-stone-light);
+    border-top-color: var(--color-forest);
+    border-radius: 50%;
+    animation: spin 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+}
+
+.spinner-sm {
+    width: 20px;
+    height: 20px;
+    border-width: 2px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* ============================================
+   UTILITIES
+   ============================================ */
+.text-success { color: var(--color-success); }
+.text-warning { color: var(--color-warning); }
+.text-error { color: var(--color-error); }
+.text-info { color: var(--color-info); }
+.text-muted { color: var(--color-text-muted); }
+
+.hidden { display: none; }
+
+.fade-in {
+    animation: fadeIn var(--transition-smooth) forwards;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.slide-up {
+    animation: slideUp var(--transition-smooth) forwards;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ============================================
+   RESPONSIVE DESIGN
+   ============================================ */
+@media (max-width: 768px) {
+    .header-content {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .header nav {
+        width: 100%;
+    }
+    
+    .header nav a {
+        flex: 1;
+        text-align: center;
+    }
+    
+    .container {
+        padding: 0 var(--space-sm) var(--space-lg);
+    }
+    
+    .card {
+        padding: var(--space-lg);
+    }
+    
+    .table-container {
+        padding: var(--space-md);
+    }
+    
+    th, td {
+        padding: var(--space-sm);
+        font-size: 0.875rem;
+    }
+}
