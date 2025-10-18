@@ -21,6 +21,7 @@ use crate::webui::api::{
     list_users, get_user, update_user_level,
     list_topics, list_messages, get_topic_stats,
     delete_message, toggle_pin_message, update_message_title,
+    get_audit_logs,
     get_system_stats,
     get_all_schemas, get_schema_by_type, get_roles,
     AppState
@@ -100,6 +101,9 @@ pub async fn start_webui_server(config: Config, storage: Option<Storage>) -> Res
         .route("/api/topics/:topic/messages/:id", delete(delete_message))
         .route("/api/topics/:topic/messages/:id/pin", put(toggle_pin_message))
         .route("/api/topics/:topic/messages/:id/title", put(update_message_title))
+        
+        // Audit log endpoints
+        .route("/api/audit/logs", get(get_audit_logs))
         
         // NPC endpoints
         .route("/api/npcs", get(list_npcs))

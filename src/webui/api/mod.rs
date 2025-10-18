@@ -7,6 +7,7 @@ pub mod npcs;
 pub mod users;
 pub mod topics;
 pub mod messages;
+pub mod audit;
 pub mod stats;
 pub mod schema;
 
@@ -15,5 +16,6 @@ pub use npcs::*;
 pub use users::*;
 pub use topics::*;
 pub use messages::*;
+pub use audit::*;
 pub use stats::*;
 pub use schema::*;
