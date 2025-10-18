@@ -143,6 +143,11 @@
             color: #666;
             font-size: 14px;
         }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -158,31 +163,44 @@
     
     <div class="container">
         <div class="welcome">
-            <h2>Welcome to the Admin Dashboard! 🎉</h2>
+            <h2>Welcome to MeshBBS Admin! 🎉</h2>
             <p>
-                This is a test-ready version of the MeshBBS Admin Dashboard. 
-                The foundation is in place with authentication, audit logging, and basic infrastructure.
-                Full content management features will be added in future phases.
+                Manage your mesh network BBS system: users, messages, topics, and more.
+                Real-time statistics and comprehensive user management tools at your fingertips.
             </p>
+            <div style="margin-top: 15px; display: flex; gap: 10px;">
+                <a href="users.html" style="display: inline-block; background: #0ea5e9; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; font-weight: 600;">
+                    👥 Manage Users
+                </a>
+                <a href="#" style="display: inline-block; background: #6b7280; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; font-weight: 600;">
+                    💬 View Messages
+                </a>
+            </div>
         </div>
         
         <div class="stats-grid">
             <div class="stat-card">
-                <h3>NPCs</h3>
-                <div class="stat-value" id="npcCount">0</div>
+                <h3>Total Users</h3>
+                <div class="stat-value" id="totalUsers">
+                    <div style="width: 40px; height: 40px; border: 3px solid #f3f4f6; border-top-color: #0ea5e9; border-radius: 50%; animation: spin 1s linear infinite; margin: 10px 0;"></div>
+                </div>
             </div>
             <div class="stat-card">
-                <h3>Achievements</h3>
-                <div class="stat-value">0</div>
+                <h3>With Passwords</h3>
+                <div class="stat-value" id="usersWithPasswords">...</div>
             </div>
             <div class="stat-card">
-                <h3>Rooms</h3>
-                <div class="stat-value">0</div>
+                <h3>Total Topics</h3>
+                <div class="stat-value" id="totalTopics">...</div>
             </div>
             <div class="stat-card">
-                <h3>Players</h3>
-                <div class="stat-value">0</div>
+                <h3>Total Messages</h3>
+                <div class="stat-value" id="totalMessages">...</div>
             </div>
+        </div>
+        
+        <div class="stats-grid" id="roleStats" style="display: none;">
+            <!-- Role stats will be populated dynamically -->
         </div>
         
         <div class="features">
@@ -234,21 +252,69 @@
             window.location.href = '/index.html';
         }
         
-        // Load NPC count (example API call)
+        // Load roles from API
+        let roles = [];
+        async function loadRoles() {
+            try {
+                const response = await fetch('/api/roles');
+                if (response.ok) {
+                    roles = await response.json();
+                }
+            } catch (err) {
+                console.error('Failed to load roles:', err);
+            }
+        }
+        
+        // Load system statistics
         async function loadStats() {
             try {
-                const response = await fetch('/api/npcs', {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
+                await loadRoles();
+                
+                const response = await fetch('/api/stats');
                 
                 if (response.ok) {
                     const data = await response.json();
-                    document.getElementById('npcCount').textContent = data.total || 0;
+                    
+                    // Update main stats
+                    document.getElementById('totalUsers').textContent = data.total_users || 0;
+                    document.getElementById('usersWithPasswords').textContent = data.users_with_passwords || 0;
+                    document.getElementById('totalTopics').textContent = data.total_topics || 0;
+                    document.getElementById('totalMessages').textContent = data.total_messages || 0;
+                    
+                    // Create role stats cards
+                    const roleStatsContainer = document.getElementById('roleStats');
+                    if (data.users_by_role && Object.keys(data.users_by_role).length > 0) {
+                        roleStatsContainer.style.display = 'grid';
+                        roleStatsContainer.innerHTML = '';
+                        
+                        // Sort roles by count (descending)
+                        const sortedRoles = Object.entries(data.users_by_role)
+                            .sort((a, b) => b[1] - a[1]);
+                        
+                        sortedRoles.forEach(([roleName, count]) => {
+                            const role = roles.find(r => r.name === roleName);
+                            const color = role?.color || '#6b7280';
+                            const icon = role?.icon || '👤';
+                            
+                            const card = document.createElement('div');
+                            card.className = 'stat-card';
+                            card.style.borderLeft = `4px solid ${color}`;
+                            card.innerHTML = `
+                                <h3 style="color: ${color};">${icon} ${roleName}s</h3>
+                                <div class="stat-value">${count}</div>
+                            `;
+                            roleStatsContainer.appendChild(card);
+                        });
+                    }
+                } else {
+                    console.error('Failed to load stats:', response.status);
                 }
             } catch (err) {
                 console.error('Failed to load stats:', err);
+                document.getElementById('totalUsers').textContent = 'Error';
+                document.getElementById('usersWithPasswords').textContent = 'Error';
+                document.getElementById('totalTopics').textContent = 'Error';
+                document.getElementById('totalMessages').textContent = 'Error';
             }
         }
         
