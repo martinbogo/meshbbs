@@ -5,248 +5,503 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MeshBBS Admin Dashboard</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        /* NATURE-INSPIRED DESIGN SYSTEM */
+        :root {
+            /* Earth & Forest Tones */
+            --color-earth-dark: #2d3436;
+            --color-earth: #4a5759;
+            --color-stone: #b2bec3;
+            --color-stone-light: #dfe6e9;
+            
+            --color-forest-deep: #2d7059;
+            --color-forest: #38a169;
+            --color-forest-light: #68d391;
+            --color-forest-mist: #c6f6d5;
+            
+            --color-amber: #d97706;
+            --color-amber-light: #fbbf24;
+            --color-sky: #7c9cb5;
+            
+            /* Semantic Colors */
+            --color-bg-body: #f7f6f3;
+            --color-bg-surface: #ffffff;
+            --color-text-primary: #2d3436;
+            --color-text-secondary: #636e72;
+            --color-text-muted: #95a5a6;
+            
+            /* Organic Spacing (Fibonacci) */
+            --space-xs: 0.375rem;
+            --space-sm: 0.625rem;
+            --space-md: 1rem;
+            --space-lg: 1.625rem;
+            --space-xl: 2.625rem;
+            --space-2xl: 4.25rem;
+            
+            /* Natural Border Radius (no 8px!) */
+            --radius-sm: 0.75rem;
+            --radius-md: 1rem;
+            --radius-lg: 1.5rem;
+            --radius-xl: 2rem;
+            --radius-full: 9999px;
+            
+            /* Soft Shadows */
+            --shadow-sm: 0 2px 8px rgba(45, 52, 54, 0.04), 0 1px 3px rgba(45, 52, 54, 0.06);
+            --shadow-md: 0 4px 16px rgba(45, 52, 54, 0.08), 0 2px 6px rgba(45, 52, 54, 0.06);
+            --shadow-lg: 0 12px 32px rgba(45, 52, 54, 0.12), 0 4px 12px rgba(45, 52, 54, 0.08);
+            
+            /* Natural Transitions */
+            --transition-swift: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-smooth: 350ms cubic-bezier(0.4, 0, 0.2, 1);
         }
         
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: #f5f5f5;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--color-bg-body);
+            color: var(--color-text-primary);
+            line-height: 1.6;
         }
         
         .header {
-            background: linear-gradient(135deg, #1e3a8a 0%, #0ea5e9 100%);
+            background: linear-gradient(165deg, var(--color-forest-deep) 0%, var(--color-forest) 100%);
             color: white;
-            padding: 20px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            padding: var(--space-lg) var(--space-md);
+            position: relative;
+            box-shadow: var(--shadow-md);
+        }
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 20% 30%, rgba(255,255,255,0.08) 0%, transparent 40%);
+            pointer-events: none;
         }
         
         .header-content {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            position: relative;
         }
         
         .header h1 {
-            font-size: 24px;
+            font-size: 1.75rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
         }
         
         .user-info {
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: var(--space-md);
+        }
+        
+        .user-badge {
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(10px);
+            padding: var(--space-sm) var(--space-md);
+            border-radius: var(--radius-full);
+            border: 1px solid rgba(255,255,255,0.2);
+            font-weight: 500;
         }
         
         .logout-btn {
-            background: rgba(255, 255, 255, 0.2);
+            background: rgba(255,255,255,0.12);
             color: white;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            padding: 8px 16px;
-            border-radius: 5px;
+            border: 1px solid rgba(255,255,255,0.25);
+            padding: var(--space-sm) var(--space-lg);
+            border-radius: var(--radius-full);
             cursor: pointer;
-            font-size: 14px;
+            font-weight: 500;
+            transition: all var(--transition-swift);
         }
         
         .logout-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
+            background: rgba(255,255,255,0.2);
+            transform: translateY(-1px);
         }
         
         .container {
-            max-width: 1200px;
-            margin: 30px auto;
-            padding: 0 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: var(--space-xl) var(--space-md);
         }
+        
+        .section { margin-bottom: var(--space-2xl); }
         
         .welcome {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            margin-bottom: 30px;
+            background: linear-gradient(135deg, var(--color-bg-surface) 0%, var(--color-stone-light) 100%);
+            padding: var(--space-xl);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md);
+            position: relative;
+            overflow: hidden;
         }
         
+        .welcome::before {
+            content: '';
+            position: absolute;
+            top: -50%; right: -10%;
+            width: 400px; height: 400px;
+            background: radial-gradient(circle, var(--color-forest-mist) 0%, transparent 70%);
+            opacity: 0.4;
+        }
+        
+        .welcome-content { position: relative; }
+        
         .welcome h2 {
-            color: #333;
-            margin-bottom: 10px;
+            color: var(--color-forest-deep);
+            font-size: 2rem;
+            font-weight: 600;
+            margin-bottom: var(--space-md);
         }
         
         .welcome p {
-            color: #666;
-            line-height: 1.6;
+            color: var(--color-text-secondary);
+            line-height: 1.7;
+            margin-bottom: var(--space-lg);
+            max-width: 800px;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: var(--space-md);
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-sm);
+            padding: var(--space-md) var(--space-lg);
+            border-radius: var(--radius-md);
+            text-decoration: none;
+            font-weight: 600;
+            transition: all var(--transition-smooth);
+            cursor: pointer;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--color-forest) 0%, var(--color-forest-deep) 100%);
+            color: white;
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, var(--color-sky) 0%, #8fadc2 100%);
+            color: white;
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+        
+        .btn-accent {
+            background: linear-gradient(135deg, var(--color-amber) 0%, var(--color-amber-light) 100%);
+            color: white;
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .btn-accent:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
         }
         
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: var(--space-lg);
         }
         
         .stat-card {
-            background: white;
-            padding: 25px;
-            border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            background: var(--color-bg-surface);
+            padding: var(--space-lg);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            transition: all var(--transition-smooth);
+            border-left: 4px solid transparent;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-md);
+            border-left-color: var(--color-forest);
         }
         
         .stat-card h3 {
-            color: #0ea5e9;
-            font-size: 14px;
+            color: var(--color-forest);
+            font-size: 0.875rem;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 10px;
+            letter-spacing: 0.08em;
+            margin-bottom: var(--space-md);
+            font-weight: 700;
         }
         
         .stat-value {
-            font-size: 32px;
-            font-weight: bold;
-            color: #333;
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--color-text-primary);
+        }
+        
+        .stat-label {
+            color: var(--color-text-muted);
+            font-size: 0.875rem;
+            margin-top: var(--space-xs);
+        }
+        
+        .spinner {
+            width: 40px; height: 40px;
+            border: 3px solid var(--color-stone-light);
+            border-top-color: var(--color-forest);
+            border-radius: 50%;
+            animation: spin 1.2s cubic-bezier(0.5,0,0.5,1) infinite;
+        }
+        
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .activity-feed {
+            background: var(--color-bg-surface);
+            padding: var(--space-xl);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .activity-feed h2 {
+            color: var(--color-forest-deep);
+            font-size: 1.5rem;
+            margin-bottom: var(--space-lg);
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+        }
+        
+        .activity-timeline { position: relative; }
+        
+        .activity-timeline::before {
+            content: '';
+            position: absolute;
+            left: 20px; top: 0; bottom: 0;
+            width: 2px;
+            background: linear-gradient(180deg, var(--color-forest-mist) 0%, var(--color-stone-light) 100%);
+        }
+        
+        .activity-item {
+            position: relative;
+            padding-left: calc(var(--space-xl) + var(--space-lg));
+            margin-bottom: var(--space-lg);
+            opacity: 0;
+            animation: fadeInUp 350ms forwards;
+        }
+        
+        .activity-item:nth-child(1) { animation-delay: 50ms; }
+        .activity-item:nth-child(2) { animation-delay: 100ms; }
+        .activity-item:nth-child(3) { animation-delay: 150ms; }
+        .activity-item:nth-child(4) { animation-delay: 200ms; }
+        
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .activity-icon {
+            position: absolute; left: 0;
+            width: 40px; height: 40px;
+            background: var(--color-bg-surface);
+            border: 3px solid var(--color-forest-mist);
+            border-radius: var(--radius-full);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .activity-content {
+            background: var(--color-bg-body);
+            padding: var(--space-md);
+            border-radius: var(--radius-md);
+            border-left: 3px solid var(--color-forest-mist);
+            transition: all var(--transition-swift);
+        }
+        
+        .activity-content:hover {
+            border-left-color: var(--color-forest);
+            transform: translateX(4px);
+        }
+        
+        .activity-actor {
+            font-weight: 600;
+            color: var(--color-forest-deep);
+        }
+        
+        .activity-description {
+            color: var(--color-text-secondary);
+            margin: var(--space-xs) 0;
+        }
+        
+        .activity-time {
+            font-size: 0.8125rem;
+            color: var(--color-text-muted);
         }
         
         .features {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            background: var(--color-bg-surface);
+            padding: var(--space-xl);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
         }
         
         .features h2 {
-            color: #333;
-            margin-bottom: 20px;
+            color: var(--color-forest-deep);
+            font-size: 1.5rem;
+            margin-bottom: var(--space-lg);
         }
         
-        .feature-list {
-            list-style: none;
+        .feature-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: var(--space-md);
         }
         
-        .feature-list li {
-            padding: 15px;
-            background: #f9f9f9;
-            border-radius: 5px;
-            border-left: 3px solid #0ea5e9;
+        .feature-card {
+            padding: var(--space-lg);
+            background: linear-gradient(135deg, var(--color-bg-body) 0%, var(--color-stone-light) 100%);
+            border-radius: var(--radius-md);
+            border-left: 4px solid var(--color-forest);
+            transition: all var(--transition-smooth);
         }
         
-        .feature-list li strong {
+        .feature-card:hover {
+            transform: translateX(4px);
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .feature-card strong {
             display: block;
-            color: #333;
-            margin-bottom: 5px;
+            color: var(--color-text-primary);
+            margin-bottom: var(--space-xs);
         }
         
-        .feature-list li span {
-            color: #666;
-            font-size: 14px;
+        .feature-card span {
+            color: var(--color-text-secondary);
+            font-size: 0.875rem;
         }
         
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        @media (max-width: 768px) {
+            .header-content { flex-direction: column; gap: var(--space-md); }
+            .stats-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
     <div class="header">
         <div class="header-content">
-            <h1>🔧 MeshBBS Admin Dashboard</h1>
+            <h1>🌿 MeshBBS Admin Dashboard</h1>
             <div class="user-info">
-                <span id="usernameDisplay">Loading...</span>
+                <span class="user-badge" id="usernameDisplay">Loading...</span>
                 <button class="logout-btn" onclick="logout()">Log Out</button>
             </div>
         </div>
     </div>
     
     <div class="container">
-        <div class="welcome">
-            <h2>Welcome to MeshBBS Admin! 🎉</h2>
-            <p>
-                Manage your mesh network BBS system: users, messages, topics, and more.
-                Real-time statistics and comprehensive user management tools at your fingertips.
-            </p>
-            <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
-                <a href="users.html" style="display: inline-block; background: #0ea5e9; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; font-weight: 600;">
-                    👥 Manage Users
-                </a>
-                <a href="messages.html" style="display: inline-block; background: #667eea; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; font-weight: 600;">
-                    💬 View Messages
-                </a>
-                <a href="audit.html" style="display: inline-block; background: #8b5cf6; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; font-weight: 600;">
-                    📜 Audit Log
-                </a>
-            </div>
-        </div>
-        
-        <div class="stats-grid">
-            <div class="stat-card">
-                <h3>Total Users</h3>
-                <div class="stat-value" id="totalUsers">
-                    <div style="width: 40px; height: 40px; border: 3px solid #f3f4f6; border-top-color: #0ea5e9; border-radius: 50%; animation: spin 1s linear infinite; margin: 10px 0;"></div>
+        <section class="section">
+            <div class="welcome">
+                <div class="welcome-content">
+                    <h2>Welcome to Your Command Center 🌱</h2>
+                    <p>
+                        Manage your mesh network BBS with clarity and warmth. Monitor real-time activity, 
+                        guide your community, and maintain harmony across your distributed network.
+                    </p>
+                    <div class="action-buttons">
+                        <a href="users.html" class="btn btn-primary">
+                            <span>👥</span><span>Manage Users</span>
+                        </a>
+                        <a href="messages.html" class="btn btn-secondary">
+                            <span>💬</span><span>View Messages</span>
+                        </a>
+                        <a href="audit.html" class="btn btn-accent">
+                            <span>📜</span><span>Audit Log</span>
+                        </a>
+                    </div>
                 </div>
             </div>
-            <div class="stat-card">
-                <h3>With Passwords</h3>
-                <div class="stat-value" id="usersWithPasswords">...</div>
-            </div>
-            <div class="stat-card">
-                <h3>Total Topics</h3>
-                <div class="stat-value" id="totalTopics">...</div>
-            </div>
-            <div class="stat-card">
-                <h3>Total Messages</h3>
-                <div class="stat-value" id="totalMessages">...</div>
-            </div>
-        </div>
+        </section>
         
-        <div class="stats-grid" id="roleStats" style="display: none;">
-            <!-- Role stats will be populated dynamically -->
-        </div>
+        <section class="section">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total Users</h3>
+                    <div class="stat-value" id="totalUsers"><div class="spinner"></div></div>
+                    <div class="stat-label">Active community members</div>
+                </div>
+                <div class="stat-card">
+                    <h3>With Passwords</h3>
+                    <div class="stat-value" id="usersWithPasswords">...</div>
+                    <div class="stat-label">Secured accounts</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Total Topics</h3>
+                    <div class="stat-value" id="totalTopics">...</div>
+                    <div class="stat-label">Discussion spaces</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Total Messages</h3>
+                    <div class="stat-value" id="totalMessages">...</div>
+                    <div class="stat-label">Community conversations</div>
+                </div>
+            </div>
+        </section>
         
-        <div class="features">
-            <h2>✅ Implemented Features (Phase 1)</h2>
-            <ul class="feature-list">
-                <li>
-                    <strong>🔐 Authentication</strong>
-                    <span>BBS admin credentials, session tokens</span>
-                </li>
-                <li>
-                    <strong>🔒 Security</strong>
-                    <span>Rate limiting, token rotation, CSRF protection</span>
-                </li>
-                <li>
-                    <strong>📝 Audit Logging</strong>
-                    <span>All actions logged with timestamps</span>
-                </li>
-                <li>
-                    <strong>🔧 TLS/HTTPS</strong>
-                    <span>Self-signed cert generation</span>
-                </li>
-                <li>
-                    <strong>⚙️ Configuration</strong>
-                    <span>Bind addresses, ports, security settings</span>
-                </li>
-                <li>
-                    <strong>🚀 API Foundation</strong>
-                    <span>REST endpoints ready for expansion</span>
-                </li>
-            </ul>
-        </div>
+        <section class="section" id="roleStatsSection" style="display: none;">
+            <div class="stats-grid" id="roleStats"></div>
+        </section>
+        
+        <section class="section">
+            <div class="activity-feed">
+                <h2><span>🌊</span><span>Recent Activity</span></h2>
+                <div class="activity-timeline" id="activityTimeline">
+                    <div style="text-align: center; padding: var(--space-xl); color: var(--color-text-muted);">
+                        <div class="spinner" style="margin: 0 auto var(--space-md);"></div>
+                        <p>Loading activity...</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <section class="section">
+            <div class="features">
+                <h2>✨ System Capabilities</h2>
+                <div class="feature-grid">
+                    <div class="feature-card"><strong>🔐 Authentication</strong><span>BBS admin credentials with session tokens</span></div>
+                    <div class="feature-card"><strong>🔒 Security</strong><span>Rate limiting, token rotation, CSRF protection</span></div>
+                    <div class="feature-card"><strong>📝 Audit Logging</strong><span>Complete action history with timestamps</span></div>
+                    <div class="feature-card"><strong>🔧 TLS/HTTPS</strong><span>Self-signed certificate generation</span></div>
+                    <div class="feature-card"><strong>⚙️ Configuration</strong><span>Flexible bind addresses and security settings</span></div>
+                    <div class="feature-card"><strong>🚀 REST API</strong><span>Comprehensive endpoints for all operations</span></div>
+                    <div class="feature-card"><strong>📊 Real-Time Stats</strong><span>Live monitoring of users, messages, topics</span></div>
+                    <div class="feature-card"><strong>🛡️ Message Moderation</strong><span>Pin, delete, and manage community content</span></div>
+                </div>
+            </div>
+        </section>
     </div>
     
     <script>
-        // Check authentication
         const token = localStorage.getItem('auth_token');
         const username = localStorage.getItem('username');
-        
-        if (!token) {
-            window.location.href = '/index.html';
-        } else {
-            document.getElementById('usernameDisplay').textContent = username || 'Admin';
-        }
+        if (!token) window.location.href = '/index.html';
+        else document.getElementById('usernameDisplay').textContent = username || 'Admin';
         
         function logout() {
             localStorage.removeItem('auth_token');
@@ -255,73 +510,87 @@
             window.location.href = '/index.html';
         }
         
-        // Load roles from API
         let roles = [];
         async function loadRoles() {
             try {
                 const response = await fetch('/api/roles');
-                if (response.ok) {
-                    roles = await response.json();
+                if (response.ok) roles = await response.json();
+            } catch (err) {}
+        }
+        
+        function formatRelativeTime(timestamp) {
+            const diffMs = Date.now() - new Date(timestamp);
+            const diffMin = Math.floor(diffMs / 60000);
+            const diffHour = Math.floor(diffMin / 60);
+            const diffDay = Math.floor(diffHour / 24);
+            if (diffMin < 1) return 'just now';
+            if (diffMin < 60) return diffMin + ' min ago';
+            if (diffHour < 24) return diffHour + ' hr ago';
+            if (diffDay < 7) return diffDay + ' day' + (diffDay !== 1 ? 's' : '') + ' ago';
+            return new Date(timestamp).toLocaleDateString();
+        }
+        
+        async function loadActivity() {
+            try {
+                const res = await fetch('/api/activity/feed?limit=8');
+                if (!res.ok) throw new Error('Failed');
+                const data = await res.json();
+                const timeline = document.getElementById('activityTimeline');
+                if (!data.activities || data.activities.length === 0) {
+                    timeline.innerHTML = '<div style="text-align:center;padding:var(--space-xl);color:var(--color-text-muted);">No recent activity</div>';
+                    return;
                 }
+                timeline.innerHTML = data.activities.map(a => 
+                    '<div class="activity-item">' +
+                    '<div class="activity-icon">' + (a.icon || '•') + '</div>' +
+                    '<div class="activity-content">' +
+                    '<div><span class="activity-actor">' + a.actor + '</span> ' +
+                    '<span class="activity-description">' + a.description + '</span></div>' +
+                    '<div class="activity-time">' + formatRelativeTime(a.timestamp) + '</div>' +
+                    '</div></div>'
+                ).join('');
             } catch (err) {
-                console.error('Failed to load roles:', err);
+                document.getElementById('activityTimeline').innerHTML = 
+                    '<div style="text-align:center;padding:var(--space-xl);color:var(--color-text-muted);">Activity feed unavailable</div>';
             }
         }
         
-        // Load system statistics
         async function loadStats() {
             try {
                 await loadRoles();
+                const res = await fetch('/api/stats');
+                if (!res.ok) throw new Error('Failed');
+                const data = await res.json();
                 
-                const response = await fetch('/api/stats');
+                document.getElementById('totalUsers').textContent = data.total_users || 0;
+                document.getElementById('usersWithPasswords').textContent = data.users_with_passwords || 0;
+                document.getElementById('totalTopics').textContent = data.total_topics || 0;
+                document.getElementById('totalMessages').textContent = data.total_messages || 0;
                 
-                if (response.ok) {
-                    const data = await response.json();
-                    
-                    // Update main stats
-                    document.getElementById('totalUsers').textContent = data.total_users || 0;
-                    document.getElementById('usersWithPasswords').textContent = data.users_with_passwords || 0;
-                    document.getElementById('totalTopics').textContent = data.total_topics || 0;
-                    document.getElementById('totalMessages').textContent = data.total_messages || 0;
-                    
-                    // Create role stats cards
-                    const roleStatsContainer = document.getElementById('roleStats');
-                    if (data.users_by_role && Object.keys(data.users_by_role).length > 0) {
-                        roleStatsContainer.style.display = 'grid';
-                        roleStatsContainer.innerHTML = '';
-                        
-                        // Sort roles by count (descending)
-                        const sortedRoles = Object.entries(data.users_by_role)
-                            .sort((a, b) => b[1] - a[1]);
-                        
-                        sortedRoles.forEach(([roleName, count]) => {
-                            const role = roles.find(r => r.name === roleName);
-                            const color = role?.color || '#6b7280';
-                            const icon = role?.icon || '👤';
-                            
-                            const card = document.createElement('div');
-                            card.className = 'stat-card';
-                            card.style.borderLeft = `4px solid ${color}`;
-                            card.innerHTML = `
-                                <h3 style="color: ${color};">${icon} ${roleName}s</h3>
-                                <div class="stat-value">${count}</div>
-                            `;
-                            roleStatsContainer.appendChild(card);
-                        });
-                    }
-                } else {
-                    console.error('Failed to load stats:', response.status);
+                const roleSection = document.getElementById('roleStatsSection');
+                const roleContainer = document.getElementById('roleStats');
+                if (data.users_by_role && Object.keys(data.users_by_role).length > 0) {
+                    roleSection.style.display = 'block';
+                    roleContainer.innerHTML = '';
+                    Object.entries(data.users_by_role).sort((a,b) => b[1]-a[1]).forEach(([name, count]) => {
+                        const role = roles.find(r => r.name === name);
+                        const card = document.createElement('div');
+                        card.className = 'stat-card';
+                        card.innerHTML = '<h3 style="color:' + (role?.color || '#6b7280') + '">' + 
+                            (role?.icon || '👤') + ' ' + name + 's</h3>' +
+                            '<div class="stat-value">' + count + '</div>' +
+                            '<div class="stat-label">Role members</div>';
+                        roleContainer.appendChild(card);
+                    });
                 }
             } catch (err) {
-                console.error('Failed to load stats:', err);
                 document.getElementById('totalUsers').textContent = 'Error';
-                document.getElementById('usersWithPasswords').textContent = 'Error';
-                document.getElementById('totalTopics').textContent = 'Error';
-                document.getElementById('totalMessages').textContent = 'Error';
             }
         }
         
         loadStats();
+        loadActivity();
+        setInterval(loadActivity, 30000);
     </script>
 </body>
 </html>

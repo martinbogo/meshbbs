@@ -8,6 +8,7 @@ pub mod users;
 pub mod topics;
 pub mod messages;
 pub mod audit;
+pub mod activity;
 pub mod stats;
 pub mod schema;
 
@@ -17,5 +18,6 @@ pub use users::*;
 pub use topics::*;
 pub use messages::*;
 pub use audit::*;
+pub use activity::*;
 pub use stats::*;
 pub use schema::*;
