@@ -174,7 +174,8 @@ pub async fn get_activity_feed(
         .storage
         .lock()
         .await
-        .list_messages_in_topic("general", 5)
+        .get_messages("general", 5)
+        .await
     {
         for msg in messages {
             let timestamp = msg.timestamp.format("%Y-%m-%dT%H:%M:%S").to_string();
