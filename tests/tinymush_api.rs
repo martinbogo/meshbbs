@@ -10,7 +10,9 @@ use axum::{
 };
 use meshbbs::config::{AdminDashboardConfig, GamesConfig};
 use meshbbs::tmush::storage::{TinyMushStore, TinyMushStoreBuilder};
-use meshbbs::tmush::types::{CraftingRecipe, RecipeMaterial, RECIPE_SCHEMA_VERSION};
+use meshbbs::tmush::types::{
+    CraftingRecipe, NpcRecord, RecipeMaterial, NPC_SCHEMA_VERSION, RECIPE_SCHEMA_VERSION,
+};
 use meshbbs::webui::api::tinymush::{
     create_collection_item, delete_collection_item, update_collection_item, TinyMushUpsertRequest,
 };
@@ -213,4 +215,150 @@ async fn deleting_recipe_removes_entry() {
 
     assert_eq!(response.status(), StatusCode::NO_CONTENT);
     assert!(!ctx.store.recipe_exists("starter").expect("exists"));
+}
+
+// ============================================================================
+// NPC Collection Tests
+// ============================================================================
+
+fn seed_npc(store: &TinyMushStore) {
+    let npc = NpcRecord::new(
+        "guard",
+        "Guard",
+        "Town Guard",
+        "Protects the town",
+        "town_square",
+    );
+    store.put_npc(npc).expect("seed npc");
+}
+
+#[tokio::test]
+async fn creating_npc_persists_record() {
+    let ctx = TestContext::new();
+
+    let payload = json!({
+        "id": "merchant",
+        "name": "Merchant Bob",
+        "title": "Trader",
+        "description": "A friendly merchant",
+        "room_id": "market",
+        "dialog": {
+            "greeting": "Welcome to my shop!"
+        }
+    });
+
+    let (status, response) = parse_json_body(
+        create_collection_item(
+            State(ctx.state.clone()),
+            AxumPath("npcs".to_string()),
+            Json(TinyMushUpsertRequest { item: payload }),
+        )
+        .await,
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::CREATED);
+    assert_eq!(response["collection"].as_str(), Some("npcs"));
+
+    let item = response
+        .get("item")
+        .and_then(serde_json::Value::as_object)
+        .expect("item object");
+    assert_eq!(
+        item.get("id").and_then(serde_json::Value::as_str),
+        Some("merchant")
+    );
+    assert_eq!(
+        item.get("name").and_then(serde_json::Value::as_str),
+        Some("Merchant Bob")
+    );
+
+    let stored = ctx.store.get_npc("merchant").expect("stored npc");
+    assert_eq!(stored.name, "Merchant Bob");
+    assert_eq!(stored.title, "Trader");
+    assert_eq!(stored.room_id, "market");
+    assert_eq!(stored.schema_version, NPC_SCHEMA_VERSION);
+    assert_eq!(
+        stored.dialog.get("greeting"),
+        Some(&"Welcome to my shop!".to_string())
+    );
+}
+
+#[tokio::test]
+async fn updating_npc_preserves_id() {
+    let ctx = TestContext::new();
+    seed_npc(&ctx.store);
+
+    let payload = json!({
+        "id": "guard",
+        "name": "Elite Guard",
+        "title": "Elite Town Guard",
+        "description": "A highly trained guard",
+        "room_id": "town_square"
+    });
+
+    let (status, _response) = parse_json_body(
+        update_collection_item(
+            State(ctx.state.clone()),
+            AxumPath(("npcs".to_string(), "guard".to_string())),
+            Json(TinyMushUpsertRequest { item: payload }),
+        )
+        .await,
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+
+    let stored = ctx.store.get_npc("guard").expect("stored npc");
+    assert_eq!(stored.id, "guard");
+    assert_eq!(stored.name, "Elite Guard");
+    assert_eq!(stored.title, "Elite Town Guard");
+}
+
+#[tokio::test]
+async fn creating_npc_without_required_fields_fails() {
+    let ctx = TestContext::new();
+
+    let payload = json!({
+        "id": "incomplete_npc",
+        "name": "Bob"
+        // Missing: title, description, room_id
+    });
+
+    let (status, error) = parse_json_body(
+        create_collection_item(
+            State(ctx.state.clone()),
+            AxumPath("npcs".to_string()),
+            Json(TinyMushUpsertRequest { item: payload }),
+        )
+        .await,
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let message = error
+        .get("error")
+        .and_then(serde_json::Value::as_str)
+        .expect("error message");
+    assert!(message.contains("title") || message.contains("required"));
+}
+
+#[tokio::test]
+async fn deleting_npc_removes_entry() {
+    let ctx = TestContext::new();
+    seed_npc(&ctx.store);
+
+    let npc_ids = ctx.store.list_npc_ids().expect("list npcs");
+    assert!(npc_ids.contains(&"guard".to_string()));
+
+    let response = delete_collection_item(
+        State(ctx.state.clone()),
+        AxumPath(("npcs".to_string(), "guard".to_string())),
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::NO_CONTENT);
+
+    let npc_ids_after = ctx.store.list_npc_ids().expect("list npcs");
+    assert!(!npc_ids_after.contains(&"guard".to_string()));
 }

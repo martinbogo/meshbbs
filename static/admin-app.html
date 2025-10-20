@@ -2028,8 +2028,9 @@
                 <div class="form-error" id="tinymushEditorError"></div>
             </div>
             <div class="modal-footer">
+                <button class="btn btn-danger" id="tinymushEditorDelete" style="margin-right: auto; display: none;" onclick="confirmTinymushDelete()">Delete</button>
                 <button class="btn btn-secondary" onclick="closeTinymushEditor()">Cancel</button>
-                <button class="btn btn-primary" id="tinymushEditorSave">Save Changes</button>
+                <button class="btn btn-primary" id="tinymushEditorSave" onclick="submitTinymushEditor()">Save Changes</button>
             </div>
         </div>
     </div>
@@ -3791,6 +3792,17 @@
             searchWrap.appendChild(searchInput);
 
             filters.appendChild(searchWrap);
+
+            const createButton = document.createElement('button');
+            createButton.className = 'btn btn-primary';
+            createButton.textContent = '+ Create New';
+            createButton.addEventListener('click', () => {
+                if (tinymushState.activeCollection) {
+                    openTinymushEditor('create', tinymushState.activeCollection);
+                }
+            });
+            filters.appendChild(createButton);
+
             itemsPanel.appendChild(filters);
 
             const notice = document.createElement('div');
@@ -4184,7 +4196,15 @@
             }
 
             filtered.forEach(item => {
-                container.appendChild(renderTinymushItemCard(collectionKey, item, config));
+                const card = renderTinymushItemCard(collectionKey, item, config);
+                card.style.cursor = 'pointer';
+                card.addEventListener('click', () => {
+                    const itemId = item?.id;
+                    if (itemId) {
+                        openTinymushEditor('edit', collectionKey, itemId, item);
+                    }
+                });
+                container.appendChild(card);
             });
         }
 
@@ -4425,8 +4445,66 @@
             return Array.from(new Set(tags));
         }
 
-        function openTinymushEditor() {
-            showNotification('TinyMUSH editing is currently read-only while the database integration completes.', 'info');
+        function openTinymushEditor(mode, collectionKey, itemId = null, itemData = null) {
+            if (!collectionKey) {
+                console.error('openTinymushEditor requires collectionKey');
+                return;
+            }
+
+            const modal = document.getElementById('tinymushEditorModal');
+            const textarea = document.getElementById('tinymushEditorInput');
+            const titleEl = document.getElementById('tinymushEditorTitle');
+            const errorEl = document.getElementById('tinymushEditorError');
+            const saveBtn = document.getElementById('tinymushEditorSave');
+            const deleteBtn = document.getElementById('tinymushEditorDelete');
+
+            if (!modal || !textarea || !titleEl) {
+                console.error('TinyMUSH editor DOM elements not found');
+                return;
+            }
+
+            resetTinymushEditor();
+            
+            const config = getTinymushCollectionConfig(collectionKey);
+            const label = config?.label || collectionKey;
+
+            tinymushState.editor = {
+                mode: mode || 'create',
+                collectionKey,
+                originalId: itemId,
+                currentData: null,
+                guidedInputs: new Map(),
+                activeView: 'guided',
+                fieldErrors: new Map(),
+            };
+
+            if (mode === 'edit' && itemData) {
+                titleEl.textContent = `Edit ${label}`;
+                textarea.value = JSON.stringify(itemData, null, 2);
+                tinymushState.editor.currentData = JSON.parse(JSON.stringify(itemData));
+                if (deleteBtn) {
+                    deleteBtn.style.display = 'inline-block';
+                }
+            } else {
+                titleEl.textContent = `Create ${label}`;
+                const template = buildTinymushTemplate(collectionKey);
+                textarea.value = JSON.stringify(template, null, 2);
+                tinymushState.editor.currentData = template;
+                if (deleteBtn) {
+                    deleteBtn.style.display = 'none';
+                }
+            }
+
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save Changes';
+            }
+            if (errorEl) {
+                errorEl.textContent = '';
+            }
+
+            renderTinymushGuidedView();
+            modal.style.display = 'flex';
         }
 
         function buildTinymushTemplate(collectionKey) {
@@ -4502,8 +4580,6 @@
         }
 
         async function submitTinymushEditor() {
-            showNotification('TinyMUSH editing is currently read-only while the database integration completes.', 'info');
-            return;
             if (!tinymushState.editor.collectionKey) {
                 return;
             }
@@ -4567,7 +4643,7 @@
             const mode = tinymushState.editor.mode;
             const encodedCollection = encodeURIComponent(collectionKey);
 
-            let url = `/api/tinymush/seeds/${encodedCollection}`;
+            let url = `/api/tinymush/collections/${encodedCollection}`;
             let method = 'POST';
 
             if (tinymushState.editor.mode === 'edit') {
@@ -4603,11 +4679,72 @@
         }
 
         function confirmTinymushDelete() {
-            showNotification('TinyMUSH editing is currently read-only while the database integration completes.', 'info');
+            if (!tinymushState.editor.collectionKey || !tinymushState.editor.originalId) {
+                return;
+            }
+
+            const config = getTinymushCollectionConfig(tinymushState.editor.collectionKey);
+            const label = config?.label || tinymushState.editor.collectionKey;
+            
+            if (confirm(`Delete this ${label}? This action cannot be undone.`)) {
+                deleteTinymushItem();
+            }
         }
 
         async function deleteTinymushItem() {
-            showNotification('TinyMUSH editing is currently read-only while the database integration completes.', 'info');
+            if (!tinymushState.editor.collectionKey || !tinymushState.editor.originalId) {
+                return;
+            }
+            if (!authToken) {
+                showNotification('Please log in to delete TinyMUSH data', 'error');
+                return;
+            }
+
+            const saveBtn = document.getElementById('tinymushEditorSave');
+            const errorEl = document.getElementById('tinymushEditorError');
+            
+            if (saveBtn) {
+                saveBtn.disabled = true;
+                saveBtn.textContent = 'Deleting…';
+            }
+            if (errorEl) {
+                errorEl.textContent = '';
+            }
+
+            const collectionKey = tinymushState.editor.collectionKey;
+            const itemId = tinymushState.editor.originalId;
+            const encodedCollection = encodeURIComponent(collectionKey);
+            const encodedId = encodeURIComponent(itemId);
+            const url = `/api/tinymush/collections/${encodedCollection}/${encodedId}`;
+
+            try {
+                const response = await fetch(url, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (!response.ok) {
+                    const responseBody = await response.json().catch(() => ({}));
+                    throw new Error(responseBody?.error || `Delete failed (${response.status})`);
+                }
+
+                closeTinymushEditor();
+                delete tinymushState.collectionCache[collectionKey];
+                await selectTinymushCollection(collectionKey, { force: true });
+                await refreshTinymushOverview();
+                showNotification('TinyMUSH item deleted.', 'success');
+            } catch (error) {
+                console.error('Failed to delete TinyMUSH entry:', error);
+                if (errorEl) {
+                    errorEl.textContent = error.message || 'Unable to delete item.';
+                }
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = 'Save Changes';
+                }
+            }
         }
 
         async function refreshTinymushOverview() {
