@@ -4699,8 +4699,8 @@
                 errorEl.textContent = '';
             }
 
-            renderTinymushGuidedView();
-            modal.style.display = 'flex';
+            renderTinymushGuidedForm(collectionKey);
+            modal.classList.add('show');
         }
 
         function buildTinymushTemplate(collectionKey) {
