@@ -4644,6 +4644,55 @@
             return Array.from(new Set(tags));
         }
 
+        function resetTinymushEditor() {
+            // Clear the editor state
+            if (tinymushState.editor) {
+                tinymushState.editor.mode = null;
+                tinymushState.editor.collectionKey = null;
+                tinymushState.editor.originalId = null;
+                tinymushState.editor.currentData = null;
+                tinymushState.editor.guidedInputs = new Map();
+                tinymushState.editor.activeView = 'guided';
+                tinymushState.editor.fieldErrors = new Map();
+            }
+
+            // Clear error messages
+            const errorEl = document.getElementById('tinymushEditorError');
+            if (errorEl) {
+                errorEl.textContent = '';
+                errorEl.style.display = 'none';
+            }
+
+            // Clear the textarea
+            const textarea = document.getElementById('tinymushEditorInput');
+            if (textarea) {
+                textarea.value = '';
+            }
+
+            // Clear the guided form container
+            const guidedView = document.getElementById('tinymushEditorSimple');
+            if (guidedView) {
+                guidedView.innerHTML = '';
+            }
+
+            // Reset tab state
+            const tabs = document.querySelectorAll('.tinymush-editor-tab');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            const guidedTab = document.querySelector('.tinymush-editor-tab[data-editor-view="guided"]');
+            if (guidedTab) {
+                guidedTab.classList.add('active');
+            }
+
+            // Reset view visibility
+            if (guidedView) {
+                guidedView.classList.add('active');
+            }
+            const advancedView = document.getElementById('tinymushEditorAdvanced');
+            if (advancedView) {
+                advancedView.classList.remove('active');
+            }
+        }
+
         function openTinymushEditor(mode, collectionKey, itemId = null, itemData = null) {
             console.log('[DEBUG] openTinymushEditor called:', { mode, collectionKey, itemId, itemData });
             
