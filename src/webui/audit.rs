@@ -85,7 +85,13 @@ impl AuditEntry {
         }
 
         parts.push(format!("IP={}", self.ip_address));
-        parts.push(format!("SESSION={}", &self.session_token[..8])); // Only first 8 chars for brevity
+        // Use min of session length or 8 chars to avoid panic on short tokens
+        let session_preview = if self.session_token.len() > 8 {
+            &self.session_token[..8]
+        } else {
+            &self.session_token
+        };
+        parts.push(format!("SESSION={}", session_preview));
         parts.push(format!("STATUS={}", self.status));
 
         if let Some(ref reason) = self.reason {
