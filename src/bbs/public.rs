@@ -152,19 +152,22 @@ impl PublicCommandParser {
             .and_then(|s| s.chars().next())
             .filter(|c| allowed.contains(c))
             .unwrap_or(default);
-        
+
         let allowed_help: &[&str] = &["HELP", "MENU", "INFO"];
         let help_cmd = help_command_opt
             .filter(|s| allowed_help.iter().any(|&a| a.eq_ignore_ascii_case(s)))
             .unwrap_or_else(|| "HELP".to_string())
             .to_uppercase();
-        
-        Self { prefix: p, help_command: help_cmd }
+
+        Self {
+            prefix: p,
+            help_command: help_cmd,
+        }
     }
     pub fn new() -> Self {
         Self::new_with_prefix(None, None)
     }
-    
+
     /// Returns the configured help command keyword for use in help text.
     pub fn help_command(&self) -> &str {
         &self.help_command

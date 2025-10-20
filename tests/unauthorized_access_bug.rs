@@ -48,15 +48,16 @@ async fn test_unauthenticated_blocked_from_topics() {
     let session = server.test_get_session(&unauth_node_id.to_string());
     assert!(session.is_some(), "Session should exist");
     let session = session.unwrap();
-    
+
     // Check what was sent to the user
     let messages = server.test_messages();
-    let response = messages.iter()
+    let response = messages
+        .iter()
         .filter(|(node, _)| *node == unauth_node_id.to_string())
         .last()
         .map(|(_, msg)| msg.as_str())
         .unwrap_or("");
-    
+
     println!("\n========================================");
     println!("AUTHENTICATION SECURITY TEST");
     println!("========================================");
@@ -66,7 +67,7 @@ async fn test_unauthenticated_blocked_from_topics() {
     println!("\nResponse to 'M' command:");
     println!("{}", response);
     println!("========================================\n");
-    
+
     // THE FIX: Unauthenticated users should NOT be able to transition to Topics state
     // They should remain in MainMenu and receive an authentication required message
     assert_eq!(
@@ -74,17 +75,19 @@ async fn test_unauthenticated_blocked_from_topics() {
         SessionState::MainMenu,
         "Unauthenticated user should remain in MainMenu, not transition to Topics"
     );
-    
+
     assert!(session.username.is_none(), "User should not be logged in");
     assert_eq!(session.user_level, 0, "User should have level 0");
-    
+
     // Verify the response contains authentication required message
     assert!(
-        response.contains("Authentication required") || response.contains("REGISTER") || response.contains("LOGIN"),
+        response.contains("Authentication required")
+            || response.contains("REGISTER")
+            || response.contains("LOGIN"),
         "Response should indicate authentication is required. Got: {}",
         response
     );
-    
+
     println!("✓ SECURITY FIX VERIFIED!");
     println!("  Unauthenticated user was properly blocked from accessing Topics");
 }
@@ -114,24 +117,31 @@ async fn test_unauthenticated_blocked_from_games() {
         .expect("games command");
 
     let messages = server.test_messages();
-    let response = messages.iter()
+    let response = messages
+        .iter()
         .find(|(node, _)| *node == unauth_node_id.to_string())
         .map(|(_, msg)| msg.as_str())
         .unwrap_or("");
-    
+
     // Check session - user should not be logged in
     let session = server.test_get_session(&unauth_node_id.to_string());
     if let Some(session) = session {
         assert!(session.username.is_none(), "User should not be logged in");
-        assert_eq!(session.state, SessionState::MainMenu, "User should remain in MainMenu");
-        
+        assert_eq!(
+            session.state,
+            SessionState::MainMenu,
+            "User should remain in MainMenu"
+        );
+
         // FIX: Response should indicate authentication is required
         assert!(
-            response.contains("Authentication required") || response.contains("REGISTER") || response.contains("LOGIN"),
+            response.contains("Authentication required")
+                || response.contains("REGISTER")
+                || response.contains("LOGIN"),
             "Response should indicate authentication is required for games. Got: {}",
             response
         );
-        
+
         println!("✓ Games menu properly blocked for unauthenticated user");
     }
 }
@@ -164,32 +174,35 @@ async fn test_unauthenticated_blocked_from_preferences() {
     let session = server.test_get_session(&unauth_node_id.to_string());
     assert!(session.is_some(), "Session should exist");
     let session = session.unwrap();
-    
+
     println!("\n=== Preferences Access Test ===");
     println!("Session state: {:?}", session.state);
     println!("Username: {:?}", session.username);
-    
+
     // FIX: Unauthenticated users should be blocked from UserMenu state
     assert_eq!(
         session.state,
         SessionState::MainMenu,
         "Unauthenticated user should remain in MainMenu, not access UserMenu"
     );
-    
+
     assert!(session.username.is_none(), "User is not logged in");
-    
+
     let messages = server.test_messages();
-    let response = messages.iter()
+    let response = messages
+        .iter()
         .filter(|(node, _)| *node == unauth_node_id.to_string())
         .last()
         .map(|(_, msg)| msg.as_str())
         .unwrap_or("");
-    
+
     assert!(
-        response.contains("Authentication required") || response.contains("REGISTER") || response.contains("LOGIN"),
+        response.contains("Authentication required")
+            || response.contains("REGISTER")
+            || response.contains("LOGIN"),
         "Response should indicate authentication is required. Got: {}",
         response
     );
-    
+
     println!("✓ Preferences menu properly blocked for unauthenticated user");
 }

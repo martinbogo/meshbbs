@@ -3,7 +3,7 @@
 
 use meshbbs::tmush::storage::{TinyMushStore, TinyMushStoreBuilder};
 use meshbbs::tmush::types::{
-    ObjectFlag, ObjectiveType, ObjectOwner, PlayerRecord, QuestObjective, QuestRecord,
+    ObjectFlag, ObjectOwner, ObjectiveType, PlayerRecord, QuestObjective, QuestRecord,
 };
 use std::collections::HashMap;
 use tempfile::TempDir;
@@ -44,8 +44,12 @@ fn test_cipher_quest_has_examine_sequence_objective() {
     ));
 
     // Store and retrieve quest
-    store.put_quest(cipher_quest.clone()).expect("Failed to store quest");
-    let retrieved = store.get_quest("the_cipher").expect("Failed to retrieve quest");
+    store
+        .put_quest(cipher_quest.clone())
+        .expect("Failed to store quest");
+    let retrieved = store
+        .get_quest("the_cipher")
+        .expect("Failed to retrieve quest");
 
     assert_eq!(retrieved.id, "the_cipher");
     assert_eq!(retrieved.objectives.len(), 1);
@@ -87,8 +91,12 @@ fn test_dark_navigation_quest_has_light_requirement() {
         1,
     ));
 
-    store.put_quest(depths_quest.clone()).expect("Failed to store quest");
-    let retrieved = store.get_quest("into_the_depths").expect("Failed to retrieve quest");
+    store
+        .put_quest(depths_quest.clone())
+        .expect("Failed to store quest");
+    let retrieved = store
+        .get_quest("into_the_depths")
+        .expect("Failed to retrieve quest");
 
     assert_eq!(retrieved.objectives.len(), 2);
 
@@ -150,7 +158,9 @@ fn test_crafting_quest_has_craft_objectives() {
         1,
     ));
 
-    store.put_quest(artisan_quest.clone()).expect("Failed to store quest");
+    store
+        .put_quest(artisan_quest.clone())
+        .expect("Failed to store quest");
     let retrieved = store
         .get_quest("master_artisan")
         .expect("Failed to retrieve quest");
@@ -229,18 +239,19 @@ fn test_epic_quest_combines_all_mechanics() {
         .objectives
         .iter()
         .any(|obj| matches!(obj.objective_type, ObjectiveType::ExamineSequence { .. }));
-    let has_navigate_dark = retrieved.objectives.iter().any(|obj| {
-        matches!(
-            obj.objective_type,
-            ObjectiveType::NavigateDarkRoom { .. }
-        )
-    });
+    let has_navigate_dark = retrieved
+        .objectives
+        .iter()
+        .any(|obj| matches!(obj.objective_type, ObjectiveType::NavigateDarkRoom { .. }));
     let has_craft = retrieved
         .objectives
         .iter()
         .any(|obj| matches!(obj.objective_type, ObjectiveType::CraftItem { .. }));
 
-    assert!(has_examine_sequence, "Should have ExamineSequence objective");
+    assert!(
+        has_examine_sequence,
+        "Should have ExamineSequence objective"
+    );
     assert!(has_navigate_dark, "Should have NavigateDarkRoom objective");
     assert!(has_craft, "Should have CraftItem objective");
 }
@@ -253,7 +264,9 @@ fn test_player_can_track_examined_symbol_sequence() {
     let mut player = PlayerRecord::new("testuser", "Test User", "town_square");
 
     // Simulate examining symbols in sequence
-    player.examined_symbol_sequence.push("cipher_spring".to_string());
+    player
+        .examined_symbol_sequence
+        .push("cipher_spring".to_string());
     player
         .examined_symbol_sequence
         .push("cipher_summer".to_string());
@@ -266,7 +279,9 @@ fn test_player_can_track_examined_symbol_sequence() {
 
     // Store and retrieve
     store.put_player(player).expect("Failed to store player");
-    let retrieved = store.get_player("testuser").expect("Failed to retrieve player");
+    let retrieved = store
+        .get_player("testuser")
+        .expect("Failed to retrieve player");
 
     assert_eq!(retrieved.examined_symbol_sequence.len(), 4);
     assert_eq!(retrieved.examined_symbol_sequence[0], "cipher_spring");
@@ -327,7 +342,9 @@ fn test_light_source_objects_have_correct_flag() {
     store.put_object(lantern).expect("Failed to store lantern");
 
     let retrieved_torch = store.get_object("torch").expect("Failed to retrieve torch");
-    let retrieved_lantern = store.get_object("lantern").expect("Failed to retrieve lantern");
+    let retrieved_lantern = store
+        .get_object("lantern")
+        .expect("Failed to retrieve lantern");
 
     assert!(
         retrieved_torch.flags.contains(&ObjectFlag::LightSource),
@@ -352,7 +369,9 @@ fn test_player_reputation_tracking() {
 
     // Store and retrieve
     store.put_player(player).expect("Failed to store player");
-    let retrieved = store.get_player("testuser").expect("Failed to retrieve player");
+    let retrieved = store
+        .get_player("testuser")
+        .expect("Failed to retrieve player");
 
     assert_eq!(retrieved.get_reputation("tinkers"), 50);
     assert_eq!(retrieved.get_reputation("scholars"), 75);
@@ -364,39 +383,18 @@ fn test_player_reputation_tracking() {
 fn test_reputation_levels_calculated_correctly() {
     use meshbbs::tmush::types::ReputationLevel;
 
-    assert_eq!(
-        ReputationLevel::from_points(-100),
-        ReputationLevel::Hated
-    );
-    assert_eq!(
-        ReputationLevel::from_points(-75),
-        ReputationLevel::Hated
-    );
-    assert_eq!(
-        ReputationLevel::from_points(-50),
-        ReputationLevel::Hostile
-    );
+    assert_eq!(ReputationLevel::from_points(-100), ReputationLevel::Hated);
+    assert_eq!(ReputationLevel::from_points(-75), ReputationLevel::Hated);
+    assert_eq!(ReputationLevel::from_points(-50), ReputationLevel::Hostile);
     assert_eq!(
         ReputationLevel::from_points(-25),
         ReputationLevel::Unfriendly
     );
     assert_eq!(ReputationLevel::from_points(0), ReputationLevel::Neutral);
-    assert_eq!(
-        ReputationLevel::from_points(25),
-        ReputationLevel::Friendly
-    );
-    assert_eq!(
-        ReputationLevel::from_points(50),
-        ReputationLevel::Honored
-    );
-    assert_eq!(
-        ReputationLevel::from_points(75),
-        ReputationLevel::Revered
-    );
-    assert_eq!(
-        ReputationLevel::from_points(100),
-        ReputationLevel::Revered
-    );
+    assert_eq!(ReputationLevel::from_points(25), ReputationLevel::Friendly);
+    assert_eq!(ReputationLevel::from_points(50), ReputationLevel::Honored);
+    assert_eq!(ReputationLevel::from_points(75), ReputationLevel::Revered);
+    assert_eq!(ReputationLevel::from_points(100), ReputationLevel::Revered);
 }
 
 #[test]
@@ -410,7 +408,9 @@ fn test_reputation_clamped_to_bounds() {
     player.add_reputation("traders", -150); // Should clamp to -100
 
     store.put_player(player).expect("Failed to store player");
-    let retrieved = store.get_player("testuser").expect("Failed to retrieve player");
+    let retrieved = store
+        .get_player("testuser")
+        .expect("Failed to retrieve player");
 
     assert_eq!(retrieved.get_reputation("tinkers"), 100);
     assert_eq!(retrieved.get_reputation("traders"), -100);

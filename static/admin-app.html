@@ -1,0 +1,5004 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MeshBBS Administration</title>
+    <link rel="stylesheet" href="/admin-design.css">
+    <style>
+        /* ============================================
+           ADMIN SPE - LOGIN & AUTHENTICATED VIEWS
+           ============================================ */
+        body {
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            background: var(--color-bg-body);
+        }
+
+        /* ============================================
+           LOGIN SCREEN
+           ============================================ */
+        .login-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: linear-gradient(165deg, var(--color-forest-deep) 0%, var(--color-forest) 100%);
+        }
+        .login-error.show {
+            display: block;
+        }
+
+        /* ============================================
+           ADMIN APP LAYOUT
+           ============================================ */
+        :root {
+            --color-bg-panel: rgba(82, 121, 111, 0.08);
+        }
+
+        .admin-app {
+            display: none;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .admin-app.show {
+            display: flex;
+        }
+
+        .admin-header {
+            position: sticky;
+            top: 0;
+            z-index: 200;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--space-lg);
+            padding: var(--space-md) var(--space-xl);
+            background: linear-gradient(145deg, rgba(56, 161, 105, 0.96), rgba(45, 112, 89, 0.92));
+            color: #fff;
+            box-shadow: var(--shadow-md);
+        }
+
+        .admin-brand {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-sm);
+            font-size: 1.1rem;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+        }
+
+        .admin-brand span:first-child {
+            font-size: 1.4rem;
+        }
+
+        .admin-tabs {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-xs);
+            padding: calc(var(--space-xs) / 2);
+            border-radius: var(--radius-full);
+            background: rgba(255, 255, 255, 0.18);
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+        }
+
+        .admin-tab {
+            border: none;
+            background: transparent;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 600;
+            padding: var(--space-xs) var(--space-md);
+            border-radius: var(--radius-full);
+            cursor: pointer;
+            transition: all var(--transition-swift);
+            appearance: none;
+        }
+
+        .admin-tab:hover,
+        .admin-tab:focus-visible {
+            background: rgba(255, 255, 255, 0.22);
+            color: #fff;
+        }
+
+        .admin-tab.active {
+            background: var(--color-bg-surface);
+            color: var(--color-forest-deep);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .admin-user {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-md);
+            padding-left: var(--space-md);
+        }
+
+        .user-info {
+            display: flex;
+            flex-direction: column;
+            font-size: 0.85rem;
+            line-height: 1.2;
+        }
+
+        .user-name {
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+
+        .btn-logout {
+            border: none;
+            border-radius: var(--radius-full);
+            padding: var(--space-xs) var(--space-lg);
+            font-weight: 600;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+            transition: all var(--transition-swift);
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+            appearance: none;
+        }
+
+        .btn-logout:hover,
+        .btn-logout:focus-visible {
+            background: rgba(255, 255, 255, 0.28);
+        }
+
+        .admin-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: linear-gradient(180deg, rgba(198, 246, 213, 0.14) 0%, transparent 28%);
+            overflow: hidden;
+        }
+
+        .admin-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--space-2xl) max(4vw, var(--space-xl));
+            width: 100%;
+            max-width: 1240px;
+            margin: 0 auto;
+        }
+
+        .admin-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .admin-content::-webkit-scrollbar-thumb {
+            background: rgba(82, 121, 111, 0.25);
+            border-radius: var(--radius-full);
+        }
+
+        @media (max-width: 992px) {
+            .admin-header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: var(--space-md);
+            }
+
+            .admin-tabs {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .admin-user {
+                justify-content: space-between;
+                padding-left: 0;
+            }
+        }
+
+        .tab-panel {
+            display: none;
+            animation: fadeIn var(--transition-smooth);
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .content-header {
+            margin-bottom: var(--space-xl);
+        }
+
+        .content-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--color-text-primary);
+            margin-bottom: var(--space-sm);
+        }
+
+        .content-description {
+            font-size: 0.95rem;
+            color: var(--color-text-secondary);
+        }
+
+        /* ============================================
+           STATS CARDS
+           ============================================ */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: var(--space-lg);
+            margin-bottom: var(--space-xl);
+        }
+
+        .stat-card {
+            background: var(--color-bg-surface);
+            border-radius: var(--radius-lg);
+            padding: var(--space-lg);
+            box-shadow: var(--shadow-sm);
+            transition: all var(--transition-swift);
+        }
+
+        .stat-card:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--color-forest);
+            margin-bottom: var(--space-xs);
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--color-text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .apps-shell {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-xl);
+        }
+
+        .apps-ribbon-container {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-sm);
+        }
+
+        .apps-ribbon-label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .apps-ribbon {
+            display: flex;
+            gap: var(--space-sm);
+            overflow-x: auto;
+            padding-bottom: calc(var(--space-xs) * 1.5);
+            scrollbar-width: thin;
+        }
+
+        .apps-ribbon::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .apps-ribbon::-webkit-scrollbar-thumb {
+            background: rgba(82, 121, 111, 0.25);
+            border-radius: 999px;
+        }
+
+        .apps-pill {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            padding: var(--space-sm) var(--space-lg);
+            border-radius: 999px;
+            background: var(--color-bg-panel);
+            border: 1px solid transparent;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            cursor: pointer;
+            transition: all var(--transition-swift);
+            flex: 0 0 auto;
+        }
+
+        .apps-pill-name {
+            white-space: nowrap;
+        }
+
+        .apps-pill.active {
+            border-color: rgba(82, 121, 111, 0.45);
+            background: rgba(82, 121, 111, 0.16);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .apps-pill:hover {
+            border-color: rgba(82, 121, 111, 0.35);
+        }
+
+        .apps-pill-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.8rem;
+            color: var(--color-text-secondary);
+        }
+
+        .state-dot {
+            width: 0.55rem;
+            height: 0.55rem;
+            border-radius: 50%;
+            background: var(--color-muted);
+        }
+
+        .state-dot.enabled {
+            background: rgba(82, 121, 111, 0.85);
+        }
+
+        .apps-detail-card {
+            background: var(--color-bg-surface);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            padding: var(--space-xl);
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-xl);
+            min-height: 420px;
+        }
+
+        .apps-detail-header {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-sm);
+        }
+
+        .apps-detail-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--color-text-primary);
+        }
+
+        .apps-detail-description {
+            font-size: 0.95rem;
+            color: var(--color-text-secondary);
+            max-width: 60ch;
+        }
+
+        .apps-detail-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-xs);
+        }
+
+        .apps-state-row {
+            display: flex;
+            gap: var(--space-md);
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .state-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: calc(var(--space-xs) / 2) var(--space-md);
+            border-radius: var(--radius-md);
+            background: rgba(82, 121, 111, 0.1);
+            color: var(--color-forest);
+            font-weight: 600;
+        }
+
+        .state-pill.state-enabled,
+        .state-pill.state-online {
+            background: rgba(82, 121, 111, 0.15);
+            color: var(--color-forest);
+        }
+
+        .state-pill.state-disabled,
+        .state-pill.state-offline {
+            background: rgba(173, 78, 58, 0.18);
+            color: rgba(120, 49, 32, 0.9);
+        }
+
+        .state-pill.state-planned {
+            background: rgba(240, 191, 76, 0.2);
+            color: rgba(156, 111, 20, 0.95);
+        }
+
+        .state-pill .dot {
+            width: 0.5rem;
+            height: 0.5rem;
+            border-radius: 999px;
+            background: currentColor;
+        }
+
+        .apps-actions {
+            display: flex;
+            gap: var(--space-sm);
+            flex-wrap: wrap;
+        }
+
+        .primary-action {
+            padding: var(--space-sm) var(--space-lg);
+            border-radius: var(--radius-md);
+            background: linear-gradient(135deg, rgba(73, 109, 101, 0.95), rgba(101, 143, 133, 0.9));
+            color: white;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: transform var(--transition-swift), box-shadow var(--transition-swift);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .primary-action:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .secondary-action {
+            padding: var(--space-sm) var(--space-lg);
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(82, 121, 111, 0.35);
+            background: transparent;
+            color: var(--color-forest);
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .apps-detail-body {
+            display: grid;
+            gap: var(--space-xl);
+        }
+
+        .config-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--space-md);
+            padding: var(--space-sm) 0;
+        }
+
+        .config-toggle-label {
+            font-weight: 600;
+            color: var(--color-text-primary);
+        }
+
+        .config-toggle-helper {
+            margin-top: var(--space-xs);
+            font-size: 0.85rem;
+            color: var(--color-text-secondary);
+        }
+
+        .toggle-switch {
+            min-width: 90px;
+            padding: var(--space-xs) var(--space-md);
+            border: none;
+            border-radius: 999px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition-swift);
+        }
+
+        .toggle-switch.on {
+            background: var(--color-forest);
+            color: #fff;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .toggle-switch.off {
+            background: rgba(82, 121, 111, 0.16);
+            color: var(--color-text-secondary);
+        }
+
+        .toggle-switch.pending {
+            opacity: 0.6;
+            cursor: wait;
+        }
+
+        .tinymush-section {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-xl);
+        }
+
+        .tinymush-status-card {
+            background: var(--color-bg-surface);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            padding: var(--space-xl);
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-md);
+        }
+
+        .tinymush-status-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: var(--space-md);
+        }
+
+        .tinymush-status-title {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 650;
+            color: var(--color-text-primary);
+        }
+
+        .tinymush-status-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.35rem;
+            padding: var(--space-xs) var(--space-md);
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            background: rgba(82, 121, 111, 0.16);
+            color: var(--color-forest-deep);
+        }
+
+        .tinymush-status-pill.is-ready {
+            background: rgba(82, 121, 111, 0.2);
+            color: var(--color-forest);
+        }
+
+        .tinymush-status-pill.is-loading {
+            background: rgba(82, 121, 111, 0.1);
+            color: var(--color-text-secondary);
+        }
+
+        .tinymush-status-pill.is-warning {
+            background: rgba(232, 161, 36, 0.24);
+            color: #8a5a05;
+        }
+
+        .tinymush-status-pill.is-disabled {
+            background: rgba(120, 120, 120, 0.18);
+            color: rgba(60, 60, 60, 0.75);
+        }
+
+        .tinymush-status-pill.is-error {
+            background: rgba(186, 44, 44, 0.22);
+            color: rgba(120, 22, 22, 0.9);
+        }
+
+        .tinymush-status-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-sm);
+            color: var(--color-text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .tinymush-status-meta span {
+            background: rgba(82, 121, 111, 0.08);
+            padding: calc(var(--space-xs) / 2) var(--space-sm);
+            border-radius: var(--radius-md);
+        }
+
+        .tinymush-status-counts {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-md);
+        }
+
+        .tinymush-status-count {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+            background: rgba(82, 121, 111, 0.08);
+            border-radius: var(--radius-md);
+            padding: var(--space-md);
+            min-width: 110px;
+        }
+
+        .tinymush-status-count-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--color-forest);
+        }
+
+        .tinymush-status-count-label {
+            font-size: 0.8rem;
+            color: var(--color-text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .tinymush-manager-host {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-xl);
+        }
+
+        .tinymush-shell {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-xl);
+        }
+
+        .tinymush-collection-bar {
+            background: var(--color-bg-surface);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            padding: var(--space-lg) var(--space-lg);
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-sm);
+        }
+
+        .tinymush-collection-bar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: var(--space-lg);
+        }
+
+        .tinymush-collection-bar-title {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-xs);
+        }
+
+        .tinymush-collection-bar-title h3 {
+            margin: 0;
+            font-size: 1.2rem;
+            font-weight: 650;
+            color: var(--color-text-primary);
+        }
+
+        .tinymush-collection-bar-title p {
+            margin: 0;
+            font-size: 0.8rem;
+            color: var(--color-text-secondary);
+            max-width: 48ch;
+        }
+
+        .tinymush-collection-actions {
+            display: flex;
+            gap: var(--space-sm);
+            flex-wrap: wrap;
+        }
+
+        .tinymush-collection-scroller {
+            display: flex;
+            gap: var(--space-xs);
+            overflow-x: auto;
+            padding-bottom: var(--space-xs);
+            scrollbar-width: thin;
+        }
+
+        .tinymush-collection-scroller::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .tinymush-collection-scroller::-webkit-scrollbar-thumb {
+            background: rgba(82, 121, 111, 0.25);
+            border-radius: 999px;
+        }
+
+        .tinymush-collection-btn {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            padding: calc(var(--space-xs) * 1.5) var(--space-md);
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(82, 121, 111, 0.15);
+            background: rgba(82, 121, 111, 0.08);
+            color: var(--color-text-primary);
+            cursor: pointer;
+            transition: all var(--transition-swift);
+            flex: 0 0 auto;
+            min-width: 150px;
+            text-align: left;
+        }
+
+        .tinymush-collection-btn:hover {
+            border-color: rgba(82, 121, 111, 0.35);
+        }
+
+        .tinymush-collection-btn.active {
+            border-color: rgba(82, 121, 111, 0.45);
+            background: rgba(82, 121, 111, 0.18);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .tinymush-collection-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: var(--radius-md);
+            background: rgba(82, 121, 111, 0.16);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.05rem;
+        }
+
+        .tinymush-collection-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 0.1rem;
+            flex: 1;
+        }
+
+        .tinymush-collection-label {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .tinymush-collection-description {
+            font-size: 0.8rem;
+            color: var(--color-text-secondary);
+        }
+
+        .tinymush-collection-count {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 2rem;
+            padding: calc(var(--space-xs) / 2) var(--space-xs);
+            border-radius: 999px;
+            background: rgba(82, 121, 111, 0.22);
+            color: var(--color-forest);
+            font-weight: 600;
+            font-size: 0.75rem;
+        }
+
+        .tinymush-panel-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            gap: var(--space-xl);
+            align-items: start;
+        }
+
+        .tinymush-items-panel,
+        .tinymush-detail-panel {
+            background: var(--color-bg-surface);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            padding: var(--space-xl);
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-lg);
+            min-height: 100%;
+        }
+
+        .tinymush-panel-header {
+            display: flex;
+            justify-content: space-between;
+            gap: var(--space-lg);
+            flex-wrap: wrap;
+            align-items: flex-start;
+        }
+
+        .tinymush-panel-title {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-xs);
+        }
+
+        .tinymush-panel-title h3 {
+            margin: 0;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--color-text-primary);
+        }
+
+        .tinymush-panel-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-sm);
+            color: var(--color-text-secondary);
+            font-size: 0.8rem;
+        }
+
+        .tinymush-panel-meta span {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: calc(var(--space-xs) / 1.5) var(--space-sm);
+            border-radius: var(--radius-sm);
+            background: var(--color-bg-panel);
+        }
+
+        .tinymush-panel-actions {
+            display: flex;
+            gap: var(--space-sm);
+            align-items: center;
+        }
+
+        .tinymush-detail-content {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-md);
+        }
+
+        .tinymush-json-preview {
+            background: rgba(82, 121, 111, 0.08);
+            border-radius: var(--radius-md);
+            padding: var(--space-md);
+            font-family: "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 0.8rem;
+            color: var(--color-text-secondary);
+            max-height: 320px;
+            overflow: auto;
+        }
+
+        .tinymush-detail-actions {
+            display: flex;
+            gap: var(--space-sm);
+            flex-wrap: wrap;
+        }
+
+        .tinymush-detail-placeholder {
+            padding: var(--space-xl);
+            text-align: center;
+            color: var(--color-text-secondary);
+            background: rgba(82, 121, 111, 0.08);
+            border-radius: var(--radius-md);
+        }
+
+        .tinymush-editor-tabs {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-xs);
+            border-radius: var(--radius-md);
+            background: rgba(82, 121, 111, 0.12);
+            padding: calc(var(--space-xs) / 2);
+            margin-bottom: var(--space-md);
+        }
+
+        .tinymush-editor-tab {
+            border: none;
+            background: transparent;
+            padding: var(--space-xs) var(--space-md);
+            border-radius: var(--radius-md);
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            transition: all var(--transition-swift);
+        }
+
+        .tinymush-editor-tab:hover {
+            background: rgba(82, 121, 111, 0.18);
+            color: var(--color-text-primary);
+        }
+
+        .tinymush-editor-tab.active {
+            background: var(--color-bg-surface);
+            color: var(--color-text-primary);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .tinymush-editor-view {
+            display: none;
+        }
+
+        .tinymush-editor-view.active {
+            display: block;
+        }
+
+        .tinymush-form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: var(--space-lg);
+        }
+
+        .tinymush-field {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-xs);
+        }
+
+        .tinymush-field .form-input,
+        .tinymush-field textarea {
+            width: 100%;
+        }
+
+        .tinymush-field textarea {
+            min-height: 160px;
+        }
+
+        .tinymush-field small {
+            color: var(--color-text-secondary);
+            font-size: 0.75rem;
+        }
+
+        .tinymush-guided-empty {
+            padding: var(--space-lg);
+            background: rgba(82, 121, 111, 0.08);
+            border-radius: var(--radius-md);
+            color: var(--color-text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .tinymush-guided-section {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-md);
+            padding: var(--space-lg);
+            border-radius: var(--radius-lg);
+            background: rgba(82, 121, 111, 0.08);
+            box-shadow: inset 0 0 0 1px rgba(82, 121, 111, 0.08);
+        }
+
+        .tinymush-guided-section:not(:last-child) {
+            margin-bottom: var(--space-lg);
+        }
+
+        .tinymush-guided-section-title {
+            display: flex;
+            flex-direction: column;
+            gap: calc(var(--space-xs) * 0.75);
+        }
+
+        .tinymush-guided-section-title h4 {
+            margin: 0;
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: var(--color-text-primary);
+        }
+
+        .tinymush-guided-section-title p {
+            margin: 0;
+            color: var(--color-text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .tinymush-guided-fields {
+            display: grid;
+            gap: var(--space-md);
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        }
+
+        .tinymush-guided-fields textarea.code-textarea {
+            min-height: 200px;
+        }
+
+        .tinymush-field-error {
+            color: #b54949;
+            font-size: 0.75rem;
+        }
+
+        @media (max-width: 1280px) {
+            .tinymush-panel-grid {
+                gap: var(--space-lg);
+            }
+
+            .tinymush-items-panel,
+            .tinymush-detail-panel {
+                padding: var(--space-lg);
+            }
+        }
+
+        @media (max-width: 992px) {
+            .tinymush-item-list {
+                max-height: none;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .tinymush-collection-bar {
+                padding: var(--space-lg) var(--space-md);
+            }
+
+            .tinymush-editor-tabs {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .tinymush-editor-tab {
+                flex: 1;
+                text-align: center;
+            }
+        }
+
+        .tinymush-item-header {
+            display: flex;
+            justify-content: space-between;
+            gap: var(--space-md);
+            align-items: flex-start;
+        }
+
+        .tinymush-item-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--color-text-primary);
+        }
+
+        .tinymush-item-id {
+            font-size: 0.75rem;
+            color: var(--color-text-secondary);
+            background: rgba(82, 121, 111, 0.12);
+            padding: calc(var(--space-xs) / 2) var(--space-sm);
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+        }
+
+        .tinymush-item-body {
+            font-size: 0.9rem;
+            color: var(--color-text-secondary);
+        }
+
+        .tinymush-item-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-xs);
+        }
+
+        .tinymush-item-tags .tag {
+            background: rgba(82, 121, 111, 0.18);
+            color: var(--color-text-primary);
+        }
+
+        .tinymush-item-actions {
+            display: flex;
+            gap: var(--space-sm);
+            flex-wrap: wrap;
+        }
+
+        .tinymush-empty {
+            padding: var(--space-xl);
+            text-align: center;
+            color: var(--color-text-secondary);
+            background: rgba(82, 121, 111, 0.08);
+            border-radius: var(--radius-md);
+        }
+
+        .tinymush-alert {
+            padding: var(--space-md);
+            border-radius: var(--radius-md);
+            background: rgba(217, 107, 50, 0.12);
+            border: 1px solid rgba(217, 107, 50, 0.35);
+            color: rgba(158, 71, 22, 0.85);
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 992px) {
+            .tinymush-manager {
+                grid-template-columns: 1fr;
+            }
+
+            .tinymush-collection-nav {
+                position: static;
+            }
+        }
+
+        .seed-card {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-sm);
+            padding: calc(var(--space-xs) * 1.5) var(--space-md);
+            border-radius: 999px;
+            background: rgba(82, 121, 111, 0.12);
+            border: 1px solid rgba(82, 121, 111, 0.2);
+            box-shadow: none;
+        }
+
+        .seed-card .config-toggle-label {
+            margin: 0;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--color-text-primary);
+        }
+
+        .seed-card-count {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--color-forest);
+        }
+
+        .seed-card-sample {
+            display: none;
+        }
+
+        .apps-detail-section {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-sm);
+        }
+
+        .apps-detail-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-xs);
+        }
+
+        .apps-detail-label {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--color-text-secondary);
+            font-weight: 600;
+        }
+
+        .apps-detail-value {
+            font-size: 0.95rem;
+            color: var(--color-text-primary);
+        }
+
+        .apps-muted {
+            color: var(--color-text-secondary);
+        }
+
+        .apps-activity {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-sm);
+            background: rgba(82, 121, 111, 0.08);
+            border-radius: var(--radius-md);
+            padding: var(--space-md);
+        }
+
+        .apps-detail-alert {
+            display: flex;
+            align-items: flex-start;
+            gap: var(--space-sm);
+            padding: var(--space-md);
+            border-radius: var(--radius-md);
+            background: rgba(217, 107, 50, 0.12);
+            color: rgba(158, 71, 22, 0.85);
+            border: 1px solid rgba(217, 107, 50, 0.35);
+        }
+
+        .apps-empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-sm);
+            padding: var(--space-xxl);
+            text-align: center;
+            color: var(--color-text-secondary);
+        }
+
+        .apps-empty-state svg {
+            width: 64px;
+            height: 64px;
+            color: rgba(82, 121, 111, 0.4);
+        }
+
+        .apps-placeholder {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-sm);
+            color: var(--color-text-secondary);
+            padding: var(--space-lg);
+            border: 1px dashed rgba(82, 121, 111, 0.25);
+            border-radius: var(--radius-md);
+            background: rgba(82, 121, 111, 0.05);
+        }
+
+        @media (max-width: 1200px) {
+            .apps-layout {
+                grid-template-columns: minmax(220px, 280px) 1fr;
+            }
+        }
+
+        @media (max-width: 992px) {
+            .apps-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .apps-list-card {
+                position: static;
+                max-height: none;
+            }
+        }
+
+        .tag-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-xs);
+        }
+
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            padding: calc(var(--space-xs) / 2) var(--space-sm);
+            border-radius: var(--radius-sm);
+            background: var(--color-stone-light);
+            color: var(--color-text-secondary);
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .fortune-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: var(--space-lg);
+            margin-bottom: var(--space-md);
+        }
+
+        .fortune-sample {
+            margin: 0;
+            padding-left: 1.2rem;
+            font-size: 0.9rem;
+            color: var(--color-text-secondary);
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-sm);
+        }
+
+        /* ============================================
+           TABLES
+           ============================================ */
+        .card {
+            background: var(--color-bg-surface);
+            border-radius: var(--radius-lg);
+            padding: var(--space-lg);
+            margin-bottom: var(--space-lg);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-lg);
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--color-text-primary);
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+
+        .admin-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .admin-table thead {
+            background: var(--color-stone-light);
+        }
+
+        .admin-table th {
+            padding: var(--space-md) var(--space-lg);
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            color: var(--color-text-primary);
+            letter-spacing: 0.05em;
+        }
+
+        .admin-table td {
+            padding: var(--space-md) var(--space-lg);
+            border-bottom: 1px solid var(--color-stone-light);
+        }
+
+        .admin-table tbody tr:hover {
+            background: var(--color-stone-light);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: calc(var(--space-xs) / 2) var(--space-sm);
+            border-radius: var(--radius-sm);
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-admin {
+            background: var(--color-forest);
+            color: white;
+        }
+
+        .badge-mod {
+            background: var(--color-amber);
+            color: white;
+        }
+
+        .badge-user {
+            background: var(--color-stone);
+            color: white;
+        }
+
+        .btn-sm {
+            padding: var(--space-xs) var(--space-sm);
+            font-size: 0.8rem;
+        }
+
+        /* ============================================
+           ACTIVITY & AUDIT LOG
+           ============================================ */
+        .activity-list {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-md);
+        }
+
+        .activity-item {
+            display: flex;
+            gap: var(--space-md);
+            padding: var(--space-md);
+            background: var(--color-bg-surface);
+            border-radius: var(--radius-md);
+            border-left: 3px solid var(--color-forest);
+        }
+
+        .activity-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-md);
+            background: var(--color-forest-mist);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+
+        .activity-content {
+            flex: 1;
+        }
+
+        .activity-text {
+            color: var(--color-text-primary);
+            margin-bottom: var(--space-xs);
+            font-size: 0.9rem;
+        }
+
+        .activity-meta {
+            font-size: 0.75rem;
+            color: var(--color-text-secondary);
+        }
+
+        /* ============================================
+           FILTERS
+           ============================================ */
+        .filters {
+            display: flex;
+            gap: var(--space-md);
+            margin-bottom: var(--space-lg);
+            flex-wrap: wrap;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-xs);
+        }
+
+        .filter-label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+        }
+
+        select.form-input {
+            min-width: 150px;
+        }
+
+        /* ============================================
+           MESSAGES PANEL
+           ============================================ */
+        .messages-grid {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: var(--space-lg);
+        }
+
+        .topic-list {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-sm);
+        }
+
+        .topic-item {
+            padding: var(--space-md);
+            background: var(--color-bg-surface);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all var(--transition-swift);
+        }
+
+        .topic-item:hover {
+            border-color: var(--color-forest);
+        }
+
+        .topic-item.active {
+            border-color: var(--color-forest);
+            background: var(--color-forest-mist);
+        }
+
+        .topic-name {
+            font-weight: 600;
+            color: var(--color-text-primary);
+            margin-bottom: var(--space-xs);
+        }
+
+        .topic-meta {
+            font-size: 0.8rem;
+            color: var(--color-text-secondary);
+        }
+
+        .message-item {
+            padding: var(--space-md);
+            background: var(--color-bg-surface);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--space-md);
+            border-left: 3px solid var(--color-forest);
+        }
+
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-sm);
+        }
+
+        .message-author {
+            font-weight: 600;
+            color: var(--color-text-primary);
+        }
+
+        .message-actions {
+            display: flex;
+            gap: var(--space-xs);
+        }
+
+        .message-text {
+            color: var(--color-text-primary);
+            line-height: 1.6;
+            margin-bottom: var(--space-sm);
+        }
+
+        .message-meta {
+            font-size: 0.75rem;
+            color: var(--color-text-secondary);
+        }
+
+        /* ============================================
+           UTILITIES
+           ============================================ */
+        .loading {
+            text-align: center;
+            padding: var(--space-xl);
+            color: var(--color-text-secondary);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: var(--space-2xl);
+            color: var(--color-text-secondary);
+        }
+
+        .text-success {
+            color: var(--color-success);
+        }
+
+        .text-warning {
+            color: var(--color-warning);
+        }
+
+        .text-error {
+            color: var(--color-error);
+        }
+
+        /* ============================================
+           MODAL DIALOGS
+           ============================================ */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn var(--transition-swift);
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--color-bg-surface);
+            border-radius: var(--radius-lg);
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow-lg);
+            animation: slideUp var(--transition-smooth);
+        }
+
+        .modal-large {
+            max-width: 960px;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-header {
+            padding: var(--space-lg) var(--space-xl);
+            border-bottom: 1px solid var(--color-stone-light);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--color-text-primary);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--color-text-secondary);
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: var(--radius-md);
+            transition: all var(--transition-swift);
+        }
+
+        .modal-close:hover {
+            background: var(--color-stone-light);
+            color: var(--color-text-primary);
+        }
+
+        .modal-body {
+            padding: var(--space-xl);
+        }
+
+        .modal-footer {
+            padding: var(--space-lg) var(--space-xl);
+            border-top: 1px solid var(--color-stone-light);
+            display: flex;
+            justify-content: flex-end;
+            gap: var(--space-md);
+        }
+
+        .form-helper {
+            font-size: 0.8rem;
+            color: var(--color-text-secondary);
+        }
+
+        .form-error {
+            margin-top: var(--space-sm);
+            color: var(--color-error);
+            font-size: 0.85rem;
+        }
+
+        .btn-secondary {
+            background: var(--color-stone);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: var(--color-stone-light);
+        }
+
+        .btn-danger {
+            background: var(--color-error);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #a83728;
+        }
+
+        /* ============================================
+           SEARCH & FILTERS
+           ============================================ */
+        .search-box {
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: var(--space-md) var(--space-md) var(--space-md) var(--space-2xl);
+            border: 1px solid var(--color-stone);
+            border-radius: var(--radius-md);
+            font-family: var(--font-body);
+            font-size: 0.9rem;
+        }
+
+        .code-textarea {
+            width: 100%;
+            min-height: 260px;
+            font-family: "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 0.85rem;
+            line-height: 1.45;
+            color: var(--color-text-primary);
+            background: rgba(82, 121, 111, 0.06);
+            border: 1px solid var(--color-stone);
+            border-radius: var(--radius-md);
+            padding: var(--space-md);
+            resize: vertical;
+            transition: border-color var(--transition-swift), box-shadow var(--transition-swift);
+        }
+
+        .code-textarea:focus {
+            outline: none;
+            border-color: rgba(82, 121, 111, 0.6);
+            box-shadow: 0 0 0 3px rgba(82, 121, 111, 0.2);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: var(--space-md);
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--color-text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <!-- ============================================
+         LOGIN SCREEN
+         ============================================ -->
+    <div class="login-container" id="loginScreen">
+        <div class="login-box">
+            <div class="login-header">
+                <div class="login-logo">🌲</div>
+                <h1 class="login-title">MeshBBS Admin</h1>
+                <p class="login-subtitle">Administration Dashboard</p>
+            </div>
+            
+            <div class="login-error" id="loginError"></div>
+            
+            <form class="login-form" id="loginForm">
+                <div class="form-group">
+                    <label class="form-label" for="username">Username</label>
+                    <input type="text" class="form-input" id="username" required autocomplete="username">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="password">Password</label>
+                    <input type="password" class="form-input" id="password" required autocomplete="current-password">
+                </div>
+                
+                <button type="submit" class="btn btn-primary" id="loginBtn">
+                    Sign In
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============================================
+         ADMIN APP
+         ============================================ -->
+    <div class="admin-app" id="adminApp">
+        <!-- Header -->
+        <header class="admin-header">
+            <div class="admin-brand">
+                <span>🌲</span>
+                <span>MeshBBS Admin</span>
+            </div>
+            
+            <nav class="admin-tabs">
+                <button class="admin-tab active" data-tab="overview">Overview</button>
+                <button class="admin-tab" data-tab="users">Users</button>
+                <button class="admin-tab" data-tab="messages">Messages</button>
+                <button class="admin-tab" data-tab="apps">Apps</button>
+                <button class="admin-tab" data-tab="audit">Audit Log</button>
+            </nav>
+            <div class="admin-user">
+                <div class="user-info">
+                    <div class="user-name" id="userName"></div>
+                    <div>Admin Level: <span id="userLevel"></span></div>
+                </div>
+                <button class="btn-logout" id="logoutBtn">Logout</button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="admin-container">
+            <main class="admin-content">
+                <!-- OVERVIEW TAB -->
+                <div class="tab-panel active" id="overviewPanel">
+                    <div class="content-header">
+                        <h1 class="content-title">System Overview</h1>
+                        <p class="content-description">Monitor system health and activity</p>
+                    </div>
+
+                    <!-- Stats Grid -->
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="statUsers">-</div>
+                            <div class="stat-label">Total Users</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="statTopics">-</div>
+                            <div class="stat-label">Topics</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="statMessages">-</div>
+                            <div class="stat-label">Messages</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="statActive">-</div>
+                            <div class="stat-label">Active Authors</div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Activity -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Recent Activity</h2>
+                        </div>
+                        <div class="activity-list" id="activityList">
+                            <div class="loading">Loading activity...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- USERS TAB -->
+                <div class="tab-panel" id="usersPanel">
+                    <div class="content-header">
+                        <h1 class="content-title">User Management</h1>
+                        <p class="content-description">Manage user accounts and permissions</p>
+                    </div>
+
+                    <!-- Filters -->
+                    <div class="filters">
+                        <div class="filter-group" style="flex: 1; max-width: 400px;">
+                            <label class="filter-label">Search Users</label>
+                            <div class="search-box">
+                                <span class="search-icon">🔍</span>
+                                <input type="text" class="search-input" id="searchUsers" placeholder="Search by callsign...">
+                            </div>
+                        </div>
+                        <div class="filter-group">
+                            <label class="filter-label">Min Level</label>
+                            <select class="form-input" id="filterMinLevel">
+                                <option value="">All</option>
+                                <option value="1">1+</option>
+                                <option value="5">5+</option>
+                                <option value="10">10 (Admin)</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label class="filter-label">Sort By</label>
+                            <select class="form-input" id="sortUsers">
+                                <option value="username">Username</option>
+                                <option value="level">Level</option>
+                                <option value="messages">Message Count</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Users Table -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Users</h2>
+                            <div id="userCount" style="color: var(--color-text-secondary);"></div>
+                        </div>
+                        <div class="table-container">
+                            <table class="admin-table" id="usersTable">
+                                <thead>
+                                    <tr>
+                                        <th>Callsign</th>
+                                        <th>Level</th>
+                                        <th>Messages</th>
+                                        <th>Role</th>
+                                        <th>Last Login</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td colspan="6" class="loading">Loading users...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MESSAGES TAB -->
+                <div class="tab-panel" id="messagesPanel">
+                    <div class="content-header">
+                        <h1 class="content-title">Message Moderation</h1>
+                        <p class="content-description">Review and moderate board content</p>
+                    </div>
+
+                    <div class="messages-grid">
+                        <!-- Topics List -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">Topics</h3>
+                            </div>
+                            <div class="topic-list" id="topicsList">
+                                <div class="loading">Loading...</div>
+                            </div>
+                        </div>
+
+                        <!-- Messages Panel -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">Messages</h3>
+                            </div>
+                            <div id="messagesList">
+                                <div class="empty-state">Select a topic to view messages</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- APPS TAB -->
+                <div class="tab-panel" id="appsPanel">
+                    <div class="content-header">
+                        <h1 class="content-title">Apps</h1>
+                        <p class="content-description">Launch and configure door games and built-in utilities</p>
+                    </div>
+
+                    <div class="apps-shell">
+                        <div class="apps-ribbon-container">
+                            <div class="apps-ribbon-label">Available Apps</div>
+                            <div class="apps-ribbon" id="appsList">
+                                <div class="loading">Loading apps...</div>
+                            </div>
+                        </div>
+
+                        <section class="apps-detail-card" id="appsDetailCard">
+                            <div class="apps-detail-header">
+                                <div class="apps-detail-title" id="appDetailTitle">Select an app</div>
+                                <div class="apps-detail-description" id="appDetailSubtitle">Choose an app to view insights and controls.</div>
+                                <div class="apps-state-row" id="appDetailState"></div>
+                                <div class="apps-detail-tags" id="appDetailTags"></div>
+                            </div>
+
+                            <div class="apps-detail-body" id="appDetail">
+                                <div class="apps-placeholder">
+                                    <strong>No app selected</strong>
+                                    <span>Select an app above to see configuration and usage tips.</span>
+                                </div>
+                            </div>
+
+                            <div class="apps-actions" id="appDetailActions"></div>
+                        </section>
+                    </div>
+                </div>
+
+                <!-- AUDIT LOG TAB -->
+                <div class="tab-panel" id="auditPanel">
+                    <div class="content-header">
+                        <h1 class="content-title">Audit Log</h1>
+                        <p class="content-description">Track all administrative actions</p>
+                    </div>
+
+                    <!-- Filters -->
+                    <div class="filters">
+                        <div class="filter-group">
+                            <label class="filter-label">Action</label>
+                            <select class="form-input" id="filterAction">
+                                <option value="">All</option>
+                                <option value="LOGIN">Login</option>
+                                <option value="LOGOUT">Logout</option>
+                                <option value="VIEW">View</option>
+                                <option value="UPDATE">Update</option>
+                                <option value="DELETE">Delete</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label class="filter-label">Status</label>
+                            <select class="form-input" id="filterStatus">
+                                <option value="">All</option>
+                                <option value="success">Success</option>
+                                <option value="failed">Failed</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Audit Log -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Activity Log</h2>
+                        </div>
+                        <div class="activity-list" id="auditList">
+                            <div class="loading">Loading audit log...</div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- ============================================
+         MODAL DIALOGS
+         ============================================ -->
+    
+    <!-- User Edit Modal -->
+    <div class="modal-overlay" id="userEditModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title">Edit User</h2>
+                <button class="modal-close" onclick="closeModal('userEditModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="userEditForm">
+                    <div class="form-group">
+                        <label class="form-label">Callsign</label>
+                        <input type="text" class="form-input" id="editCallsign" readonly>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Level (1-10)</label>
+                        <input type="number" class="form-input" id="editLevel" min="1" max="10" required>
+                        <small style="color: var(--color-text-secondary); font-size: 0.8rem;">
+                            1-4: User, 5-9: Moderator, 10: Admin
+                        </small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Node ID</label>
+                        <input type="text" class="form-input" id="editNodeId" readonly>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Message Count</label>
+                        <input type="text" class="form-input" id="editMessageCount" readonly>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('userEditModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="saveUserEdit()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div class="modal-overlay" id="confirmModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title" id="confirmTitle">Confirm Action</h2>
+                <button class="modal-close" onclick="closeModal('confirmModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmMessage" style="color: var(--color-text-primary);"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('confirmModal')">Cancel</button>
+                <button class="btn btn-danger" id="confirmButton">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TinyMUSH Seed Editor Modal -->
+    <div class="modal-overlay" id="tinymushEditorModal">
+        <div class="modal modal-large">
+            <div class="modal-header">
+                <h2 class="modal-title" id="tinymushEditorTitle">Edit TinyMUSH Seed</h2>
+                <button class="modal-close" onclick="closeTinymushEditor()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Collection</label>
+                    <div class="form-helper" id="tinymushEditorCollectionLabel"></div>
+                </div>
+                <p class="form-helper" id="tinymushEditorHelper"></p>
+                <div class="tinymush-editor-tabs" id="tinymushEditorTabs">
+                    <button type="button" class="tinymush-editor-tab" data-editor-view="guided">Guided editor</button>
+                    <button type="button" class="tinymush-editor-tab" data-editor-view="advanced">JSON editor</button>
+                </div>
+                <div id="tinymushEditorSimple" class="tinymush-editor-view"></div>
+                <div id="tinymushEditorAdvanced" class="tinymush-editor-view">
+                    <label class="form-label" for="tinymushEditorInput" style="display:block; margin-bottom: var(--space-xs);">Raw JSON</label>
+                    <textarea id="tinymushEditorInput" class="code-textarea" spellcheck="false"></textarea>
+                </div>
+                <div class="form-error" id="tinymushEditorError"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeTinymushEditor()">Cancel</button>
+                <button class="btn btn-primary" id="tinymushEditorSave">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // STATE MANAGEMENT
+        // ============================================
+        let authToken = localStorage.getItem('authToken');
+        let currentUser = null;
+
+        // ============================================
+        // AUTHENTICATION
+        // ============================================
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const loginBtn = document.getElementById('loginBtn');
+            const errorDiv = document.getElementById('loginError');
+            
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Signing in...';
+            errorDiv.classList.remove('show');
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    authToken = data.token;
+                    currentUser = { username: data.username, level: data.admin_level };
+                    localStorage.setItem('authToken', authToken);
+                    
+                    // Show admin app
+                    document.getElementById('loginScreen').style.display = 'none';
+                    document.getElementById('adminApp').classList.add('show');
+                    document.getElementById('userName').textContent = data.username;
+                    document.getElementById('userLevel').textContent = data.admin_level;
+                    
+                    // Load initial data
+                    loadDashboard();
+                } else {
+                    errorDiv.textContent = data.error || 'Login failed';
+                    errorDiv.classList.add('show');
+                }
+            } catch (error) {
+                errorDiv.textContent = 'Connection error';
+                errorDiv.classList.add('show');
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Sign In';
+            }
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            try {
+                await fetch('/api/auth/logout', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+            } catch (error) {
+                console.error('Logout error:', error);
+            } finally {
+                authToken = null;
+                currentUser = null;
+                localStorage.removeItem('authToken');
+                location.reload();
+            }
+        });
+
+        // ============================================
+        // TAB SWITCHING
+        // ============================================
+        document.querySelectorAll('.admin-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const targetTab = tab.dataset.tab;
+                
+                // Update tabs
+                document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                // Update panels
+                document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+                document.getElementById(targetTab + 'Panel').classList.add('active');
+                
+                // Load tab data
+                loadTabData(targetTab);
+            });
+        });
+
+        // ============================================
+        // DATA LOADING
+        // ============================================
+        async function loadDashboard() {
+            await loadStats();
+            await loadActivity();
+        }
+
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/stats');
+                const data = await response.json();
+                
+                document.getElementById('statUsers').textContent = data.total_users || 0;
+                document.getElementById('statTopics').textContent = data.total_topics || 0;
+                document.getElementById('statMessages').textContent = data.total_messages || 0;
+                document.getElementById('statActive').textContent = data.unique_message_authors || 0;
+            } catch (error) {
+                console.error('Failed to load stats:', error);
+            }
+        }
+
+        async function loadActivity() {
+            try {
+                const response = await fetch('/api/activity/feed?limit=10');
+                const data = await response.json();
+                const list = document.getElementById('activityList');
+                
+                if (data.activities && data.activities.length > 0) {
+                    list.innerHTML = data.activities.map(activity => `
+                        <div class="activity-item">
+                            <div class="activity-icon">${getActivityIcon(activity.activity_type)}</div>
+                            <div class="activity-content">
+                                <div class="activity-text">${activity.description}</div>
+                                <div class="activity-meta">${formatTime(activity.timestamp)}</div>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    list.innerHTML = '<div class="empty-state">No recent activity</div>';
+                }
+            } catch (error) {
+                console.error('Failed to load activity:', error);
+            }
+        }
+
+        async function loadUsers() {
+            try {
+                const response = await fetch('/api/users');
+                const users = await response.json();
+                
+                allUsers = users;
+                filteredUsers = users;
+                
+                // Trigger initial display with current search/filter
+                const searchTerm = document.getElementById('searchUsers')?.value.toLowerCase() || '';
+                filterAndDisplayUsers(searchTerm);
+            } catch (error) {
+                console.error('Failed to load users:', error);
+                const tbody = document.querySelector('#usersTable tbody');
+                tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Failed to load users</td></tr>';
+            }
+        }
+
+        async function loadTopics() {
+            try {
+                const response = await fetch('/api/topics');
+                const topics = await response.json();
+                const list = document.getElementById('topicsList');
+
+                if (Array.isArray(topics) && topics.length > 0) {
+                    list.innerHTML = '';
+
+                    topics.forEach((topic, idx) => {
+                        const item = document.createElement('div');
+                        item.className = `topic-item${idx === 0 ? ' active' : ''}`;
+                        item.dataset.topic = topic.name;
+
+                        const nameEl = document.createElement('div');
+                        nameEl.className = 'topic-name';
+                        nameEl.textContent = topic.name || 'Unknown';
+
+                        const metaEl = document.createElement('div');
+                        metaEl.className = 'topic-meta';
+                        metaEl.textContent = `${topic.message_count || 0} messages`;
+
+                        item.appendChild(nameEl);
+                        item.appendChild(metaEl);
+
+                        item.addEventListener('click', () => loadMessages(item.dataset.topic, item));
+                        list.appendChild(item);
+                    });
+
+                    const firstItem = list.querySelector('.topic-item');
+                    if (firstItem) {
+                        loadMessages(firstItem.dataset.topic, firstItem);
+                    }
+                } else {
+                    list.innerHTML = '<div class="empty-state">No topics</div>';
+                }
+            } catch (error) {
+                console.error('Failed to load topics:', error);
+            }
+        }
+
+        async function loadMessages(topicName, element) {
+            if (!topicName) return;
+
+            let targetElement = element;
+            if (!targetElement) {
+                targetElement = Array.from(document.querySelectorAll('.topic-item'))
+                    .find(item => item.dataset.topic === topicName);
+            }
+
+            if (targetElement) {
+                document.querySelectorAll('.topic-item').forEach(t => t.classList.remove('active'));
+                targetElement.classList.add('active');
+            }
+
+            const encodedTopic = encodeURIComponent(topicName);
+
+            try {
+                const response = await fetch(`/api/topics/${encodedTopic}/messages`);
+                const payload = await response.json();
+                const messages = Array.isArray(payload) ? payload : (payload.messages || []);
+                const list = document.getElementById('messagesList');
+
+                if (messages.length > 0) {
+                    list.innerHTML = '';
+
+                    messages.forEach(msg => {
+                        const item = document.createElement('div');
+                        item.className = 'message-item';
+
+                        const header = document.createElement('div');
+                        header.className = 'message-header';
+
+                        const author = document.createElement('span');
+                        author.className = 'message-author';
+                        author.textContent = msg.author || 'Unknown';
+
+                        const actions = document.createElement('div');
+                        actions.className = 'message-actions';
+
+                        const deleteBtn = document.createElement('button');
+                        deleteBtn.className = 'btn btn-primary btn-sm';
+                        deleteBtn.textContent = 'Delete';
+                        deleteBtn.addEventListener('click', () => deleteMessage(topicName, msg.id));
+
+                        actions.appendChild(deleteBtn);
+                        header.appendChild(author);
+                        header.appendChild(actions);
+
+                        const messageText = document.createElement('div');
+                        messageText.className = 'message-text';
+                        messageText.textContent = msg.content || '';
+
+                        const meta = document.createElement('div');
+                        meta.className = 'message-meta';
+                        meta.textContent = formatTime(msg.timestamp);
+
+                        item.appendChild(header);
+                        item.appendChild(messageText);
+                        item.appendChild(meta);
+
+                        list.appendChild(item);
+                    });
+                } else {
+                    list.innerHTML = '<div class="empty-state">No messages</div>';
+                }
+            } catch (error) {
+                console.error('Failed to load messages:', error);
+                const list = document.getElementById('messagesList');
+                list.innerHTML = '<div class="empty-state">Failed to load messages</div>';
+            }
+        }
+
+        async function loadAuditLog() {
+            try {
+                const action = document.getElementById('filterAction').value;
+                const status = document.getElementById('filterStatus').value;
+                
+                let url = '/api/audit/logs?limit=50';
+                if (action) url += `&action=${action}`;
+                if (status) url += `&status=${status}`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                const list = document.getElementById('auditList');
+                
+                if (data.entries && data.entries.length > 0) {
+                    list.innerHTML = data.entries.map(entry => `
+                        <div class="activity-item">
+                            <div class="activity-icon">${getAuditIcon(entry.action)}</div>
+                            <div class="activity-content">
+                                <div class="activity-text">
+                                    <strong>${entry.action}</strong> by ${entry.username}
+                                    ${entry.resource ? ` on ${entry.resource}` : ''}
+                                    <span class="${entry.status === 'success' ? 'text-success' : 'text-error'}">[${entry.status}]</span>
+                                </div>
+                                <div class="activity-meta">${entry.timestamp || 'Unknown'} | IP: ${entry.ip_address || 'Unknown'}</div>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    list.innerHTML = '<div class="empty-state">No audit entries</div>';
+                }
+            } catch (error) {
+                console.error('Failed to load audit log:', error);
+            }
+        }
+
+        // ============================================
+        // APPS DATA
+        // ============================================
+    let appsData = [];
+    let filteredApps = [];
+    let currentAppId = null;
+    let tinymushStatusCache = null;
+    let tinymushStatusPromise = null;
+
+    const tinymushCollections = [
+        {
+            key: 'npcs',
+            label: 'NPCs',
+            description: 'Story characters, guides, and merchants around Old Towne.',
+            icon: '🧑‍🤝‍🧑',
+            titleFields: ['name', 'title'],
+            subtitleFields: ['title', 'room_id'],
+            previewFields: ['description'],
+            tagFields: ['flags'],
+            guidedSections: [
+                {
+                    title: 'Identity & Presence',
+                    description: 'Core identifiers that determine how this character appears in-game.',
+                    fields: [
+                        { key: 'id', label: 'Unique id', type: 'text', required: true, helper: 'Lowercase string, unique within NPCs.' },
+                        { key: 'name', label: 'Display name', type: 'text', required: true },
+                        { key: 'title', label: 'Title', type: 'text', placeholder: 'Mayor of Old Towne Mesh' },
+                        { key: 'room_id', label: 'Default room id', type: 'text', helper: 'Room id where this NPC should appear.' },
+                    ],
+                },
+                {
+                    title: 'Description',
+                    description: 'Shown when players inspect or meet the character.',
+                    fields: [
+                        { key: 'description', label: 'Long description', type: 'textarea', rows: 6 },
+                    ],
+                },
+                {
+                    title: 'Dialogues',
+                    description: 'Responses keyed by cue (greeting, help, quest, etc.).',
+                    fields: [
+                        { key: 'dialog', label: 'Dialogue map', type: 'json', defaultValue: {}, helper: 'JSON object mapping cue -> text.' },
+                        { key: 'dialog_tree', label: 'Branching dialogue tree', type: 'json', defaultValue: {}, helper: 'Optional JSON tree for advanced conversations.' },
+                    ],
+                },
+                {
+                    title: 'Tags & Flags',
+                    fields: [
+                        { key: 'flags', label: 'Flags', type: 'tags', defaultValue: [], helper: 'Comma or newline separated flags applied to this NPC.' },
+                    ],
+                },
+            ],
+        },
+        {
+            key: 'rooms',
+            label: 'Rooms',
+            description: 'World locations and spaces players can explore.',
+            icon: '🏠',
+            titleFields: ['name'],
+            subtitleFields: ['short_desc'],
+            previewFields: ['long_desc'],
+            tagFields: ['flags', 'housing_filter_tags'],
+            guidedSections: [
+                {
+                    title: 'Identity',
+                    description: 'Identifiers used when linking exits and teleport destinations.',
+                    fields: [
+                        { key: 'id', label: 'Unique id', type: 'text', required: true },
+                        { key: 'name', label: 'Room name', type: 'text', required: true },
+                        { key: 'short_desc', label: 'Short description', type: 'textarea', rows: 3 },
+                    ],
+                },
+                {
+                    title: 'Narrative Details',
+                    fields: [
+                        { key: 'long_desc', label: 'Full description', type: 'textarea', rows: 8 },
+                    ],
+                },
+                {
+                    title: 'Navigation',
+                    description: 'Outgoing exits keyed by direction (North, South, Up, etc.).',
+                    fields: [
+                        { key: 'exits', label: 'Exits map', type: 'json', defaultValue: {}, helper: 'JSON object mapping direction -> destination room id.' },
+                    ],
+                },
+                {
+                    title: 'Access & Flags',
+                    fields: [
+                        {
+                            key: 'visibility',
+                            label: 'Visibility',
+                            type: 'select',
+                            options: ['public', 'private', 'hidden'],
+                            helper: 'Controls discoverability for players.',
+                        },
+                        { key: 'max_capacity', label: 'Capacity', type: 'number', helper: 'Maximum simultaneous occupants.' },
+                        { key: 'flags', label: 'Flags', type: 'tags', defaultValue: [], helper: 'Comma or newline separated.' },
+                        { key: 'housing_filter_tags', label: 'Housing filter tags', type: 'tags', defaultValue: [], helper: 'Optional tags for housing templates.' },
+                        {
+                            key: 'locked',
+                            label: 'Locked',
+                            type: 'select',
+                            options: [
+                                { label: 'Unlocked', value: 'false' },
+                                { label: 'Locked', value: 'true' },
+                            ],
+                            valueType: 'boolean',
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            key: 'companions',
+            label: 'Companions',
+            description: 'Allies that can accompany players on adventures.',
+            icon: '🐾',
+            titleFields: ['name'],
+            subtitleFields: ['companion_type', 'room_id'],
+            previewFields: ['description'],
+            tagFields: [],
+            guidedSections: [
+                {
+                    title: 'Identity',
+                    fields: [
+                        { key: 'id', label: 'Unique id', type: 'text', required: true },
+                        { key: 'name', label: 'Companion name', type: 'text', required: true },
+                    ],
+                },
+                {
+                    title: 'Placement',
+                    fields: [
+                        {
+                            key: 'companion_type',
+                            label: 'Companion type',
+                            type: 'select',
+                            options: ['Dog', 'Horse', 'Cat', 'Drone', 'Guide'],
+                            allowCustom: true,
+                            helper: 'Choose a type or type a new one.',
+                        },
+                        { key: 'room_id', label: 'Home room id', type: 'text', helper: 'Room id where players can find this companion.' },
+                        { key: 'owner', label: 'Owner username', type: 'text', helper: 'Leave blank for world-owned companions.' },
+                    ],
+                },
+                {
+                    title: 'Story',
+                    fields: [
+                        { key: 'description', label: 'Description', type: 'textarea', rows: 6 },
+                    ],
+                },
+            ],
+        },
+        {
+            key: 'achievements',
+            label: 'Achievements',
+            description: 'Milestones and titles players can earn.',
+            icon: '🏅',
+            titleFields: ['name'],
+            subtitleFields: ['category'],
+            previewFields: ['description'],
+            tagFields: ['category'],
+            extraTags: (item) => (item && item.hidden ? ['Hidden'] : []),
+            guidedSections: [
+                {
+                    title: 'Identity',
+                    fields: [
+                        { key: 'id', label: 'Unique id', type: 'text', required: true },
+                        { key: 'name', label: 'Achievement name', type: 'text', required: true },
+                        { key: 'description', label: 'Description', type: 'textarea', rows: 4 },
+                    ],
+                },
+                {
+                    title: 'Classification',
+                    fields: [
+                        {
+                            key: 'category',
+                            label: 'Category',
+                            type: 'select',
+                            options: ['Combat', 'Exploration', 'Social', 'Economic', 'Quest', 'Special'],
+                            allowCustom: true,
+                        },
+                        { key: 'title', label: 'Reward title', type: 'text', helper: 'Optional suffix applied to player name.' },
+                        {
+                            key: 'hidden',
+                            label: 'Hidden',
+                            type: 'select',
+                            options: [
+                                { label: 'Visible', value: 'false' },
+                                { label: 'Hidden', value: 'true' },
+                            ],
+                            valueType: 'boolean',
+                            helper: 'Hidden achievements do not appear until unlocked.',
+                        },
+                    ],
+                },
+                {
+                    title: 'Trigger',
+                    description: 'Conditions that must be satisfied to grant this achievement.',
+                    fields: [
+                        { key: 'trigger', label: 'Trigger JSON', type: 'json', defaultValue: {}, helper: 'JSON object describing the trigger (KillCount, RoomVisits, etc.).' },
+                    ],
+                },
+            ],
+        },
+        {
+            key: 'quests',
+            label: 'Quests',
+            description: 'Quest scripts and objectives guiding player progress.',
+            icon: '🗺️',
+            titleFields: ['name'],
+            subtitleFields: ['quest_giver_npc'],
+            previewFields: ['description'],
+            tagFields: ['quest_giver_npc'],
+            extraTags: (item) => {
+                const tags = [];
+                if (item && typeof item.difficulty === 'number') {
+                    tags.push(`Difficulty ${item.difficulty}`);
+                }
+                if (item && Array.isArray(item.prerequisites) && item.prerequisites.length > 0) {
+                    tags.push(`${item.prerequisites.length} prereq${item.prerequisites.length === 1 ? '' : 's'}`);
+                }
+                return tags;
+            },
+            guidedSections: [
+                {
+                    title: 'Identity',
+                    fields: [
+                        { key: 'id', label: 'Unique id', type: 'text', required: true },
+                        { key: 'name', label: 'Quest name', type: 'text', required: true },
+                        { key: 'description', label: 'Summary', type: 'textarea', rows: 4 },
+                    ],
+                },
+                {
+                    title: 'Flow',
+                    fields: [
+                        { key: 'quest_giver_npc', label: 'Quest giver id', type: 'text' },
+                        { key: 'difficulty', label: 'Difficulty', type: 'number', helper: 'Numeric scale, e.g. 1 (easy) - 5 (hard).' },
+                        { key: 'prerequisites', label: 'Prerequisite quest ids', type: 'tags', defaultValue: [], helper: 'Comma or newline separated quest ids required before this quest unlocks.' },
+                    ],
+                },
+                {
+                    title: 'Objectives & Rewards',
+                    fields: [
+                        { key: 'objectives', label: 'Objectives JSON', type: 'json', defaultValue: [], helper: 'Array of objective definitions.' },
+                        { key: 'rewards', label: 'Rewards JSON', type: 'json', defaultValue: {}, helper: 'QuestRewards payload with currency/experience/items.' },
+                    ],
+                },
+            ],
+        },
+        {
+            key: 'recipes',
+            label: 'Recipes',
+            description: 'Crafting recipes and material requirements.',
+            icon: '🛠️',
+            titleFields: ['name'],
+            subtitleFields: ['requires_station', 'created_by'],
+            previewFields: ['description'],
+            tagFields: ['created_by'],
+            extraTags: (item) => {
+                if (!item || typeof item !== 'object') {
+                    return [];
+                }
+                const materialCount = Array.isArray(item.materials) ? item.materials.length : 0;
+                return materialCount ? [`${materialCount} material${materialCount === 1 ? '' : 's'}`] : [];
+            },
+            guidedSections: [
+                {
+                    title: 'Identity',
+                    fields: [
+                        { key: 'id', label: 'Unique id', type: 'text', required: true },
+                        { key: 'name', label: 'Recipe name', type: 'text', required: true },
+                        { key: 'result_item_id', label: 'Result item id', type: 'text', required: true },
+                    ],
+                },
+                {
+                    title: 'Narrative',
+                    fields: [
+                        { key: 'description', label: 'Description', type: 'textarea', rows: 4 },
+                    ],
+                },
+                {
+                    title: 'Crafting Details',
+                    fields: [
+                        { key: 'requires_station', label: 'Required station id', type: 'text', helper: 'Object id of the crafting station, if needed.' },
+                        { key: 'result_quantity', label: 'Result quantity', type: 'number', helper: 'Number of items produced per craft (default 1).' },
+                        { key: 'materials', label: 'Materials JSON', type: 'json', defaultValue: [], helper: 'Array of { item_id, quantity, consumed } entries.' },
+                        { key: 'skill_required', label: 'Required skill id', type: 'text', helper: 'Optional skill prerequisite.' },
+                        { key: 'skill_level', label: 'Required skill level', type: 'number', helper: 'Minimum skill level (default 0).' },
+                        { key: 'crafting_time_seconds', label: 'Craft time (seconds)', type: 'number', helper: '0 for instant crafts.' },
+                    ],
+                },
+            ],
+        },
+    ];
+
+    const tinymushState = {
+        activeCollection: null,
+        status: null,
+        statusError: null,
+        collectionCache: {},
+        searchTerm: '',
+        ui: {
+            statusContainer: null,
+            statusMessage: null,
+            statusBadge: null,
+            statusMeta: null,
+            statusCounts: null,
+            managerContainer: null,
+            managerNotice: null,
+            collectionButtons: new Map(),
+            collectionCounts: new Map(),
+            panelTitle: null,
+            panelSummary: null,
+            panelMetaCount: null,
+            panelMetaSource: null,
+            panelMetaUpdated: null,
+            itemsContainer: null,
+            searchInput: null,
+            refreshButton: null,
+        },
+        editor: {
+            mode: 'create',
+            collectionKey: null,
+            originalId: null,
+            currentData: null,
+            guidedInputs: new Map(),
+            activeView: 'guided',
+            fieldErrors: new Map(),
+        },
+    };
+
+    function setupTinymushEditorTabs() {
+        const container = document.getElementById('tinymushEditorTabs');
+        if (!container) {
+            return;
+        }
+        const tabs = container.querySelectorAll('.tinymush-editor-tab');
+        tabs.forEach(tab => {
+            if (tab.dataset.bound === 'true') {
+                return;
+            }
+            tab.dataset.bound = 'true';
+            tab.addEventListener('click', () => {
+                const targetView = tab.dataset.editorView || 'guided';
+                setTinymushEditorView(targetView);
+            });
+        });
+    }
+
+    function setTinymushEditorView(view) {
+        const tabsContainer = document.getElementById('tinymushEditorTabs');
+        const guidedView = document.getElementById('tinymushEditorSimple');
+        const advancedView = document.getElementById('tinymushEditorAdvanced');
+        if (!tabsContainer || !guidedView || !advancedView) {
+            return;
+        }
+
+        const tabs = tabsContainer.querySelectorAll('.tinymush-editor-tab');
+        tabs.forEach(tab => {
+            const tabView = tab.dataset.editorView || 'guided';
+            tab.classList.toggle('active', tabView === view);
+        });
+
+        guidedView.classList.toggle('active', view === 'guided');
+        advancedView.classList.toggle('active', view === 'advanced');
+        tinymushState.editor.activeView = view;
+
+        if (view === 'advanced') {
+            syncTinymushEditorJsonInput({ force: true });
+        } else if (view === 'guided') {
+            applyDataToGuidedForm(tinymushState.editor.currentData);
+            const errorEl = document.getElementById('tinymushEditorError');
+            if (errorEl && errorEl.dataset.fromJson === 'true') {
+                errorEl.textContent = '';
+                delete errorEl.dataset.fromJson;
+            }
+        }
+    }
+
+    function renderTinymushGuidedForm(collectionKey) {
+        const container = document.getElementById('tinymushEditorSimple');
+        if (!container) {
+            return;
+        }
+
+        container.innerHTML = '';
+        tinymushState.editor.guidedInputs = new Map();
+        tinymushState.editor.fieldErrors = new Map();
+
+        const config = getTinymushCollectionConfig(collectionKey);
+        if (!Array.isArray(config.guidedSections) || config.guidedSections.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'tinymush-guided-empty';
+            empty.textContent = 'Guided editor coming soon for this collection. Switch to JSON editor to adjust the raw data.';
+            container.appendChild(empty);
+            return;
+        }
+
+        config.guidedSections.forEach(sectionConfig => {
+            container.appendChild(createTinymushGuidedSection(sectionConfig));
+        });
+
+        applyDataToGuidedForm(tinymushState.editor.currentData);
+    }
+
+    function createTinymushGuidedSection(sectionConfig = {}) {
+        const sectionEl = document.createElement('section');
+        sectionEl.className = 'tinymush-guided-section';
+
+        if (sectionConfig.title || sectionConfig.description) {
+            const titleWrap = document.createElement('div');
+            titleWrap.className = 'tinymush-guided-section-title';
+
+            if (sectionConfig.title) {
+                const title = document.createElement('h4');
+                title.textContent = sectionConfig.title;
+                titleWrap.appendChild(title);
+            }
+
+            if (sectionConfig.description) {
+                const desc = document.createElement('p');
+                desc.textContent = sectionConfig.description;
+                titleWrap.appendChild(desc);
+            }
+
+            sectionEl.appendChild(titleWrap);
+        }
+
+        const fieldsWrap = document.createElement('div');
+        fieldsWrap.className = 'tinymush-guided-fields';
+
+        (sectionConfig.fields || []).forEach(fieldConfig => {
+            fieldsWrap.appendChild(createTinymushGuidedField(fieldConfig));
+        });
+
+        sectionEl.appendChild(fieldsWrap);
+        return sectionEl;
+    }
+
+    function createTinymushGuidedField(fieldConfig = {}) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'tinymush-field';
+
+    const label = document.createElement('label');
+    label.className = 'form-label';
+    const normalizedCollection = (tinymushState.editor.collectionKey || 'collection').replace(/[^a-zA-Z0-9_-]/g, '-');
+    const normalizedKey = (fieldConfig.key || 'field').replace(/[^a-zA-Z0-9_-]/g, '-');
+    const inputId = `tinymush-field-${normalizedCollection}-${normalizedKey}`;
+        label.setAttribute('for', inputId);
+        label.textContent = fieldConfig.label || fieldConfig.key || 'Field';
+        if (fieldConfig.required) {
+            const requiredMark = document.createElement('span');
+            requiredMark.textContent = ' *';
+            requiredMark.style.color = '#b54949';
+            label.appendChild(requiredMark);
+        }
+        wrapper.appendChild(label);
+
+        let inputEl = null;
+        let datalistEl = null;
+        const fieldType = fieldConfig.type || 'text';
+
+        if (fieldType === 'textarea') {
+            inputEl = document.createElement('textarea');
+            inputEl.className = 'form-input';
+            if (fieldConfig.rows) {
+                inputEl.rows = fieldConfig.rows;
+            }
+        } else if (fieldType === 'json') {
+            inputEl = document.createElement('textarea');
+            inputEl.className = 'code-textarea';
+            inputEl.setAttribute('spellcheck', 'false');
+            inputEl.rows = fieldConfig.rows || 6;
+        } else if (fieldType === 'number') {
+            inputEl = document.createElement('input');
+            inputEl.type = 'number';
+            inputEl.className = 'form-input';
+        } else if (fieldType === 'tags') {
+            inputEl = document.createElement('textarea');
+            inputEl.className = 'form-input';
+            inputEl.rows = fieldConfig.rows || 3;
+        } else if (fieldType === 'select' && fieldConfig.allowCustom) {
+            inputEl = document.createElement('input');
+            inputEl.type = 'text';
+            inputEl.className = 'form-input';
+            if (Array.isArray(fieldConfig.options) && fieldConfig.options.length > 0) {
+                datalistEl = document.createElement('datalist');
+                const datalistId = `${inputId}-options`;
+                datalistEl.id = datalistId;
+                inputEl.setAttribute('list', datalistId);
+                fieldConfig.options.forEach(option => {
+                    const optionEl = document.createElement('option');
+                    if (typeof option === 'string') {
+                        optionEl.value = option;
+                    } else if (option && typeof option === 'object') {
+                        optionEl.value = option.value ?? option.label ?? '';
+                        if (option.label) {
+                            optionEl.label = option.label;
+                        }
+                    }
+                    datalistEl.appendChild(optionEl);
+                });
+            }
+        } else if (fieldType === 'select') {
+            inputEl = document.createElement('select');
+            inputEl.className = 'form-input';
+            const placeholderOption = document.createElement('option');
+            placeholderOption.value = '';
+            placeholderOption.textContent = '—';
+            inputEl.appendChild(placeholderOption);
+            (fieldConfig.options || []).forEach(option => {
+                const optionEl = document.createElement('option');
+                if (typeof option === 'string') {
+                    optionEl.value = option;
+                    optionEl.textContent = option;
+                } else if (option && typeof option === 'object') {
+                    optionEl.value = option.value ?? option.label ?? '';
+                    optionEl.textContent = option.label ?? option.value ?? '';
+                }
+                inputEl.appendChild(optionEl);
+            });
+        } else {
+            inputEl = document.createElement('input');
+            inputEl.type = 'text';
+            inputEl.className = 'form-input';
+        }
+
+        inputEl.id = inputId;
+        if (fieldConfig.placeholder) {
+            inputEl.placeholder = fieldConfig.placeholder;
+        }
+
+        const eventType = fieldType === 'json' ? 'change'
+            : fieldType === 'number' ? 'change'
+            : fieldType === 'select' && !fieldConfig.allowCustom ? 'change'
+            : 'input';
+
+        inputEl.addEventListener(eventType, (event) => {
+            handleTinymushGuidedFieldChange(fieldConfig, event.target.value);
+        });
+
+        wrapper.appendChild(inputEl);
+        if (datalistEl) {
+            wrapper.appendChild(datalistEl);
+        }
+
+        if (fieldConfig.helper) {
+            const helper = document.createElement('small');
+            helper.textContent = fieldConfig.helper;
+            wrapper.appendChild(helper);
+        }
+
+        const errorEl = document.createElement('div');
+        errorEl.className = 'tinymush-field-error';
+        errorEl.dataset.fieldKey = fieldConfig.key || '';
+        wrapper.appendChild(errorEl);
+
+        tinymushState.editor.guidedInputs.set(fieldConfig.key, {
+            element: inputEl,
+            field: fieldConfig,
+            errorEl,
+        });
+
+        return wrapper;
+    }
+
+    function handleTinymushGuidedFieldChange(fieldConfig, rawValue) {
+        if (!tinymushState.editor.currentData || typeof tinymushState.editor.currentData !== 'object') {
+            tinymushState.editor.currentData = {};
+        }
+
+        const result = normalizeTinymushFieldValue(fieldConfig, rawValue);
+        if (result.error) {
+            setTinymushFieldError(fieldConfig.key, result.error);
+            return;
+        }
+
+        clearTinymushFieldError(fieldConfig.key);
+        writeTinymushField(tinymushState.editor.currentData, fieldConfig.key, result.value);
+        const entry = tinymushState.editor.guidedInputs.get(fieldConfig.key);
+        if (entry && entry.element) {
+            if (fieldConfig.type === 'json') {
+                entry.element.value = JSON.stringify(result.value, null, 2);
+            } else if (fieldConfig.type === 'tags' && Array.isArray(result.value)) {
+                entry.element.value = result.value.join('\n');
+            }
+        }
+        syncTinymushEditorJsonInput();
+    }
+
+    function normalizeTinymushFieldValue(fieldConfig, rawValue) {
+        const type = fieldConfig.type || 'text';
+        if (type === 'number') {
+            if (rawValue === '' || rawValue == null) {
+                return { value: null };
+            }
+            const numberValue = Number(rawValue);
+            if (Number.isNaN(numberValue)) {
+                return { error: 'Value must be a valid number.' };
+            }
+            return { value: numberValue };
+        }
+
+        if (type === 'tags') {
+            if (!rawValue || !String(rawValue).trim()) {
+                return { value: Array.isArray(fieldConfig.defaultValue) ? [] : [] };
+            }
+            const tags = String(rawValue)
+                .split(/[\n,]/)
+                .map(entry => entry.trim())
+                .filter(Boolean);
+            return { value: Array.from(new Set(tags)) };
+        }
+
+        if (type === 'json') {
+            const trimmed = typeof rawValue === 'string' ? rawValue.trim() : rawValue;
+            if (!trimmed) {
+                const defaultValue = fieldConfig.defaultValue ?? {};
+                return { value: deepClone(defaultValue) };
+            }
+            try {
+                const parsed = JSON.parse(trimmed);
+                if (parsed === null || typeof parsed !== 'object') {
+                    return { error: 'JSON must describe an object or array.' };
+                }
+                return { value: parsed };
+            } catch (error) {
+                return { error: error.message || 'Invalid JSON payload.' };
+            }
+        }
+
+        if (type === 'select' && fieldConfig.valueType === 'boolean') {
+            if (rawValue === '' || rawValue == null) {
+                return { value: false };
+            }
+            return { value: rawValue === true || rawValue === 'true' };
+        }
+
+        if (type === 'select' && !fieldConfig.allowCustom) {
+            return { value: rawValue === '' ? null : rawValue };
+        }
+
+        if ((type === 'select' && fieldConfig.allowCustom) || type === 'text' || type === 'textarea') {
+            return { value: rawValue == null ? '' : String(rawValue) };
+        }
+
+        return { value: rawValue };
+    }
+
+    function writeTinymushField(target, path, value) {
+        if (!path || typeof path !== 'string') {
+            return;
+        }
+
+        const segments = path.split('.');
+        let cursor = target;
+        for (let index = 0; index < segments.length; index += 1) {
+            const segment = segments[index];
+            if (!segment) {
+                continue;
+            }
+
+            if (index === segments.length - 1) {
+                if (value === '' || value === null) {
+                    delete cursor[segment];
+                } else {
+                    cursor[segment] = value;
+                }
+            } else {
+                if (typeof cursor[segment] !== 'object' || cursor[segment] === null || Array.isArray(cursor[segment])) {
+                    cursor[segment] = {};
+                }
+                cursor = cursor[segment];
+            }
+        }
+    }
+
+    function formatTinymushFieldValueForInput(fieldConfig, data) {
+        if (!fieldConfig || !fieldConfig.key) {
+            return '';
+        }
+        const rawValue = readTinymushField(data, fieldConfig.key);
+        const type = fieldConfig.type || 'text';
+
+        if (type === 'number') {
+            return rawValue == null ? '' : String(rawValue);
+        }
+        if (type === 'tags') {
+            if (!Array.isArray(rawValue)) {
+                return '';
+            }
+            return rawValue.join('\n');
+        }
+        if (type === 'json') {
+            if (rawValue == null) {
+                return '';
+            }
+            try {
+                return JSON.stringify(rawValue, null, 2);
+            } catch {
+                return '';
+            }
+        }
+        if (type === 'select' && fieldConfig.valueType === 'boolean') {
+            return rawValue ? 'true' : 'false';
+        }
+        if (type === 'select' && !fieldConfig.allowCustom) {
+            return rawValue == null ? '' : String(rawValue);
+        }
+        if (rawValue == null) {
+            return '';
+        }
+        return String(rawValue);
+    }
+
+    function applyDataToGuidedForm(data) {
+        if (!tinymushState.editor.guidedInputs || tinymushState.editor.guidedInputs.size === 0) {
+            return;
+        }
+        tinymushState.editor.guidedInputs.forEach(({ element, field }) => {
+            if (!element || !field) {
+                return;
+            }
+            const formatted = formatTinymushFieldValueForInput(field, data);
+            if (element.value !== formatted) {
+                element.value = formatted;
+            }
+        });
+    }
+
+    function syncTinymushEditorJsonInput(options = {}) {
+        const { force = false } = options;
+        const textarea = document.getElementById('tinymushEditorInput');
+        if (!textarea || !tinymushState.editor.currentData) {
+            return;
+        }
+        if (!force && tinymushState.editor.activeView === 'advanced') {
+            return;
+        }
+        textarea.value = JSON.stringify(tinymushState.editor.currentData, null, 2);
+    }
+
+    function handleTinymushEditorJsonInput() {
+        const textarea = document.getElementById('tinymushEditorInput');
+        const errorEl = document.getElementById('tinymushEditorError');
+        if (!textarea || !errorEl) {
+            return;
+        }
+
+        const value = textarea.value;
+        if (!value.trim()) {
+            tinymushState.editor.currentData = {};
+            errorEl.textContent = '';
+            delete errorEl.dataset.fromJson;
+            applyDataToGuidedForm(tinymushState.editor.currentData);
+            return;
+        }
+
+        try {
+            const parsed = JSON.parse(value);
+            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+                throw new Error('JSON root must be an object.');
+            }
+            tinymushState.editor.currentData = parsed;
+            applyDataToGuidedForm(parsed);
+            errorEl.textContent = '';
+            delete errorEl.dataset.fromJson;
+        } catch (error) {
+            errorEl.textContent = `JSON parse error: ${error.message}`;
+            errorEl.dataset.fromJson = 'true';
+        }
+    }
+
+    function setTinymushFieldError(fieldKey, message) {
+        tinymushState.editor.fieldErrors.set(fieldKey, message);
+        const entry = tinymushState.editor.guidedInputs.get(fieldKey);
+        if (entry && entry.errorEl) {
+            entry.errorEl.textContent = message || '';
+        }
+    }
+
+    function clearTinymushFieldError(fieldKey) {
+        tinymushState.editor.fieldErrors.delete(fieldKey);
+        const entry = tinymushState.editor.guidedInputs.get(fieldKey);
+        if (entry && entry.errorEl) {
+            entry.errorEl.textContent = '';
+        }
+    }
+
+    function deepClone(value) {
+        if (value == null) {
+            return value;
+        }
+        try {
+            return JSON.parse(JSON.stringify(value));
+        } catch {
+            return value;
+        }
+    }
+
+    function applyGuidedDefaults(target, config) {
+        if (!config || !Array.isArray(config.guidedSections)) {
+            return;
+        }
+        config.guidedSections.forEach(section => {
+            (section.fields || []).forEach(field => {
+                if (!field?.key) {
+                    return;
+                }
+                const existing = readTinymushField(target, field.key);
+                if (existing === undefined) {
+                    if (field.defaultValue !== undefined) {
+                        writeTinymushField(target, field.key, deepClone(field.defaultValue));
+                    } else if (field.type === 'tags') {
+                        writeTinymushField(target, field.key, []);
+                    } else if (field.type === 'json') {
+                        writeTinymushField(target, field.key, {});
+                    }
+                }
+            });
+        });
+    }
+
+        async function loadAppsTab() {
+            const listEl = document.getElementById('appsList');
+            const detailEl = document.getElementById('appDetail');
+            const actionsEl = document.getElementById('appDetailActions');
+            if (!listEl || !detailEl) {
+                return;
+            }
+
+            listEl.innerHTML = '<div class="loading">Loading apps...</div>';
+            detailEl.innerHTML = '<div class="apps-placeholder"><strong>Loading</strong><span>Fetching available apps...</span></div>';
+            if (actionsEl) {
+                actionsEl.style.display = 'none';
+                actionsEl.innerHTML = '';
+            }
+
+            try {
+                const response = await fetch('/api/apps');
+                if (!response.ok) {
+                    throw new Error(`Request failed with status ${response.status}`);
+                }
+
+                const payload = await response.json();
+                appsData = Array.isArray(payload.apps) ? payload.apps : [];
+                appsData.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+                filteredApps = [...appsData];
+                currentAppId = null;
+                renderAppsList();
+
+                if (filteredApps.length > 0) {
+                    const preferred = filteredApps.find(app => app.enabled) || filteredApps[0];
+                    showAppDetail(preferred.id);
+                } else {
+                    renderAppsEmptyState();
+                }
+            } catch (error) {
+                console.error('Failed to load apps:', error);
+                listEl.innerHTML = '<div class="apps-empty-state">Unable to load apps data</div>';
+                detailEl.innerHTML = '<div class="apps-detail-alert">Failed to load app manifest. Try again later.</div>';
+                if (actionsEl) {
+                    actionsEl.style.display = 'none';
+                    actionsEl.innerHTML = '';
+                }
+            }
+        }
+
+        function renderAppsList() {
+            const listEl = document.getElementById('appsList');
+            if (!listEl) return;
+
+            if (!filteredApps.length) {
+                listEl.innerHTML = '<div class="apps-empty-state">No apps available</div>';
+                return;
+            }
+
+            listEl.innerHTML = '';
+            filteredApps.forEach(app => {
+                const pill = document.createElement('button');
+                pill.type = 'button';
+                pill.className = `apps-pill${app.id === currentAppId ? ' active' : ''}`;
+                pill.dataset.appId = app.id;
+
+                const nameEl = document.createElement('span');
+                nameEl.className = 'apps-pill-name';
+                nameEl.textContent = app.name || 'Unnamed App';
+
+                const statusEl = document.createElement('span');
+                statusEl.className = 'apps-pill-status';
+                const dot = document.createElement('span');
+                dot.className = `state-dot ${app.enabled ? 'enabled' : ''}`;
+                statusEl.appendChild(dot);
+                statusEl.append(app.status || (app.enabled ? 'Enabled' : 'Disabled'));
+
+                pill.appendChild(nameEl);
+                pill.appendChild(statusEl);
+
+                pill.addEventListener('click', () => showAppDetail(app.id));
+                listEl.appendChild(pill);
+            });
+        }
+
+        function showAppDetail(appId) {
+            const app = appsData.find(entry => entry.id === appId);
+            if (!app) {
+                renderAppsEmptyState();
+                return;
+            }
+
+            currentAppId = appId;
+            renderAppsList();
+
+            const titleEl = document.getElementById('appDetailTitle');
+            const subtitleEl = document.getElementById('appDetailSubtitle');
+            const tagsEl = document.getElementById('appDetailTags');
+            const stateRow = document.getElementById('appDetailState');
+
+            if (titleEl) {
+                titleEl.textContent = app.name || 'Unnamed App';
+            }
+
+            if (subtitleEl) {
+                const summary = app.summary || '';
+                const statusText = app.status_detail || app.status || (app.enabled ? 'Enabled' : 'Disabled');
+                subtitleEl.textContent = summary || statusText;
+            }
+
+            if (stateRow) {
+                stateRow.innerHTML = '';
+                stateRow.appendChild(createStatePill(app.enabled ? 'Enabled' : 'Disabled', app.enabled ? 'enabled' : 'disabled'));
+                if (app.status && app.status.toLowerCase() !== (app.enabled ? 'enabled' : 'disabled')) {
+                    const variant = app.planned ? 'planned' : app.enabled ? 'online' : 'offline';
+                    stateRow.appendChild(createStatePill(capitalize(app.status), variant));
+                }
+            }
+
+            if (tagsEl) {
+                tagsEl.innerHTML = '';
+                tagsEl.style.display = 'none';
+            }
+
+            renderAppDetailBody(app);
+            renderAppActions(app);
+        }
+
+        function renderAppDetailBody(app) {
+            const detail = document.getElementById('appDetail');
+            if (!detail) return;
+
+            detail.innerHTML = '';
+
+            renderOverviewSection(detail, app);
+            renderConfigSection(detail, app);
+
+            if (app.id === 'tinymush') {
+                renderTinymushOverviewSection(detail);
+            }
+
+            if (Array.isArray(app.commands) && app.commands.length > 0) {
+                detail.appendChild(createDetailSection('Access', (valueEl) => {
+                    app.commands.forEach(cmd => valueEl.appendChild(renderCommandRow(cmd)));
+                }));
+            }
+
+            if (app.metrics && (app.metrics.sessions_7d != null || app.metrics.sessions_total != null || app.metrics.last_activity)) {
+                detail.appendChild(createDetailSection('Usage', (valueEl) => {
+                    const block = document.createElement('div');
+                    block.className = 'apps-activity';
+
+                    if (app.metrics.sessions_7d != null) {
+                        const sessions7d = document.createElement('div');
+                        const sessionsValue = document.createElement('strong');
+                        sessionsValue.textContent = String(app.metrics.sessions_7d);
+                        sessions7d.appendChild(sessionsValue);
+                        sessions7d.append(' sessions (7d)');
+                        block.appendChild(sessions7d);
+                    }
+
+                    if (app.metrics.sessions_total != null) {
+                        const total = document.createElement('div');
+                        const totalValue = document.createElement('strong');
+                        totalValue.textContent = String(app.metrics.sessions_total);
+                        total.appendChild(totalValue);
+                        total.append(' total sessions');
+                        block.appendChild(total);
+                    }
+
+                    if (app.metrics.last_activity) {
+                        const last = document.createElement('div');
+                        last.className = 'apps-muted';
+                        last.textContent = `Last activity: ${app.metrics.last_activity}`;
+                        block.appendChild(last);
+                    }
+
+                    valueEl.appendChild(block);
+                }));
+            }
+
+            if (!detail.children.length) {
+                detail.appendChild(createDetailSection('Details', (valueEl) => {
+                    valueEl.classList.add('apps-muted');
+                    valueEl.textContent = 'No additional information available.';
+                }));
+            }
+        }
+
+        function renderAppActions(app) {
+            const actionsEl = document.getElementById('appDetailActions');
+            if (!actionsEl) return;
+
+            const actionable = Array.isArray(app.actions)
+                ? app.actions.filter(action => action.kind !== 'config-toggle')
+                : [];
+
+            if (actionable.length === 0) {
+                actionsEl.innerHTML = '';
+                actionsEl.style.display = 'none';
+                return;
+            }
+
+            actionsEl.innerHTML = '';
+            actionsEl.style.display = 'flex';
+
+            actionable.forEach(action => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.textContent = action.label || 'Action';
+                button.className = action.primary ? 'primary-action' : 'secondary-action';
+                button.disabled = action.disabled ?? false;
+                button.addEventListener('click', () => handleAppAction(action, app));
+                actionsEl.appendChild(button);
+            });
+        }
+
+        function renderOverviewSection(container, app) {
+            if (!app.description && !app.summary) {
+                return;
+            }
+
+            container.appendChild(createDetailSection('Overview', (valueEl) => {
+                if (app.description) {
+                    const desc = document.createElement('p');
+                    desc.textContent = app.description;
+                    valueEl.appendChild(desc);
+                }
+
+                if (app.summary) {
+                    const summary = document.createElement('p');
+                    summary.className = 'apps-muted';
+                    summary.textContent = app.summary;
+                    valueEl.appendChild(summary);
+                }
+            }));
+        }
+
+        function renderConfigSection(container, app) {
+            const toggles = Array.isArray(app.actions)
+                ? app.actions.filter(action => action.kind === 'config-toggle' && action.target)
+                : [];
+
+            if (toggles.length === 0) {
+                return;
+            }
+
+            container.appendChild(createDetailSection('Configuration', (valueEl) => {
+                toggles.forEach(action => valueEl.appendChild(createConfigToggleControl(app, action)));
+
+                const helper = document.createElement('p');
+                helper.className = 'config-toggle-helper';
+                helper.textContent = configToggleHelperText(app);
+                valueEl.appendChild(helper);
+            }));
+        }
+
+        function createConfigToggleControl(app, action) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'config-toggle';
+
+            const label = document.createElement('span');
+            label.className = 'config-toggle-label';
+            label.textContent = action.label || 'Toggle';
+
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = `toggle-switch ${app.enabled ? 'on' : 'off'}`;
+            button.textContent = app.enabled ? 'Enabled' : 'Disabled';
+            button.disabled = action.disabled ?? false;
+
+            if (!button.disabled) {
+                button.addEventListener('click', () => performConfigToggle(app, action, button));
+            }
+
+            wrapper.appendChild(label);
+            wrapper.appendChild(button);
+            return wrapper;
+        }
+
+        function configToggleHelperText(app) {
+            if (app.id === 'tinymush') {
+                return app.enabled
+                    ? 'TinyMUSH is currently visible in the in-game Games menu.'
+                    : 'Enable to surface TinyMUSH in the Games menu for players.';
+            }
+            if (app.id === 'tinyhack') {
+                return app.enabled
+                    ? 'TinyHack is available in the Games menu via direct messages.'
+                    : 'Disable TinyHack to hide it from the Games menu.';
+            }
+            return app.enabled ? 'This app is currently available to users.' : 'This app is currently hidden from users.';
+        }
+
+        async function performConfigToggle(app, action, button) {
+            if (!authToken) {
+                showNotification('Please log in to manage configuration', 'error');
+                return;
+            }
+
+            if (!action?.target) {
+                showNotification('No configuration target specified for this action', 'error');
+                return;
+            }
+
+            const desiredState = !app.enabled;
+            button.disabled = true;
+            button.classList.add('pending');
+            button.textContent = desiredState ? 'Enabling…' : 'Disabling…';
+
+            try {
+                const response = await fetch('/api/apps/config-toggle', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        app_id: app.id,
+                        target: action.target,
+                        enabled: desiredState
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorPayload = await response.json().catch(() => ({}));
+                    throw new Error(errorPayload.error || `Request failed (${response.status})`);
+                }
+
+                const payload = await response.json();
+                if (!payload?.app) {
+                    throw new Error('Invalid response payload');
+                }
+
+                updateLocalAppState(payload.app);
+                currentAppId = payload.app.id;
+                showAppDetail(payload.app.id);
+                showNotification(`${payload.app.name} ${payload.app.enabled ? 'enabled' : 'disabled'}`, 'success');
+            } catch (error) {
+                console.error('Failed to toggle config:', error);
+                showNotification(`Failed to update ${app.name}: ${error.message || error}`, 'error');
+                button.disabled = false;
+                button.classList.remove('pending');
+                button.classList.toggle('on', app.enabled);
+                button.classList.toggle('off', !app.enabled);
+                button.textContent = app.enabled ? 'Enabled' : 'Disabled';
+            }
+        }
+
+        function updateLocalAppState(updatedApp) {
+            const idx = appsData.findIndex(entry => entry.id === updatedApp.id);
+            if (idx >= 0) {
+                appsData[idx] = updatedApp;
+            } else {
+                appsData.push(updatedApp);
+            }
+            appsData.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+            filteredApps = [...appsData];
+        }
+
+        function renderCommandRow(cmd = {}) {
+            const row = document.createElement('div');
+            row.className = 'apps-activity';
+
+            if (cmd.display || cmd.syntax) {
+                const headline = document.createElement('strong');
+                headline.textContent = cmd.display || cmd.syntax;
+                row.appendChild(headline);
+            }
+
+            if (cmd.channel) {
+                const channel = document.createElement('span');
+                channel.className = 'apps-muted';
+                channel.textContent = `Channel: ${cmd.channel}`;
+                row.appendChild(channel);
+            }
+
+            if (cmd.description) {
+                const description = document.createElement('span');
+                description.className = 'apps-muted';
+                description.textContent = cmd.description;
+                row.appendChild(description);
+            }
+
+            return row;
+        }
+
+        function renderTinymushOverviewSection(container) {
+            const section = document.createElement('div');
+            section.className = 'apps-detail-section';
+
+            const label = document.createElement('div');
+            label.className = 'apps-detail-label';
+            label.textContent = 'TinyMUSH Collections';
+            section.appendChild(label);
+
+            const value = document.createElement('div');
+            value.className = 'apps-detail-value tinymush-section';
+            section.appendChild(value);
+
+            const statusCard = document.createElement('div');
+            statusCard.className = 'tinymush-status-card';
+
+            const statusHeader = document.createElement('div');
+            statusHeader.className = 'tinymush-status-header';
+
+            const statusTitle = document.createElement('h3');
+            statusTitle.className = 'tinymush-status-title';
+            statusTitle.textContent = 'Checking TinyMUSH database…';
+            statusHeader.appendChild(statusTitle);
+
+            const statusBadge = document.createElement('span');
+            statusBadge.className = 'tinymush-status-pill is-loading';
+            statusBadge.textContent = 'Loading';
+            statusHeader.appendChild(statusBadge);
+
+            statusCard.appendChild(statusHeader);
+
+            const statusMeta = document.createElement('div');
+            statusMeta.className = 'tinymush-status-meta';
+            statusMeta.textContent = 'Database status pending…';
+            statusCard.appendChild(statusMeta);
+
+            const statusCounts = document.createElement('div');
+            statusCounts.className = 'tinymush-status-counts';
+            statusCounts.innerHTML = '<div class="apps-muted">Counts will appear once the database responds.</div>';
+            statusCard.appendChild(statusCounts);
+
+            value.appendChild(statusCard);
+
+            const managerHost = document.createElement('div');
+            managerHost.className = 'tinymush-manager-host';
+            value.appendChild(managerHost);
+
+            tinymushState.ui.statusContainer = statusCard;
+            tinymushState.ui.statusMessage = statusTitle;
+            tinymushState.ui.statusBadge = statusBadge;
+            tinymushState.ui.statusMeta = statusMeta;
+            tinymushState.ui.statusCounts = statusCounts;
+            tinymushState.ui.managerContainer = managerHost;
+            tinymushState.ui.collectionButtons = new Map();
+            tinymushState.ui.collectionCounts = new Map();
+            tinymushState.ui.panelTitle = null;
+            tinymushState.ui.panelSummary = null;
+            tinymushState.ui.panelMetaCount = null;
+            tinymushState.ui.panelMetaSource = null;
+            tinymushState.ui.panelMetaUpdated = null;
+            tinymushState.ui.itemsContainer = null;
+            tinymushState.ui.searchInput = null;
+            tinymushState.ui.refreshButton = null;
+            tinymushState.ui.managerNotice = null;
+
+            setupTinymushManager(managerHost);
+            setTinymushManagerAvailability(false, 'Waiting for TinyMUSH database status…');
+
+            container.appendChild(section);
+
+            loadTinymushStatus()
+                .then(status => {
+                    applyTinymushStatus(status);
+                    if (status.enabled && status.initialized) {
+                        const initialKey = tinymushState.activeCollection || tinymushCollections[0]?.key;
+                        if (initialKey) {
+                            selectTinymushCollection(initialKey).catch(error => {
+                                console.error('Failed to select TinyMUSH collection:', error);
+                            });
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Failed to load TinyMUSH status:', error);
+                    setTinymushStatusError(error.message || 'Unable to load TinyMUSH status.');
+                });
+        }
+
+        function setupTinymushManager(host) {
+            host.innerHTML = '';
+
+            const shell = document.createElement('div');
+            shell.className = 'tinymush-shell';
+
+            const collectionBar = document.createElement('div');
+            collectionBar.className = 'tinymush-collection-bar';
+
+            const barHeader = document.createElement('div');
+            barHeader.className = 'tinymush-collection-bar-header';
+
+            const barTitle = document.createElement('div');
+            barTitle.className = 'tinymush-collection-bar-title';
+
+            const heading = document.createElement('h3');
+            heading.textContent = 'TinyMUSH Collections';
+            barTitle.appendChild(heading);
+
+            const tagline = document.createElement('p');
+            tagline.textContent = 'Pick a collection to review entries from the TinyMUSH database.';
+            barTitle.appendChild(tagline);
+
+            barHeader.appendChild(barTitle);
+            collectionBar.appendChild(barHeader);
+
+            const scroller = document.createElement('div');
+            scroller.className = 'tinymush-collection-scroller';
+            collectionBar.appendChild(scroller);
+
+            tinymushCollections.forEach(config => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'tinymush-collection-btn';
+                button.dataset.collection = config.key;
+
+                const icon = document.createElement('div');
+                icon.className = 'tinymush-collection-icon';
+                icon.textContent = config.icon || '📁';
+                button.appendChild(icon);
+
+                const meta = document.createElement('div');
+                meta.className = 'tinymush-collection-meta';
+
+                const name = document.createElement('span');
+                name.className = 'tinymush-collection-label';
+                name.textContent = config.label;
+                meta.appendChild(name);
+
+                if (config.description) {
+                    const info = document.createElement('span');
+                    info.className = 'tinymush-collection-description';
+                    info.textContent = config.description;
+                    meta.appendChild(info);
+                }
+
+                button.appendChild(meta);
+
+                const count = document.createElement('span');
+                count.className = 'tinymush-collection-count';
+                count.textContent = '0';
+                button.appendChild(count);
+
+                button.addEventListener('click', () => {
+                    selectTinymushCollection(config.key).catch(error => {
+                        console.error('Failed to select TinyMUSH collection:', error);
+                    });
+                });
+
+                scroller.appendChild(button);
+                tinymushState.ui.collectionButtons.set(config.key, button);
+                tinymushState.ui.collectionCounts.set(config.key, count);
+            });
+
+            shell.appendChild(collectionBar);
+
+            const panelGrid = document.createElement('div');
+            panelGrid.className = 'tinymush-panel-grid';
+
+            const itemsPanel = document.createElement('div');
+            itemsPanel.className = 'tinymush-items-panel';
+
+            const header = document.createElement('div');
+            header.className = 'tinymush-panel-header';
+
+            const headerTitle = document.createElement('div');
+            headerTitle.className = 'tinymush-panel-title';
+
+            const title = document.createElement('h3');
+            title.textContent = 'Select a collection';
+            headerTitle.appendChild(title);
+
+            const summary = document.createElement('p');
+            summary.className = 'apps-muted';
+            summary.textContent = 'Browse TinyMUSH entries from the live database.';
+            headerTitle.appendChild(summary);
+
+            const metaRow = document.createElement('div');
+            metaRow.className = 'tinymush-panel-meta';
+
+            const countIndicator = document.createElement('span');
+            countIndicator.textContent = '0 items';
+            metaRow.appendChild(countIndicator);
+
+            const sourceIndicator = document.createElement('span');
+            sourceIndicator.textContent = 'Source: —';
+            metaRow.appendChild(sourceIndicator);
+
+            const updatedIndicator = document.createElement('span');
+            updatedIndicator.textContent = 'Updated: —';
+            metaRow.appendChild(updatedIndicator);
+
+            headerTitle.appendChild(metaRow);
+            header.appendChild(headerTitle);
+
+            const actions = document.createElement('div');
+            actions.className = 'tinymush-panel-actions';
+
+            const refreshButton = document.createElement('button');
+            refreshButton.type = 'button';
+            refreshButton.className = 'btn btn-secondary btn-sm';
+            refreshButton.textContent = 'Refresh';
+            refreshButton.addEventListener('click', () => {
+                if (!tinymushState.activeCollection) {
+                    return;
+                }
+                selectTinymushCollection(tinymushState.activeCollection, { force: true }).catch(error => {
+                    console.error('Failed to refresh TinyMUSH collection:', error);
+                });
+            });
+            actions.appendChild(refreshButton);
+
+            header.appendChild(actions);
+            itemsPanel.appendChild(header);
+
+            const filters = document.createElement('div');
+            filters.className = 'tinymush-panel-filters';
+
+            const searchWrap = document.createElement('div');
+            searchWrap.className = 'search-box tinymush-search';
+
+            const searchIcon = document.createElement('span');
+            searchIcon.className = 'search-icon';
+            searchIcon.textContent = '🔍';
+            searchWrap.appendChild(searchIcon);
+
+            const searchInput = document.createElement('input');
+            searchInput.type = 'search';
+            searchInput.placeholder = 'Search by name, id, or keyword…';
+            searchInput.className = 'search-input';
+            searchInput.value = tinymushState.searchTerm || '';
+            searchInput.addEventListener('input', (event) => {
+                tinymushState.searchTerm = (event.target.value || '').toLowerCase();
+                if (tinymushState.activeCollection) {
+                    renderTinymushCollectionItems(tinymushState.activeCollection);
+                }
+            });
+            searchWrap.appendChild(searchInput);
+
+            filters.appendChild(searchWrap);
+            itemsPanel.appendChild(filters);
+
+            const notice = document.createElement('div');
+            notice.className = 'tinymush-alert';
+            notice.style.display = 'none';
+            itemsPanel.appendChild(notice);
+
+            const items = document.createElement('div');
+            items.className = 'tinymush-items';
+            items.innerHTML = '<div class="tinymush-empty">Select a collection to view items.</div>';
+            itemsPanel.appendChild(items);
+
+            panelGrid.appendChild(itemsPanel);
+            shell.appendChild(panelGrid);
+            host.appendChild(shell);
+
+            tinymushState.ui.panelTitle = title;
+            tinymushState.ui.panelSummary = summary;
+            tinymushState.ui.panelMetaCount = countIndicator;
+            tinymushState.ui.panelMetaSource = sourceIndicator;
+            tinymushState.ui.panelMetaUpdated = updatedIndicator;
+            tinymushState.ui.itemsContainer = items;
+            tinymushState.ui.searchInput = searchInput;
+            tinymushState.ui.refreshButton = refreshButton;
+            tinymushState.ui.managerNotice = notice;
+        }
+
+        function applyTinymushStatus(status = {}) {
+            tinymushState.status = status;
+            tinymushState.statusError = null;
+
+            const enabled = Boolean(status.enabled);
+            const initialized = Boolean(status.initialized);
+            const hasError = Boolean(status.error);
+
+            if (tinymushState.ui.statusMessage) {
+                let headline = 'TinyMUSH database ready.';
+                if (hasError) {
+                    headline = status.error || 'TinyMUSH reported an issue.';
+                } else if (!enabled) {
+                    headline = 'TinyMUSH is disabled in configuration.';
+                } else if (!initialized) {
+                    headline = 'TinyMUSH database has not been initialized yet.';
+                }
+                tinymushState.ui.statusMessage.textContent = headline;
+            }
+
+            if (tinymushState.ui.statusBadge) {
+                const badge = tinymushState.ui.statusBadge;
+                badge.className = 'tinymush-status-pill';
+                if (hasError) {
+                    badge.classList.add('is-error');
+                    badge.textContent = 'Error';
+                } else if (!enabled) {
+                    badge.classList.add('is-disabled');
+                    badge.textContent = 'Disabled';
+                } else if (!initialized) {
+                    badge.classList.add('is-warning');
+                    badge.textContent = 'Uninitialized';
+                } else {
+                    badge.classList.add('is-ready');
+                    badge.textContent = 'Ready';
+                }
+            }
+
+            if (tinymushState.ui.statusMeta) {
+                const lines = [];
+                if (status.db_path) {
+                    lines.push(`Database: ${status.db_path}`);
+                }
+                if (status.updated_at) {
+                    lines.push(`Updated ${formatIsoRelative(status.updated_at)}`);
+                }
+                if (status.error) {
+                    lines.push(status.error);
+                }
+                if (lines.length === 0) {
+                    lines.push('No additional details available.');
+                }
+
+                tinymushState.ui.statusMeta.innerHTML = '';
+                lines.forEach(text => {
+                    const span = document.createElement('span');
+                    span.textContent = text;
+                    tinymushState.ui.statusMeta.appendChild(span);
+                });
+            }
+
+            renderTinymushStatusCounts(status.counts || {});
+            updateTinymushCollectionCounts(status.counts || {});
+
+            if (enabled && initialized && !hasError) {
+                setTinymushManagerAvailability(true);
+            } else {
+                const reason = !enabled
+                    ? 'TinyMUSH is disabled in configuration.'
+                    : status.error || 'TinyMUSH database has not been initialized.';
+                setTinymushManagerAvailability(false, reason);
+            }
+        }
+
+        function setTinymushStatusError(message) {
+            tinymushState.status = null;
+            tinymushState.statusError = message;
+
+            if (tinymushState.ui.statusMessage) {
+                tinymushState.ui.statusMessage.textContent = 'Unable to reach TinyMUSH database.';
+            }
+            if (tinymushState.ui.statusBadge) {
+                tinymushState.ui.statusBadge.className = 'tinymush-status-pill is-error';
+                tinymushState.ui.statusBadge.textContent = 'Error';
+            }
+            if (tinymushState.ui.statusMeta) {
+                tinymushState.ui.statusMeta.innerHTML = '';
+                const span = document.createElement('span');
+                span.textContent = message || 'Unknown error occurred.';
+                tinymushState.ui.statusMeta.appendChild(span);
+            }
+            renderTinymushStatusCounts({});
+            setTinymushManagerAvailability(false, message || 'TinyMUSH status is unavailable.');
+        }
+
+        function renderTinymushStatusCounts(counts = {}) {
+            if (!tinymushState.ui.statusCounts) {
+                return;
+            }
+
+            tinymushState.ui.statusCounts.innerHTML = '';
+
+            const entries = tinymushCollections
+                .map(config => ({
+                    key: config.key,
+                    label: config.label,
+                    value: typeof counts[config.key] === 'number' ? counts[config.key] : null,
+                }))
+                .filter(entry => entry.value !== null);
+
+            if (entries.length === 0) {
+                const placeholder = document.createElement('div');
+                placeholder.className = 'apps-muted';
+                placeholder.textContent = 'Counts unavailable.';
+                tinymushState.ui.statusCounts.appendChild(placeholder);
+                return;
+            }
+
+            entries.forEach(entry => {
+                const countCard = document.createElement('div');
+                countCard.className = 'tinymush-status-count';
+
+                const valueEl = document.createElement('span');
+                valueEl.className = 'tinymush-status-count-value';
+                valueEl.textContent = String(entry.value);
+                countCard.appendChild(valueEl);
+
+                const labelEl = document.createElement('span');
+                labelEl.className = 'tinymush-status-count-label';
+                labelEl.textContent = entry.label;
+                countCard.appendChild(labelEl);
+
+                tinymushState.ui.statusCounts.appendChild(countCard);
+            });
+        }
+
+        function updateTinymushCollectionCounts(counts = {}) {
+            tinymushCollections.forEach(config => {
+                const badge = tinymushState.ui.collectionCounts?.get(config.key);
+                if (badge) {
+                    const value = typeof counts[config.key] === 'number' ? counts[config.key] : 0;
+                    badge.textContent = String(value);
+                }
+            });
+        }
+
+        async function loadTinymushStatus(options = {}) {
+            const { force = false } = options;
+
+            if (force) {
+                tinymushStatusCache = null;
+                tinymushStatusPromise = null;
+            }
+
+            if (tinymushStatusCache) {
+                return tinymushStatusCache;
+            }
+            if (tinymushStatusPromise) {
+                return tinymushStatusPromise;
+            }
+
+            const headers = {};
+            if (authToken) {
+                headers['Authorization'] = `Bearer ${authToken}`;
+            }
+
+            tinymushStatusPromise = fetch('/api/tinymush/status', { headers })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().catch(() => ({})).then(payload => {
+                            const message = payload?.error || `Request failed (${response.status})`;
+                            throw new Error(message);
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    tinymushStatusCache = data;
+                    tinymushStatusPromise = null;
+                    return data;
+                })
+                .catch(error => {
+                    tinymushStatusPromise = null;
+                    throw error;
+                });
+
+            return tinymushStatusPromise;
+        }
+
+        function setTinymushManagerAvailability(enabled, reason = '') {
+            const message = reason && typeof reason === 'string'
+                ? reason
+                : enabled
+                    ? ''
+                    : 'TinyMUSH database is not available right now.';
+
+            if (tinymushState.ui.managerNotice) {
+                if (enabled || !message) {
+                    tinymushState.ui.managerNotice.style.display = 'none';
+                    tinymushState.ui.managerNotice.textContent = '';
+                } else {
+                    tinymushState.ui.managerNotice.style.display = 'block';
+                    tinymushState.ui.managerNotice.textContent = message;
+                }
+            }
+
+            if (tinymushState.ui.searchInput) {
+                tinymushState.ui.searchInput.disabled = !enabled;
+                if (!enabled) {
+                    tinymushState.ui.searchInput.value = '';
+                    tinymushState.searchTerm = '';
+                }
+            }
+
+            if (tinymushState.ui.refreshButton) {
+                tinymushState.ui.refreshButton.disabled = !enabled;
+            }
+
+            if (tinymushState.ui.collectionButtons) {
+                tinymushState.ui.collectionButtons.forEach(button => {
+                    button.disabled = !enabled;
+                });
+            }
+
+            if (!enabled) {
+                tinymushState.collectionCache = {};
+                tinymushState.activeCollection = null;
+                updateTinymushCollectionCounts({});
+                if (tinymushState.ui.itemsContainer) {
+                    tinymushState.ui.itemsContainer.innerHTML = `<div class="tinymush-empty">${escapeHtml(message || 'TinyMUSH database is not available.')}</div>`;
+                }
+                if (tinymushState.ui.panelTitle) {
+                    tinymushState.ui.panelTitle.textContent = 'Select a collection';
+                }
+                if (tinymushState.ui.panelSummary) {
+                    tinymushState.ui.panelSummary.textContent = 'Browse TinyMUSH entries from the live database.';
+                }
+                if (tinymushState.ui.panelMetaCount) {
+                    tinymushState.ui.panelMetaCount.textContent = '0 items';
+                }
+                if (tinymushState.ui.panelMetaSource) {
+                    tinymushState.ui.panelMetaSource.textContent = 'Source: —';
+                }
+                if (tinymushState.ui.panelMetaUpdated) {
+                    tinymushState.ui.panelMetaUpdated.textContent = 'Updated: —';
+                }
+            }
+        }
+
+        async function selectTinymushCollection(collectionKey, options = {}) {
+            const { force = false } = options;
+            if (!collectionKey) {
+                return null;
+            }
+
+            if (!tinymushState.status || !tinymushState.status.enabled || !tinymushState.status.initialized || tinymushState.status.error) {
+                return null;
+            }
+
+            tinymushState.activeCollection = collectionKey;
+
+            if (tinymushState.ui.collectionButtons) {
+                tinymushState.ui.collectionButtons.forEach((button, key) => {
+                    button.classList.toggle('active', key === collectionKey);
+                });
+            }
+
+            const config = getTinymushCollectionConfig(collectionKey);
+            if (tinymushState.ui.panelTitle) {
+                tinymushState.ui.panelTitle.textContent = config.label;
+            }
+            if (tinymushState.ui.panelSummary) {
+                tinymushState.ui.panelSummary.textContent = config.description || 'Browse TinyMUSH entries stored in this collection.';
+            }
+
+            if (tinymushState.ui.itemsContainer) {
+                tinymushState.ui.itemsContainer.innerHTML = '<div class="loading">Loading items…</div>';
+            }
+
+            try {
+                const payload = await loadTinymushCollection(collectionKey, { force });
+                if (tinymushState.activeCollection !== collectionKey) {
+                    return null;
+                }
+                applyTinymushCollectionCount(collectionKey, payload);
+                renderTinymushCollectionItems(collectionKey);
+                updateTinymushPanelMeta(payload);
+                return payload;
+            } catch (error) {
+                if (tinymushState.activeCollection === collectionKey && tinymushState.ui.itemsContainer) {
+                    tinymushState.ui.itemsContainer.innerHTML = `<div class="tinymush-alert">${escapeHtml(error.message || 'Unable to load collection')}</div>`;
+                }
+                throw error;
+            }
+        }
+
+        async function loadTinymushCollection(collectionKey, options = {}) {
+            const { force = false } = options;
+            if (!collectionKey) {
+                throw new Error('Collection key is required.');
+            }
+
+            if (!force && tinymushState.collectionCache[collectionKey]) {
+                return tinymushState.collectionCache[collectionKey];
+            }
+
+            if (force) {
+                delete tinymushState.collectionCache[collectionKey];
+            }
+
+            const headers = {};
+            if (authToken) {
+                headers['Authorization'] = `Bearer ${authToken}`;
+            }
+
+            const response = await fetch(`/api/tinymush/collections/${encodeURIComponent(collectionKey)}`, { headers });
+            let payload = null;
+
+            try {
+                payload = await response.json();
+            } catch {
+                payload = null;
+            }
+
+            if (!response.ok) {
+                const message = payload?.error || `Request failed (${response.status})`;
+                throw new Error(message);
+            }
+
+            if (!payload || typeof payload !== 'object') {
+                throw new Error('Invalid response payload from TinyMUSH collection endpoint.');
+            }
+
+            tinymushState.collectionCache[collectionKey] = payload;
+            return payload;
+        }
+
+        function renderTinymushCollectionItems(collectionKey) {
+            const container = tinymushState.ui.itemsContainer;
+            if (!container) {
+                return;
+            }
+
+            const payload = tinymushState.collectionCache[collectionKey];
+            if (!payload || !Array.isArray(payload.items)) {
+                container.innerHTML = '<div class="tinymush-empty">No data available for this collection.</div>';
+                return;
+            }
+
+            const config = getTinymushCollectionConfig(collectionKey);
+            const term = tinymushState.searchTerm?.trim() || '';
+
+            const filtered = term
+                ? payload.items.filter(item => tinymushItemMatchesSearch(item, config, term))
+                : payload.items;
+
+            container.innerHTML = '';
+
+            if (filtered.length === 0) {
+                container.innerHTML = term
+                    ? '<div class="tinymush-empty">No items match your search.</div>'
+                    : '<div class="tinymush-empty">This collection does not contain any entries yet.</div>';
+                return;
+            }
+
+            filtered.forEach(item => {
+                container.appendChild(renderTinymushItemCard(collectionKey, item, config));
+            });
+        }
+
+        function applyTinymushCollectionCount(collectionKey, payload) {
+            const count = Array.isArray(payload?.items) ? payload.items.length : payload?.count ?? 0;
+            const badge = tinymushState.ui.collectionCounts?.get(collectionKey);
+            if (badge) {
+                badge.textContent = String(count);
+            }
+            if (tinymushState.ui.panelMetaCount) {
+                tinymushState.ui.panelMetaCount.textContent = `${count} item${count === 1 ? '' : 's'}`;
+            }
+
+            if (tinymushState.status) {
+                if (!tinymushState.status.counts || typeof tinymushState.status.counts !== 'object') {
+                    tinymushState.status.counts = {};
+                }
+                tinymushState.status.counts[collectionKey] = count;
+                renderTinymushStatusCounts(tinymushState.status.counts);
+            }
+        }
+
+        function updateTinymushPanelMeta(payload) {
+            if (tinymushState.ui.panelMetaSource) {
+                tinymushState.ui.panelMetaSource.textContent = payload?.source_path
+                    ? `Source: ${payload.source_path}`
+                    : 'Source: —';
+            }
+            if (tinymushState.ui.panelMetaUpdated) {
+                const updated = payload?.updated_at ? formatIsoRelative(payload.updated_at) : '—';
+                tinymushState.ui.panelMetaUpdated.textContent = `Updated: ${updated}`;
+            }
+        }
+
+        function renderTinymushItemCard(collectionKey, item, config) {
+            const card = document.createElement('div');
+            card.className = 'tinymush-item-card';
+
+            const header = document.createElement('div');
+            header.className = 'tinymush-item-header';
+
+            const title = document.createElement('div');
+            title.className = 'tinymush-item-title';
+            title.textContent = tinymushTitleForItem(item, config);
+            header.appendChild(title);
+
+            const id = document.createElement('div');
+            id.className = 'tinymush-item-id';
+            id.textContent = item?.id || '(missing id)';
+            header.appendChild(id);
+
+            card.appendChild(header);
+
+            const subtitleText = tinymushSubtitleForItem(item, config);
+            if (subtitleText) {
+                const subtitle = document.createElement('div');
+                subtitle.className = 'apps-muted';
+                subtitle.textContent = subtitleText;
+                card.appendChild(subtitle);
+            }
+
+            const preview = tinymushPreviewForItem(item, config);
+            if (preview) {
+                const body = document.createElement('div');
+                body.className = 'tinymush-item-body';
+                body.textContent = preview;
+                card.appendChild(body);
+            }
+
+            const tags = extractTinymushTags(item, config);
+            if (tags.length > 0) {
+                const tagsRow = document.createElement('div');
+                tagsRow.className = 'tinymush-item-tags';
+                tags.forEach(tag => {
+                    const badge = document.createElement('span');
+                    badge.className = 'tag';
+                    badge.textContent = tag;
+                    tagsRow.appendChild(badge);
+                });
+                card.appendChild(tagsRow);
+            }
+
+            return card;
+        }
+
+        function tinymushTitleForItem(item, config) {
+            const fields = config?.titleFields || ['name', 'title'];
+            for (const field of fields) {
+                const value = readTinymushField(item, field);
+                if (typeof value === 'string' && value.trim()) {
+                    return value.trim();
+                }
+            }
+            if (typeof item?.id === 'string' && item.id.trim()) {
+                return item.id.trim();
+            }
+            const fallbackKey = Object.keys(item || {}).find(key => typeof item[key] === 'string');
+            if (fallbackKey) {
+                return String(item[fallbackKey]);
+            }
+            return 'Untitled';
+        }
+
+        function tinymushSubtitleForItem(item, config) {
+            const fields = config?.subtitleFields || [];
+            const parts = [];
+            fields.forEach(field => {
+                const value = readTinymushField(item, field);
+                if (typeof value === 'string' && value.trim()) {
+                    parts.push(value.trim());
+                }
+            });
+            return parts.join(' • ');
+        }
+
+        function tinymushPreviewForItem(item, config) {
+            const fields = (config?.previewFields && config.previewFields.length > 0)
+                ? config.previewFields
+                : ['summary', 'description', 'text', 'body'];
+            for (const field of fields) {
+                const value = readTinymushField(item, field);
+                if (typeof value === 'string' && value.trim()) {
+                    return truncateText(value.trim(), 220);
+                }
+            }
+            return '';
+        }
+
+        function truncateText(text, maxLength = 200) {
+            if (!text) {
+                return '';
+            }
+            if (text.length <= maxLength) {
+                return text;
+            }
+            return `${text.slice(0, maxLength - 1).trim()}…`;
+        }
+
+        function getTinymushCollectionConfig(key) {
+            return tinymushCollections.find(entry => entry.key === key) || {
+                key,
+                label: capitalize(key || ''),
+                description: '',
+                icon: '📁',
+                titleFields: ['name'],
+                subtitleFields: ['title'],
+                previewFields: ['description'],
+                tagFields: [],
+            };
+        }
+
+        function tinymushItemMatchesSearch(item, config, term) {
+            const query = term.toLowerCase();
+            if (!query) {
+                return true;
+            }
+
+            const haystack = [];
+
+            haystack.push(String(item?.id || '').toLowerCase());
+
+            (config?.titleFields || []).forEach(field => {
+                const value = readTinymushField(item, field);
+                if (typeof value === 'string') {
+                    haystack.push(value.toLowerCase());
+                }
+            });
+
+            (config?.subtitleFields || []).forEach(field => {
+                const value = readTinymushField(item, field);
+                if (typeof value === 'string') {
+                    haystack.push(value.toLowerCase());
+                }
+            });
+
+            (config?.previewFields || []).forEach(field => {
+                const value = readTinymushField(item, field);
+                if (typeof value === 'string') {
+                    haystack.push(value.toLowerCase());
+                }
+            });
+
+            ['name', 'title', 'room_id', 'quest_giver_npc', 'result_item_id'].forEach(field => {
+                const value = readTinymushField(item, field);
+                if (typeof value === 'string') {
+                    haystack.push(value.toLowerCase());
+                }
+            });
+
+            extractTinymushTags(item, config).forEach(tag => {
+                haystack.push(String(tag).toLowerCase());
+            });
+
+            if (haystack.some(value => value && value.includes(query))) {
+                return true;
+            }
+
+            try {
+                const raw = JSON.stringify(item).toLowerCase();
+                return raw.includes(query);
+            } catch {
+                return false;
+            }
+        }
+
+        function readTinymushField(item, field) {
+            if (!item || !field) {
+                return undefined;
+            }
+            if (!field.includes('.')) {
+                return item[field];
+            }
+            return field.split('.').reduce((acc, key) => (acc && acc[key] != null ? acc[key] : undefined), item);
+        }
+
+        function extractTinymushTags(item, config) {
+            const tags = [];
+            const fields = config?.tagFields || [];
+
+            fields.forEach(field => {
+                const value = readTinymushField(item, field);
+                if (Array.isArray(value)) {
+                    value.forEach(entry => tags.push(String(entry)));
+                } else if (typeof value === 'string' && value.trim()) {
+                    tags.push(value.trim());
+                } else if (typeof value === 'number') {
+                    tags.push(`${field}:${value}`);
+                } else if (typeof value === 'boolean') {
+                    tags.push(`${field}:${value ? 'yes' : 'no'}`);
+                }
+            });
+
+            if (typeof config?.extraTags === 'function') {
+                const extra = config.extraTags(item) || [];
+                extra.forEach(tag => tags.push(String(tag)));
+            }
+
+            return Array.from(new Set(tags));
+        }
+
+        function openTinymushEditor() {
+            showNotification('TinyMUSH editing is currently read-only while the database integration completes.', 'info');
+        }
+
+        function buildTinymushTemplate(collectionKey) {
+            const config = getTinymushCollectionConfig(collectionKey);
+            const cached = tinymushState.collectionCache[collectionKey];
+            const sample = cached && Array.isArray(cached.items) && cached.items.length > 0 ? cached.items[0] : null;
+            const template = createTemplateFromSample(sample);
+            applyGuidedDefaults(template, config);
+            if (!template.id || typeof template.id !== 'string' || !template.id.trim()) {
+                template.id = `new_${collectionKey}_id`;
+            } else {
+                template.id = `new_${collectionKey}_id`;
+            }
+            return template;
+        }
+
+        function createTemplateFromSample(sample) {
+            if (!sample || typeof sample !== 'object' || Array.isArray(sample)) {
+                return {};
+            }
+            const result = {};
+            Object.entries(sample).forEach(([key, value]) => {
+                if (key === 'id') {
+                    result[key] = '';
+                    return;
+                }
+                if (Array.isArray(value)) {
+                    result[key] = [];
+                } else if (value && typeof value === 'object') {
+                    result[key] = createTemplateFromSample(value);
+                } else if (typeof value === 'number') {
+                    result[key] = 0;
+                } else if (typeof value === 'boolean') {
+                    result[key] = false;
+                } else if (typeof value === 'string') {
+                    result[key] = '';
+                } else {
+                    result[key] = value;
+                }
+            });
+            return result;
+        }
+
+        function closeTinymushEditor() {
+            closeModal('tinymushEditorModal');
+            const textarea = document.getElementById('tinymushEditorInput');
+            const errorEl = document.getElementById('tinymushEditorError');
+            const saveBtn = document.getElementById('tinymushEditorSave');
+            const guidedContainer = document.getElementById('tinymushEditorSimple');
+            if (textarea) {
+                textarea.value = '';
+            }
+            if (errorEl) {
+                errorEl.textContent = '';
+                delete errorEl.dataset.fromJson;
+            }
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save Changes';
+            }
+            if (guidedContainer) {
+                guidedContainer.innerHTML = '';
+            }
+            tinymushState.editor = {
+                mode: 'create',
+                collectionKey: null,
+                originalId: null,
+                currentData: null,
+                guidedInputs: new Map(),
+                activeView: 'guided',
+                fieldErrors: new Map(),
+            };
+        }
+
+        async function submitTinymushEditor() {
+            showNotification('TinyMUSH editing is currently read-only while the database integration completes.', 'info');
+            return;
+            if (!tinymushState.editor.collectionKey) {
+                return;
+            }
+            if (!authToken) {
+                showNotification('Please log in to manage TinyMUSH data', 'error');
+                return;
+            }
+
+            const textarea = document.getElementById('tinymushEditorInput');
+            const errorEl = document.getElementById('tinymushEditorError');
+            const saveBtn = document.getElementById('tinymushEditorSave');
+
+            if (!textarea || !errorEl || !saveBtn) {
+                return;
+            }
+
+            if (tinymushState.editor.activeView === 'guided') {
+                syncTinymushEditorJsonInput({ force: true });
+            }
+
+            if (tinymushState.editor.fieldErrors && tinymushState.editor.fieldErrors.size > 0) {
+                errorEl.textContent = 'Resolve the highlighted field issues before saving.';
+                return;
+            }
+
+            let parsed;
+            try {
+                parsed = JSON.parse(textarea.value);
+            } catch (error) {
+                errorEl.textContent = `Invalid JSON: ${error.message}`;
+                errorEl.dataset.fromJson = 'true';
+                return;
+            }
+
+            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+                errorEl.textContent = 'Submitted data must be a JSON object.';
+                errorEl.dataset.fromJson = 'true';
+                return;
+            }
+
+            tinymushState.editor.currentData = parsed;
+            applyGuidedDefaults(tinymushState.editor.currentData, getTinymushCollectionConfig(tinymushState.editor.collectionKey));
+
+            const itemId = typeof parsed.id === 'string' ? parsed.id.trim() : '';
+            if (!itemId) {
+                errorEl.textContent = "Entry must include a non-empty string 'id'.";
+                return;
+            }
+
+            errorEl.textContent = '';
+            const originalLabel = saveBtn.textContent;
+            saveBtn.disabled = true;
+            saveBtn.textContent = tinymushState.editor.mode === 'create' ? 'Creating…' : 'Saving…';
+
+            const headers = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            };
+
+            const collectionKey = tinymushState.editor.collectionKey;
+            const mode = tinymushState.editor.mode;
+            const encodedCollection = encodeURIComponent(collectionKey);
+
+            let url = `/api/tinymush/seeds/${encodedCollection}`;
+            let method = 'POST';
+
+            if (tinymushState.editor.mode === 'edit') {
+                const encodedId = encodeURIComponent(tinymushState.editor.originalId || itemId);
+                url += `/${encodedId}`;
+                method = 'PUT';
+            }
+
+            try {
+                const response = await fetch(url, {
+                    method,
+                    headers,
+                    body: JSON.stringify({ item: parsed })
+                });
+
+                const responseBody = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    throw new Error(responseBody?.error || `Request failed (${response.status})`);
+                }
+
+                closeTinymushEditor();
+                delete tinymushState.collectionCache[collectionKey];
+                await selectTinymushCollection(collectionKey, { force: true });
+                await refreshTinymushOverview();
+                showNotification(mode === 'create' ? 'TinyMUSH item created.' : 'TinyMUSH item updated.', 'success');
+            } catch (error) {
+                console.error('Failed to save TinyMUSH entry:', error);
+                errorEl.textContent = error.message || 'Unable to save changes.';
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = originalLabel;
+            }
+        }
+
+        function confirmTinymushDelete() {
+            showNotification('TinyMUSH editing is currently read-only while the database integration completes.', 'info');
+        }
+
+        async function deleteTinymushItem() {
+            showNotification('TinyMUSH editing is currently read-only while the database integration completes.', 'info');
+        }
+
+        async function refreshTinymushOverview() {
+            try {
+                const status = await loadTinymushStatus({ force: true });
+                applyTinymushStatus(status);
+                if (status.enabled && status.initialized && tinymushState.activeCollection) {
+                    await selectTinymushCollection(tinymushState.activeCollection, { force: true });
+                }
+            } catch (error) {
+                console.error('Failed to refresh TinyMUSH status:', error);
+                setTinymushStatusError(error.message || 'Unable to refresh TinyMUSH status.');
+            }
+        }
+
+        function handleAppAction(action, app) {
+            const label = action.label || 'Action';
+            showNotification(`${label} for ${app.name} is not yet implemented`, 'info');
+        }
+
+        function renderAppsEmptyState() {
+            const detail = document.getElementById('appDetail');
+            const actionsEl = document.getElementById('appDetailActions');
+            if (!detail) return;
+            detail.innerHTML = '<div class="apps-empty-state">No apps available</div>';
+            if (actionsEl) {
+                actionsEl.style.display = 'none';
+                actionsEl.innerHTML = '';
+            }
+        }
+
+        function createDetailSection(label, builder) {
+            const section = document.createElement('div');
+            section.className = 'apps-detail-section';
+
+            const labelEl = document.createElement('div');
+            labelEl.className = 'apps-detail-label';
+            labelEl.textContent = label;
+            section.appendChild(labelEl);
+
+            const valueEl = document.createElement('div');
+            valueEl.className = 'apps-detail-value';
+
+            if (typeof builder === 'function') {
+                builder(valueEl);
+            } else if (builder instanceof HTMLElement) {
+                valueEl.appendChild(builder);
+            } else if (builder !== undefined && builder !== null) {
+                valueEl.textContent = builder;
+            }
+
+            section.appendChild(valueEl);
+            return section;
+        }
+
+        function createStatePill(label, variant) {
+            const pill = document.createElement('div');
+            pill.className = `state-pill state-${variant}`;
+            const dot = document.createElement('span');
+            dot.className = 'dot';
+            pill.appendChild(dot);
+            const text = document.createElement('span');
+            text.textContent = label;
+            pill.appendChild(text);
+            return pill;
+        }
+
+        function capitalize(text = '') {
+            if (!text) return '';
+            return text.charAt(0).toUpperCase() + text.slice(1);
+        }
+
+        // ============================================
+        // TAB DATA LOADER
+        // ============================================
+        function loadTabData(tab) {
+            switch(tab) {
+                case 'overview':
+                    loadStats();
+                    loadActivity();
+                    break;
+                case 'users':
+                    loadUsers();
+                    break;
+                case 'messages':
+                    loadTopics();
+                    break;
+                case 'apps':
+                    loadAppsTab();
+                    break;
+                case 'audit':
+                    loadAuditLog();
+                    break;
+            }
+        }
+
+        // ============================================
+        // ACTIONS
+        // ============================================
+        let currentEditUser = null;
+
+    async function editUser(callsign) {
+            try {
+                // Fetch user details
+        const encodedId = encodeURIComponent(callsign);
+        const response = await fetch(`/api/users/${encodedId}`);
+                const user = await response.json();
+                
+                currentEditUser = callsign;
+                
+                // Populate modal
+                document.getElementById('editCallsign').value = user.callsign || callsign;
+                document.getElementById('editLevel').value = user.level || 1;
+                document.getElementById('editNodeId').value = user.node_id || 'N/A';
+                document.getElementById('editMessageCount').value = user.message_count || 0;
+                
+                // Show modal
+                openModal('userEditModal');
+            } catch (error) {
+                console.error('Failed to load user details:', error);
+                alert('Failed to load user details');
+            }
+        }
+
+        async function saveUserEdit() {
+            if (!currentEditUser) return;
+            
+            const newLevel = parseInt(document.getElementById('editLevel').value);
+            
+            if (newLevel < 1 || newLevel > 10) {
+                alert('Level must be between 1 and 10');
+                return;
+            }
+            
+            try {
+                const encodedId = encodeURIComponent(currentEditUser);
+                const response = await fetch(`/api/users/${encodedId}/level`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ level: newLevel })
+                });
+                
+                if (response.ok) {
+                    closeModal('userEditModal');
+                    showNotification('User updated successfully', 'success');
+                    loadUsers();
+                } else {
+                    const error = await response.json();
+                    alert('Failed to update user: ' + (error.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error updating user:', error);
+                alert('Error updating user');
+            }
+        }
+
+        async function deleteMessage(topicId, messageId) {
+            confirmAction(
+                'Delete Message',
+                'Are you sure you want to delete this message? This action cannot be undone.',
+                async () => {
+                    try {
+                        const encodedTopic = encodeURIComponent(topicId);
+                        const encodedMessage = encodeURIComponent(messageId);
+                        const response = await fetch(`/api/topics/${encodedTopic}/messages/${encodedMessage}`, {
+                            method: 'DELETE',
+                            headers: { 'Authorization': `Bearer ${authToken}` }
+                        });
+                        
+                        if (response.ok) {
+                            showNotification('Message deleted successfully', 'success');
+                            const topicElement = Array.from(document.querySelectorAll('.topic-item'))
+                                .find(item => item.dataset.topic === topicId);
+                            loadMessages(topicId, topicElement);
+                        } else {
+                            alert('Failed to delete message');
+                        }
+                    } catch (error) {
+                        alert('Error deleting message');
+                    }
+                }
+            );
+        }
+
+        // ============================================
+        // UTILITIES
+        // ============================================
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.add('show');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('show');
+        }
+
+        function showNotification(message, type = 'info') {
+            // Simple alert for now - could be enhanced with toast notifications
+            console.log(`[${type}] ${message}`);
+            // TODO: Implement toast notification UI
+        }
+
+        function confirmAction(title, message, onConfirm) {
+            document.getElementById('confirmTitle').textContent = title;
+            document.getElementById('confirmMessage').textContent = message;
+            
+            const confirmBtn = document.getElementById('confirmButton');
+            confirmBtn.onclick = () => {
+                onConfirm();
+                closeModal('confirmModal');
+            };
+            
+            openModal('confirmModal');
+        }
+
+        function getActivityIcon(type) {
+            const icons = {
+                'new_user': '👤',
+                'message': '💬',
+                'topic': '📝',
+                'login': '🔓',
+                'default': '⚡'
+            };
+            return icons[type] || icons.default;
+        }
+
+        function getAuditIcon(action) {
+            const icons = {
+                'LOGIN': '🔓',
+                'LOGOUT': '🔒',
+                'VIEW': '👁️',
+                'UPDATE': '✏️',
+                'DELETE': '🗑️',
+                'CREATE': '➕'
+            };
+            return icons[action] || '📋';
+        }
+
+        function getRoleBadge(level) {
+            if (level >= 10) return '<span class="badge badge-admin">Admin</span>';
+            if (level >= 5) return '<span class="badge badge-mod">Moderator</span>';
+            return '<span class="badge badge-user">User</span>';
+        }
+
+        function renderFlagBadges(flags = []) {
+            if (!flags || flags.length === 0) {
+                return '<span class="seed-meta">None</span>';
+            }
+            return flags.map(flag => `<span class="tag">${escapeHtml(flag)}</span>`).join(' ');
+        }
+
+        function formatTime(timestamp) {
+            if (!timestamp) return 'Unknown';
+
+            let date;
+            if (typeof timestamp === 'number') {
+                date = new Date(timestamp * 1000);
+            } else {
+                date = new Date(timestamp);
+            }
+
+            if (Number.isNaN(date.getTime())) {
+                return String(timestamp);
+            }
+
+            const now = new Date();
+            const diff = Math.floor((now - date) / 1000);
+
+            if (diff < 60) return 'Just now';
+            if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+            if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+            return `${Math.floor(diff / 86400)}d ago`;
+        }
+
+        function formatIsoRelative(isoString) {
+            if (!isoString) return 'Unknown';
+            const parsed = new Date(isoString);
+            if (Number.isNaN(parsed.getTime())) {
+                return isoString;
+            }
+            const now = new Date();
+            const diff = Math.floor((now - parsed) / 1000);
+            if (diff < 60) return 'just now';
+            if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+            if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+            return `${Math.floor(diff / 86400)}d ago`;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ============================================
+        // FILTER HANDLERS
+        // ============================================
+    document.getElementById('filterAction')?.addEventListener('change', loadAuditLog);
+    document.getElementById('filterStatus')?.addEventListener('change', loadAuditLog);
+    document.getElementById('tinymushEditorSave')?.addEventListener('click', submitTinymushEditor);
+    document.getElementById('tinymushEditorInput')?.addEventListener('input', handleTinymushEditorJsonInput);
+    setupTinymushEditorTabs();
+
+        // User search functionality
+        let allUsers = [];
+        let filteredUsers = [];
+
+        document.getElementById('searchUsers')?.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            filterAndDisplayUsers(searchTerm);
+        });
+
+        document.getElementById('filterMinLevel')?.addEventListener('change', (e) => {
+            const searchTerm = document.getElementById('searchUsers').value.toLowerCase();
+            filterAndDisplayUsers(searchTerm);
+        });
+
+        document.getElementById('sortUsers')?.addEventListener('change', (e) => {
+            const searchTerm = document.getElementById('searchUsers').value.toLowerCase();
+            filterAndDisplayUsers(searchTerm);
+        });
+
+        function filterAndDisplayUsers(searchTerm = '') {
+            const minLevel = document.getElementById('filterMinLevel').value;
+            const sortBy = document.getElementById('sortUsers').value;
+            
+            // Filter
+            filteredUsers = allUsers.filter(user => {
+                const matchesSearch = !searchTerm || 
+                    (user.callsign || user.username || '').toLowerCase().includes(searchTerm);
+                const matchesLevel = !minLevel || (user.level || 1) >= parseInt(minLevel);
+                return matchesSearch && matchesLevel;
+            });
+            
+            // Sort
+            filteredUsers.sort((a, b) => {
+                switch(sortBy) {
+                    case 'username':
+                        return (a.callsign || a.username || '').localeCompare(b.callsign || b.username || '');
+                    case 'level':
+                        return (b.level || 1) - (a.level || 1);
+                    case 'messages':
+                        return (b.message_count || 0) - (a.message_count || 0);
+                    default:
+                        return 0;
+                }
+            });
+            
+            // Display
+            const tbody = document.querySelector('#usersTable tbody');
+            document.getElementById('userCount').textContent = `${filteredUsers.length} of ${allUsers.length} users`;
+            
+            if (filteredUsers.length > 0) {
+                tbody.innerHTML = filteredUsers.map(user => `
+                    <tr>
+                        <td><strong>${user.callsign || user.username || 'Unknown'}</strong></td>
+                        <td>${user.level || 1}</td>
+                        <td>${user.message_count || 0}</td>
+                        <td>${getRoleBadge(user.level || 1)}</td>
+                        <td>${user.last_login || 'Never'}</td>
+                        <td>
+                            <button class="btn btn-primary btn-sm" onclick="editUser('${user.callsign}')">Edit</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No matching users found</td></tr>';
+            }
+        }
+
+        // ============================================
+        // INITIALIZATION
+        // ============================================
+        window.addEventListener('DOMContentLoaded', () => {
+            if (authToken) {
+                // Try to auto-login
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('adminApp').classList.add('show');
+                loadDashboard();
+                // TODO: Validate token and get user info
+            }
+        });
+
+        // Auto-refresh stats every 30 seconds
+        setInterval(() => {
+            if (authToken) {
+                loadStats();
+            }
+        }, 30000);
+    </script>
+</body>
+</html>

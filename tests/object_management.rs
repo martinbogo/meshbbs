@@ -73,7 +73,10 @@ fn object_edit_all_fields() {
     object.currency_value = CurrencyAmount::multi_tier(100);
     store.put_object(object.clone()).unwrap();
     let retrieved = store.get_object("test_item").unwrap();
-    assert!(matches!(retrieved.currency_value, CurrencyAmount::MultiTier { base_units: 100 }));
+    assert!(matches!(
+        retrieved.currency_value,
+        CurrencyAmount::MultiTier { base_units: 100 }
+    ));
 
     // Edit takeable
     object.takeable = true;
@@ -135,7 +138,7 @@ fn object_all_flag_types() {
 
     // Create object
     let mut object = ObjectRecord::new_world("test_all_flags", "Test Object", "Testing all flags.");
-    
+
     // Test each flag type
     let flags = vec![
         ObjectFlag::QuestItem,
@@ -155,10 +158,10 @@ fn object_all_flag_types() {
     for flag in flags.iter() {
         object.flags.push(flag.clone());
     }
-    
+
     store.put_object(object.clone()).unwrap();
     let retrieved = store.get_object("test_all_flags").unwrap();
-    
+
     // Verify all 12 flags are present
     assert_eq!(retrieved.flags.len(), 12);
     for flag in flags.iter() {
@@ -202,7 +205,7 @@ fn object_list_functionality() {
     let obj1 = ObjectRecord::new_world("obj_alpha", "Alpha", "First object.");
     let obj2 = ObjectRecord::new_world("obj_beta", "Beta", "Second object.");
     let obj3 = ObjectRecord::new_world("obj_gamma", "Gamma", "Third object.");
-    
+
     store.put_object(obj1).unwrap();
     store.put_object(obj2).unwrap();
     store.put_object(obj3).unwrap();
@@ -233,14 +236,17 @@ fn default_objects_listing() {
     // Check that list_object_ids() returns a valid list
     // Objects may or may not be seeded depending on initialization
     let object_ids = store.list_object_ids().unwrap();
-    
+
     println!("Found {} world objects in database", object_ids.len());
-    
+
     // Verify the list is properly sorted (guaranteed by list_object_ids)
     let mut sorted = object_ids.clone();
     sorted.sort();
-    assert_eq!(object_ids, sorted, "Object IDs should be sorted alphabetically");
-    
+    assert_eq!(
+        object_ids, sorted,
+        "Object IDs should be sorted alphabetically"
+    );
+
     // Verify all IDs are non-empty
     for id in object_ids.iter() {
         assert!(!id.is_empty(), "Object IDs should not be empty strings");

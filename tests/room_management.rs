@@ -1,6 +1,5 @@
 /// Integration tests for @ROOM admin command system (Phase 4: Data-Driven Migration)
 /// Tests CRUD operations for data-driven room management using the storage layer directly.
-
 use meshbbs::tmush::types::{Direction, RoomFlag, RoomRecord};
 use meshbbs::tmush::{TinyMushStore, TinyMushStoreBuilder};
 use tempfile::TempDir;
@@ -78,7 +77,10 @@ fn room_edit_all_fields() {
     room.long_desc = "This is a brand new long description for the room.".to_string();
     store.put_room(room.clone()).unwrap();
     let retrieved = store.get_room("edit_test").unwrap();
-    assert_eq!(retrieved.long_desc, "This is a brand new long description for the room.");
+    assert_eq!(
+        retrieved.long_desc,
+        "This is a brand new long description for the room."
+    );
 
     // Edit capacity
     room.max_capacity = 50;
@@ -93,7 +95,12 @@ fn room_exit_management() {
 
     // Create two rooms
     let room1 = RoomRecord::world("room1", "Room One", "First room", "First room description");
-    let room2 = RoomRecord::world("room2", "Room Two", "Second room", "Second room description");
+    let room2 = RoomRecord::world(
+        "room2",
+        "Room Two",
+        "Second room",
+        "Second room description",
+    );
     store.put_room(room1.clone()).unwrap();
     store.put_room(room2.clone()).unwrap();
 
@@ -105,7 +112,10 @@ fn room_exit_management() {
     // Verify exit
     let retrieved = store.get_room("room1").unwrap();
     assert_eq!(retrieved.exits.len(), 1);
-    assert_eq!(retrieved.exits.get(&Direction::North), Some(&"room2".to_string()));
+    assert_eq!(
+        retrieved.exits.get(&Direction::North),
+        Some(&"room2".to_string())
+    );
 
     // Add multiple exits
     let mut room1 = store.get_room("room1").unwrap();
@@ -146,7 +156,11 @@ fn room_flag_management() {
         room.flags.push(flag.clone());
         store.put_room(room.clone()).unwrap();
         let retrieved = store.get_room("flag_test").unwrap();
-        assert!(retrieved.flags.contains(&flag), "Room should have flag {:?}", flag);
+        assert!(
+            retrieved.flags.contains(&flag),
+            "Room should have flag {:?}",
+            flag
+        );
     }
 
     // Verify all flags present
@@ -159,7 +173,7 @@ fn room_multiple_flags() {
     let (store, _temp) = setup_test_store();
 
     let mut room = RoomRecord::world("multi_flag", "Multi Flag", "Test", "Testing multiple flags");
-    
+
     // Add several common flags
     room.flags.push(RoomFlag::Safe);
     room.flags.push(RoomFlag::Indoor);
@@ -171,6 +185,27 @@ fn room_multiple_flags() {
     assert!(retrieved.flags.contains(&RoomFlag::Safe));
     assert!(retrieved.flags.contains(&RoomFlag::Indoor));
     assert!(retrieved.flags.contains(&RoomFlag::QuestLocation));
+}
+
+#[test]
+fn room_flag_deduplication_on_save() {
+    let (store, _temp) = setup_test_store();
+
+    let mut room = RoomRecord::world("flag_dupes", "Flag Dupes", "Testing", "Dedup flag vector");
+    room.flags = vec![
+        RoomFlag::Safe,
+        RoomFlag::Indoor,
+        RoomFlag::Safe,
+        RoomFlag::QuestLocation,
+        RoomFlag::Indoor,
+    ];
+    store.put_room(room).unwrap();
+
+    let stored = store.get_room("flag_dupes").unwrap();
+    assert_eq!(
+        stored.flags,
+        vec![RoomFlag::Safe, RoomFlag::Indoor, RoomFlag::QuestLocation]
+    );
 }
 
 #[test]
@@ -208,7 +243,7 @@ fn default_rooms_seeded() {
     // Verify some key seeded rooms exist
     let room_ids = store.list_room_ids().unwrap();
     assert!(room_ids.len() >= 20, "Should have at least 20 seeded rooms");
-    
+
     // Verify specific important rooms
     assert!(room_ids.contains(&"gazebo_landing".to_string()));
     assert!(room_ids.contains(&"town_square".to_string()));
@@ -220,7 +255,10 @@ fn default_rooms_seeded() {
     assert_eq!(town_square.name, "Old Towne Square");
     assert!(town_square.flags.contains(&RoomFlag::Safe));
     assert!(town_square.flags.contains(&RoomFlag::Indoor));
-    assert!(town_square.exits.len() >= 4, "Town square should have multiple exits");
+    assert!(
+        town_square.exits.len() >= 4,
+        "Town square should have multiple exits"
+    );
 
     // Verify gazebo_landing details
     let landing = store.get_room("gazebo_landing").unwrap();

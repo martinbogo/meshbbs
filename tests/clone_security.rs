@@ -488,25 +488,30 @@ fn test_clone_genealogy_tracking() {
 #[test]
 fn test_non_builder_cannot_clone() {
     let (_temp, store) = setup_test();
-    
+
     // Create a regular player without builder privileges
     let player = PlayerRecord::new("regular_joe", "regular_joe", "test_room");
     // Explicitly do NOT grant builder level (defaults to 0)
     store.put_player(player.clone()).unwrap();
-    
+
     // Create a clonable object owned by this player
     let obj = create_clonable_object("obj_test", "Sword", "regular_joe", 10, &store);
-    
+
     // Attempt to clone should fail with permission error
     let result = clone_object(&obj.id, "regular_joe", &store);
     assert!(result.is_err(), "Non-builder should not be able to clone");
-    
+
     if let Err(TinyMushError::PermissionDenied(msg)) = result {
-        assert!(msg.contains("builder privileges"), "Error should mention builder privileges");
-        assert!(msg.contains("level 1+"), "Error should mention level requirement");
+        assert!(
+            msg.contains("builder privileges"),
+            "Error should mention builder privileges"
+        );
+        assert!(
+            msg.contains("level 1+"),
+            "Error should mention level requirement"
+        );
         println!("✅ Non-builder correctly denied: {}", msg);
     } else {
         panic!("Expected PermissionDenied error, got: {:?}", result);
     }
 }
-

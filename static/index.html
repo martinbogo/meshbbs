@@ -2,244 +2,25 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MeshBBS Admin Dashboard - Login</title>
+    <meta http-equiv="refresh" content="0; url=/admin-app.html">
+    <title>MeshBBS Admin Redirect</title>
+    <script>
+        window.location.replace('/admin-app.html');
+    </script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #1e3a8a 0%, #0ea5e9 100%);
-            min-height: 100vh;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            margin: 0;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
-        }
-        
-        .login-container {
-            background: white;
-            padding: 40px;
-            border-radius: 10px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-            width: 100%;
-            max-width: 400px;
-        }
-        
-        .logo {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        
-        .logo h1 {
-            color: #0ea5e9;
-            font-size: 28px;
-            margin-bottom: 5px;
-        }
-        
-        .logo p {
-            color: #666;
-            font-size: 14px;
-        }
-        
-        .form-group {
-            margin-bottom: 20px;
-        }
-        
-        label {
-            display: block;
-            color: #333;
-            font-weight: 500;
-            margin-bottom: 8px;
-            font-size: 14px;
-        }
-        
-        input {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 14px;
-            transition: border-color 0.3s;
-        }
-        
-        input:focus {
-            outline: none;
-            border-color: #0ea5e9;
-        }
-        
-        button {
-            width: 100%;
-            padding: 12px;
-            background: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-size: 16px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(14, 165, 233, 0.4);
-        }
-        
-        button:active {
-            transform: translateY(0);
-        }
-        
-        button:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-        
-        .error {
-            background: #fee;
-            border: 1px solid #fcc;
-            color: #c33;
-            padding: 12px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            font-size: 14px;
-            display: none;
-        }
-        
-        .error.show {
-            display: block;
-        }
-        
-        .info {
-            background: #e3f2fd;
-            border: 1px solid #90caf9;
-            color: #1976d2;
-            padding: 12px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            font-size: 13px;
-        }
-        
-        .security-notice {
-            text-align: center;
-            margin-top: 20px;
-            font-size: 12px;
-            color: #999;
+            min-height: 100vh;
+            background: #f5f5f0;
+            color: #3a3a2f;
         }
     </style>
 </head>
 <body>
-    <div class="login-container">
-        <div class="logo">
-            <h1>🔧 MeshBBS</h1>
-            <p>Admin Dashboard</p>
-        </div>
-        
-        <div class="info">
-            <strong>🔒 Secure Login</strong><br>
-            Use your BBS sysop credentials to access the dashboard.
-        </div>
-        
-        <div id="error" class="error"></div>
-        
-        <form id="loginForm">
-            <div class="form-group">
-                <label for="username">Username</label>
-                <input 
-                    type="text" 
-                    id="username" 
-                    name="username" 
-                    required 
-                    autocomplete="username"
-                    placeholder="Enter your username"
-                >
-            </div>
-            
-            <div class="form-group">
-                <label for="password">Password</label>
-                <input 
-                    type="password" 
-                    id="password" 
-                    name="password" 
-                    required 
-                    autocomplete="current-password"
-                    placeholder="Enter your password"
-                >
-            </div>
-            
-            <button type="submit" id="loginBtn">Log In</button>
-        </form>
-        
-        <div class="security-notice">
-            This is a secure, admin-only interface.<br>
-            All actions are logged for security purposes.
-        </div>
-    </div>
-    
-    <script>
-        const form = document.getElementById('loginForm');
-        const errorDiv = document.getElementById('error');
-        const loginBtn = document.getElementById('loginBtn');
-        
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            
-            // Clear previous errors
-            errorDiv.classList.remove('show');
-            errorDiv.textContent = '';
-            
-            // Disable button
-            loginBtn.disabled = true;
-            loginBtn.textContent = 'Logging in...';
-            
-            try {
-                const response = await fetch('/api/auth/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ username, password }),
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    
-                    // Store token
-                    localStorage.setItem('auth_token', data.token);
-                    localStorage.setItem('username', data.username);
-                    localStorage.setItem('admin_level', data.admin_level);
-                    
-                    // Redirect to dashboard
-                    window.location.href = '/dashboard.html';
-                } else {
-                    const error = await response.json();
-                    showError(error.error || 'Login failed');
-                }
-            } catch (err) {
-                showError('Network error: Unable to connect to server');
-            } finally {
-                loginBtn.disabled = false;
-                loginBtn.textContent = 'Log In';
-            }
-        });
-        
-        function showError(message) {
-            errorDiv.textContent = message;
-            errorDiv.classList.add('show');
-        }
-        
-        // Check if already logged in
-        if (localStorage.getItem('auth_token')) {
-            window.location.href = '/dashboard.html';
-        }
-    </script>
+    <p>Redirecting to the admin dashboard...</p>
 </body>
 </html>

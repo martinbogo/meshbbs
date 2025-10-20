@@ -310,7 +310,7 @@ flowers. Residents nod friendly greetings as they tend their gardens or repair e
     .with_capacity(15);
     rooms.push(west_lane);
 
-    // EAST EXPANSION: Nature & Exploration  
+    // EAST EXPANSION: Nature & Exploration
     // Design pattern: Natural areas for companion spawning and peaceful exploration
 
     // Nature trail for companion encounters
@@ -416,7 +416,7 @@ here feels heavy with knowledge, as if the stones themselves remember important 
     rooms.push(cipher_chamber);
 
     // DARK NAVIGATION QUEST LOCATIONS (Phase 4.3)
-    
+
     let deep_caverns = RoomRecord::world(
         "deep_caverns_entrance",
         "Deep Caverns Entrance",
@@ -854,16 +854,12 @@ pub fn seed_default_recipes() -> Vec<crate::tmush::types::CraftingRecipe> {
     recipes.push(signal_booster);
 
     // Recipe 2: Basic Antenna (original hardcoded recipe)
-    let basic_antenna = CraftingRecipe::new(
-        "basic_antenna",
-        "Basic Antenna",
-        "basic_antenna",
-        "world",
-    )
-    .with_description("A simple antenna for basic mesh connectivity.")
-    .with_material("copper_wire", 2)
-    .with_material("antenna_rod", 1)
-    .with_station("crafting_bench");
+    let basic_antenna =
+        CraftingRecipe::new("basic_antenna", "Basic Antenna", "basic_antenna", "world")
+            .with_description("A simple antenna for basic mesh connectivity.")
+            .with_material("copper_wire", 2)
+            .with_material("antenna_rod", 1)
+            .with_station("crafting_bench");
     recipes.push(basic_antenna);
 
     recipes
@@ -1012,23 +1008,27 @@ Legendary piece of equipment.",
 }
 
 /// Seed starter vending machine with trinkets
-pub fn seed_starter_vending_machine() -> (crate::tmush::shop::ShopRecord, Vec<crate::tmush::types::ObjectRecord>) {
-    use crate::tmush::shop::{ShopRecord, ShopItem};
-    use crate::tmush::types::{ObjectRecord, ObjectFlag, CurrencyAmount};
-    
+pub fn seed_starter_vending_machine() -> (
+    crate::tmush::shop::ShopRecord,
+    Vec<crate::tmush::types::ObjectRecord>,
+) {
+    use crate::tmush::shop::{ShopItem, ShopRecord};
+    use crate::tmush::types::{CurrencyAmount, ObjectFlag, ObjectRecord};
+
     // Create vending machine shop
     let mut vending_machine = ShopRecord::new_vending_machine(
         "vm_museum".to_string(),
         "Museum Trinket Vending Machine".to_string(),
         "mesh_museum".to_string(),
     );
-    
+
     vending_machine.description = "A sleek vending machine filled with commemorative trinkets and \
-        museum souvenirs. Insert coins and press the button to receive your item.".to_string();
-    
+        museum souvenirs. Insert coins and press the button to receive your item."
+        .to_string();
+
     // Create 4 trinket objects to sell
     let mut trinkets = Vec::new();
-    
+
     // Trinket 1: Mesh Network Keychain - 25 coins
     let mut keychain = ObjectRecord::new_world(
         "trinket_keychain",
@@ -1041,8 +1041,10 @@ pub fn seed_starter_vending_machine() -> (crate::tmush::shop::ShopRecord, Vec<cr
     keychain.flags = vec![ObjectFlag::Clonable];
     keychain.takeable = true;
     trinkets.push(keychain);
-    vending_machine.add_item(ShopItem::limited("trinket_keychain".to_string(), 50)).ok();
-    
+    vending_machine
+        .add_item(ShopItem::limited("trinket_keychain".to_string(), 50))
+        .ok();
+
     // Trinket 2: Commemorative Antenna Pin - 50 coins
     let mut pin = ObjectRecord::new_world(
         "trinket_pin",
@@ -1055,8 +1057,10 @@ pub fn seed_starter_vending_machine() -> (crate::tmush::shop::ShopRecord, Vec<cr
     pin.flags = vec![ObjectFlag::Clonable];
     pin.takeable = true;
     trinkets.push(pin);
-    vending_machine.add_item(ShopItem::limited("trinket_pin".to_string(), 30)).ok();
-    
+    vending_machine
+        .add_item(ShopItem::limited("trinket_pin".to_string(), 30))
+        .ok();
+
     // Trinket 3: Storm '19 Memorial Coin - 75 coins
     let mut coin = ObjectRecord::new_world(
         "trinket_coin",
@@ -1070,8 +1074,10 @@ pub fn seed_starter_vending_machine() -> (crate::tmush::shop::ShopRecord, Vec<cr
     coin.flags = vec![ObjectFlag::Clonable];
     coin.takeable = true;
     trinkets.push(coin);
-    vending_machine.add_item(ShopItem::limited("trinket_coin".to_string(), 20)).ok();
-    
+    vending_machine
+        .add_item(ShopItem::limited("trinket_coin".to_string(), 20))
+        .ok();
+
     // Trinket 4: Museum Replica Node - 100 coins
     let mut replica = ObjectRecord::new_world(
         "trinket_replica",
@@ -1085,8 +1091,10 @@ pub fn seed_starter_vending_machine() -> (crate::tmush::shop::ShopRecord, Vec<cr
     replica.flags = vec![ObjectFlag::Clonable];
     replica.takeable = true;
     trinkets.push(replica);
-    vending_machine.add_item(ShopItem::limited("trinket_replica".to_string(), 10)).ok();
-    
+    vending_machine
+        .add_item(ShopItem::limited("trinket_replica".to_string(), 10))
+        .ok();
+
     (vending_machine, trinkets)
 }
 
@@ -1600,23 +1608,28 @@ pub fn seed_npc_dialogues_if_needed(
                 .with_choice(DialogChoice::new("They're quite fascinating!").exit())
                 .with_choice(DialogChoice::new("The teleport stone works perfectly!").exit()));
 
-                tree.insert("kit_details".to_string(), DialogNode::new(
-                    "The research kit includes:\n\
+                tree.insert(
+                    "kit_details".to_string(),
+                    DialogNode::new(
+                        "The research kit includes:\n\
                     • A Healing Potion - demonstrates early medicinal technology\n\
                     • An Ancient Key - shows pre-mesh security systems\n\
                     • A Mystery Box - random reward mechanisms from old games\n\
                     • A Tattered Note - fragment of historical correspondence\n\
                     • A Teleport Stone - experimental transit technology\n\
                     • A Singing Mushroom - bioluminescent communication experiment\n\n\
-                    These are working replicas you can use and study!"
-                )
-                .with_choice(DialogChoice::new("I'll take the kit!")
-                    .goto("receive_kit")
-                    .with_condition(DialogCondition::HasFlag { 
-                        flag: "received_research_kit".to_string(), 
-                        value: false 
-                    }))
-                .with_choice(DialogChoice::new("Sounds fascinating!").exit()));
+                    These are working replicas you can use and study!",
+                    )
+                    .with_choice(
+                        DialogChoice::new("I'll take the kit!")
+                            .goto("receive_kit")
+                            .with_condition(DialogCondition::HasFlag {
+                                flag: "received_research_kit".to_string(),
+                                value: false,
+                            }),
+                    )
+                    .with_choice(DialogChoice::new("Sounds fascinating!").exit()),
+                );
 
                 tree.insert("receive_kit".to_string(), DialogNode::new(
                     "Excellent! Here's your museum research kit. Please document your findings - \
@@ -1863,7 +1876,8 @@ pub fn create_example_trigger_objects(now: DateTime<Utc>) -> Vec<ObjectRecord> {
         id: "vendor_basic_knife".to_string(),
         name: "Basic Knife".to_string(),
         description: "A simple but sturdy knife with a wooden handle. Perfect for cutting rope, \
-preparing food, or general utility tasks. The blade is sharp and well-maintained.".to_string(),
+preparing food, or general utility tasks. The blade is sharp and well-maintained."
+            .to_string(),
         owner: ObjectOwner::World,
         created_at: now,
         weight: 1,
@@ -1890,7 +1904,8 @@ preparing food, or general utility tasks. The blade is sharp and well-maintained
         description: "A professional-grade signal booster manufactured by Mira's family workshop. \
 Extends mesh network range by 50% and improves signal clarity in weak areas. Essential equipment \
 for wilderness exploration. The copper coils are wrapped with precision, and the circuit board \
-bears the family mark of quality.".to_string(),
+bears the family mark of quality."
+            .to_string(),
         owner: ObjectOwner::World,
         created_at: now,
         weight: 3,
@@ -1929,10 +1944,12 @@ pub fn create_content_objects(now: DateTime<Utc>) -> Vec<ObjectRecord> {
     let rumor_board = ObjectRecord {
         id: "rumor_board".to_string(),
         name: "Rumor Board".to_string(),
-        description: "A large cork board mounted on the tavern wall, covered in handwritten notes, \
+        description:
+            "A large cork board mounted on the tavern wall, covered in handwritten notes, \
 sketches of signal patterns, and cryptic messages. Several notes mention 'unusual readings from \
 the Grove' and 'Old Graybeard needs help at the tower'. A faded map shows the Repeater Tower \
-to the north and marks something called 'Ancient Grove' to the east.".to_string(),
+to the north and marks something called 'Ancient Grove' to the east."
+                .to_string(),
         owner: ObjectOwner::World,
         created_at: now,
         weight: 100, // Heavy, wall-mounted
@@ -1986,7 +2003,8 @@ USE this panel to run the full diagnostic sequence.".to_string(),
         description: "A large directional antenna mounted on a swivel base, pointing north toward \
 Pine Ridge Trail. The antenna has signal strength indicators showing moderate activity. A small \
 panel displays 'NORTH SECTOR: 78% OPTIMAL' in green LEDs. The mounting bolts show signs of recent \
-maintenance.".to_string(),
+maintenance."
+            .to_string(),
         owner: ObjectOwner::World,
         created_at: now,
         weight: 200, // Very heavy equipment
@@ -2007,7 +2025,7 @@ maintenance.".to_string(),
     objects.push(northern_array);
 
     // 4. Carved Symbols - Ancient Grove (4 trees with carvings)
-    
+
     // Oak Tree Symbols
     let carved_symbols_oak = ObjectRecord {
         id: "carved_symbols_oak".to_string(),
@@ -2015,7 +2033,8 @@ maintenance.".to_string(),
         description: "Ancient carvings etched into the massive oak trunk. The primary symbol is a \
 circle with radiating lines - like a sun, or perhaps a signal broadcast pattern. The grooves are \
 worn smooth by centuries of weather, but the design is still clear. Around it are smaller symbols \
-that might be letters or numbers in an old script.".to_string(),
+that might be letters or numbers in an old script."
+            .to_string(),
         owner: ObjectOwner::World,
         created_at: now,
         weight: 255, // Immovable (part of tree)
@@ -2065,9 +2084,11 @@ this one. Moss has grown in the grooves, giving the symbol a green glow in the d
     let carved_symbols_willow = ObjectRecord {
         id: "carved_symbols_willow".to_string(),
         name: "Willow Tree Carvings".to_string(),
-        description: "On the willow's bark: a triangular symbol with a dot at each point, connected \
+        description:
+            "On the willow's bark: a triangular symbol with a dot at each point, connected \
 by curved lines. It resembles a network topology diagram - nodes and connections. The willow's \
-drooping branches frame the symbol, creating an almost shrine-like atmosphere.".to_string(),
+drooping branches frame the symbol, creating an almost shrine-like atmosphere."
+                .to_string(),
         owner: ObjectOwner::World,
         created_at: now,
         weight: 255,
@@ -2091,9 +2112,11 @@ drooping branches frame the symbol, creating an almost shrine-like atmosphere.".
     let carved_symbols_ash = ObjectRecord {
         id: "carved_symbols_ash".to_string(),
         name: "Ash Tree Carvings".to_string(),
-        description: "The ash tree shows the final symbol: a spiral that winds inward to a central \
+        description:
+            "The ash tree shows the final symbol: a spiral that winds inward to a central \
 point. Unlike the others, this one has a small hollow at the spiral's center, as if something was \
-once placed there. The spiral draws your eye inward, making you feel both calm and alert.".to_string(),
+once placed there. The spiral draws your eye inward, making you feel both calm and alert."
+                .to_string(),
         owner: ObjectOwner::World,
         created_at: now,
         weight: 255,
@@ -2117,13 +2140,15 @@ once placed there. The spiral draws your eye inward, making you feel both calm a
     let crafting_bench = ObjectRecord {
         id: "crafting_bench".to_string(),
         name: "Crafting Bench".to_string(),
-        description: "A sturdy workbench made of scarred oak, covered with tools, wire spools, and \
+        description:
+            "A sturdy workbench made of scarred oak, covered with tools, wire spools, and \
 organized bins of components. A hand-written recipe card is pinned to the wall:\n\n\
 📋 CRAFTING RECIPES:\n\
   • Signal Booster: 1 wire + 1 scrap metal\n\
   • Basic Antenna: 2 wire + 1 basic component\n\n\
 The bench has a vice, soldering iron, wire cutters, and various other tools. Everything is neatly \
-organized and well-maintained. A sign reads: 'USE CRAFT <recipe_name> to create items'.".to_string(),
+organized and well-maintained. A sign reads: 'USE CRAFT <recipe_name> to create items'."
+                .to_string(),
         owner: ObjectOwner::World,
         created_at: now,
         weight: 255,
@@ -2144,12 +2169,13 @@ organized and well-maintained. A sign reads: 'USE CRAFT <recipe_name> to create 
     objects.push(crafting_bench);
 
     // 6. Crafting Materials (takeable items scattered across locations)
-    
+
     // Wire Spools (multiple locations)
     let wire_spool_1 = ObjectRecord {
         id: "wire_spool_1".to_string(),
         name: "Wire Spool".to_string(),
-        description: "A small spool of insulated copper wire, perfect for making signal equipment.".to_string(),
+        description: "A small spool of insulated copper wire, perfect for making signal equipment."
+            .to_string(),
         owner: ObjectOwner::World,
         created_at: now,
         weight: 1,
@@ -2172,7 +2198,8 @@ organized and well-maintained. A sign reads: 'USE CRAFT <recipe_name> to create 
     let wire_spool_2 = ObjectRecord {
         id: "wire_spool_2".to_string(),
         name: "Wire Spool".to_string(),
-        description: "A small spool of insulated copper wire, perfect for making signal equipment.".to_string(),
+        description: "A small spool of insulated copper wire, perfect for making signal equipment."
+            .to_string(),
         owner: ObjectOwner::World,
         created_at: now,
         weight: 1,
@@ -2196,7 +2223,9 @@ organized and well-maintained. A sign reads: 'USE CRAFT <recipe_name> to create 
     let scrap_metal_1 = ObjectRecord {
         id: "scrap_metal_1".to_string(),
         name: "Scrap Metal".to_string(),
-        description: "A piece of salvaged metal housing from old equipment. Still useful for crafting.".to_string(),
+        description:
+            "A piece of salvaged metal housing from old equipment. Still useful for crafting."
+                .to_string(),
         owner: ObjectOwner::World,
         created_at: now,
         weight: 2,
@@ -2219,7 +2248,9 @@ organized and well-maintained. A sign reads: 'USE CRAFT <recipe_name> to create 
     let scrap_metal_2 = ObjectRecord {
         id: "scrap_metal_2".to_string(),
         name: "Scrap Metal".to_string(),
-        description: "A piece of salvaged metal housing from old equipment. Still useful for crafting.".to_string(),
+        description:
+            "A piece of salvaged metal housing from old equipment. Still useful for crafting."
+                .to_string(),
         owner: ObjectOwner::World,
         created_at: now,
         weight: 2,
@@ -2243,7 +2274,9 @@ organized and well-maintained. A sign reads: 'USE CRAFT <recipe_name> to create 
     let basic_component_1 = ObjectRecord {
         id: "basic_component_1".to_string(),
         name: "Basic Component".to_string(),
-        description: "A salvaged circuit board with useful capacitors and resistors still attached.".to_string(),
+        description:
+            "A salvaged circuit board with useful capacitors and resistors still attached."
+                .to_string(),
         owner: ObjectOwner::World,
         created_at: now,
         weight: 1,
@@ -2269,7 +2302,8 @@ organized and well-maintained. A sign reads: 'USE CRAFT <recipe_name> to create 
         name: "Torch".to_string(),
         description: "A sturdy wooden torch wrapped with oil-soaked cloth. When lit, it provides \
 reliable illumination for exploring dark spaces. The flame flickers steadily, casting dancing \
-shadows on nearby surfaces. Essential equipment for venturing into the maintenance tunnels.".to_string(),
+shadows on nearby surfaces. Essential equipment for venturing into the maintenance tunnels."
+            .to_string(),
         owner: ObjectOwner::World,
         created_at: now,
         weight: 1,
@@ -2290,14 +2324,16 @@ shadows on nearby surfaces. Essential equipment for venturing into the maintenan
     objects.push(torch);
 
     // 8. Additional Crafting Materials for recipes
-    
+
     // Copper Wire (used in signal_booster and basic_antenna recipes)
     let copper_wire = ObjectRecord {
         id: "copper_wire".to_string(),
         name: "Copper Wire".to_string(),
-        description: "High-quality copper wire suitable for antenna construction and signal routing. \
+        description:
+            "High-quality copper wire suitable for antenna construction and signal routing. \
 The wire is flexible yet durable, with excellent conductivity properties. Essential for advanced \
-crafting projects.".to_string(),
+crafting projects."
+                .to_string(),
         owner: ObjectOwner::World,
         created_at: now,
         weight: 1,
@@ -2323,7 +2359,8 @@ crafting projects.".to_string(),
         name: "Antenna Rod".to_string(),
         description: "A telescoping metal rod designed for antenna construction. When extended, \
 it can serve as an effective radiating element for mesh signals. The rod has calibration marks \
-for optimal frequency tuning.".to_string(),
+for optimal frequency tuning."
+            .to_string(),
         owner: ObjectOwner::World,
         created_at: now,
         weight: 2,
@@ -2349,7 +2386,8 @@ for optimal frequency tuning.".to_string(),
         name: "Crystal Shard".to_string(),
         description: "A translucent crystal fragment with unusual electromagnetic properties. \
 When held near active mesh equipment, it seems to resonate faintly. Local legends claim these \
-crystals were used in ancient communication rituals.".to_string(),
+crystals were used in ancient communication rituals."
+            .to_string(),
         owner: ObjectOwner::World,
         created_at: now,
         weight: 1,
@@ -2375,7 +2413,8 @@ crystals were used in ancient communication rituals.".to_string(),
         name: "Signal Capacitor".to_string(),
         description: "A high-capacity electrolytic capacitor designed for RF signal filtering. \
 The component is labeled with technical specifications and has a slight blue glow from its \
-charge indicator. Used in advanced signal processing circuits.".to_string(),
+charge indicator. Used in advanced signal processing circuits."
+            .to_string(),
         owner: ObjectOwner::World,
         created_at: now,
         weight: 1,
@@ -2398,13 +2437,15 @@ charge indicator. Used in advanced signal processing circuits.".to_string(),
     // ==================== PHASE 4 QUEST OBJECTS ====================
 
     // CIPHER QUEST SYMBOLS (Phase 4.2) - Must be examined in order: Spring, Summer, Autumn, Winter
-    
+
     let cipher_spring = ObjectRecord {
         id: "cipher_spring".to_string(),
         name: "Spring Glyph".to_string(),
-        description: "A stone tablet carved with an intricate symbol representing spring: sprouting \
+        description:
+            "A stone tablet carved with an intricate symbol representing spring: sprouting \
 seedlings emerging from soil, surrounded by dewdrops and young leaves. The carving style matches \
-ancient pre-mesh artifacts. Small text below reads: 'GROWTH - The First Signal'.".to_string(),
+ancient pre-mesh artifacts. Small text below reads: 'GROWTH - The First Signal'."
+                .to_string(),
         owner: ObjectOwner::World,
         created_at: now,
         weight: 50,
@@ -2427,9 +2468,11 @@ ancient pre-mesh artifacts. Small text below reads: 'GROWTH - The First Signal'.
     let cipher_summer = ObjectRecord {
         id: "cipher_summer".to_string(),
         name: "Summer Glyph".to_string(),
-        description: "A stone tablet showing the summer symbol: a blazing sun with strong, bold rays \
+        description:
+            "A stone tablet showing the summer symbol: a blazing sun with strong, bold rays \
 reaching in all directions. The carving depicts maximum energy and reach. Text reads: 'STRENGTH - \
-The Broadcast Peak'.".to_string(),
+The Broadcast Peak'."
+                .to_string(),
         owner: ObjectOwner::World,
         created_at: now,
         weight: 50,
@@ -2500,13 +2543,15 @@ each subdividing into smaller patterns. Beneath it: bare trees storing energy un
     objects.push(cipher_winter);
 
     // LOST ARTIFACT QUEST GLYPHS (Phase 4.2 - Epic Quest)
-    
+
     let ruins_glyph_alpha = ObjectRecord {
         id: "ruins_glyph_alpha".to_string(),
         name: "Alpha Glyph".to_string(),
-        description: "A weathered stone pillar bearing the first glyph: a simple upward arrow with \
+        description:
+            "A weathered stone pillar bearing the first glyph: a simple upward arrow with \
 three horizontal lines beneath it. This represents 'TRANSMIT'. The stone is worn but the carving \
-remains deep and clear.".to_string(),
+remains deep and clear."
+                .to_string(),
         owner: ObjectOwner::World,
         created_at: now,
         weight: 100,
@@ -2529,8 +2574,10 @@ remains deep and clear.".to_string(),
     let ruins_glyph_beta = ObjectRecord {
         id: "ruins_glyph_beta".to_string(),
         name: "Beta Glyph".to_string(),
-        description: "The second pillar shows a circle with radiating waves - the universal symbol \
-for 'RECEIVE'. Moss grows in the carved grooves, giving it an eerie green glow in dim light.".to_string(),
+        description:
+            "The second pillar shows a circle with radiating waves - the universal symbol \
+for 'RECEIVE'. Moss grows in the carved grooves, giving it an eerie green glow in dim light."
+                .to_string(),
         owner: ObjectOwner::World,
         created_at: now,
         weight: 100,
@@ -2554,7 +2601,8 @@ for 'RECEIVE'. Moss grows in the carved grooves, giving it an eerie green glow i
         id: "ruins_glyph_gamma".to_string(),
         name: "Gamma Glyph".to_string(),
         description: "The third glyph depicts two circles connected by a curved line - 'RELAY'. \
-This symbol appears on ancient communication equipment throughout the mesh.".to_string(),
+This symbol appears on ancient communication equipment throughout the mesh."
+            .to_string(),
         owner: ObjectOwner::World,
         created_at: now,
         weight: 100,
@@ -2604,9 +2652,11 @@ it seems to shimmer as you examine it.".to_string(),
     let lantern = ObjectRecord {
         id: "lantern".to_string(),
         name: "LED Lantern".to_string(),
-        description: "A modern LED lantern powered by a small battery pack. Provides bright, steady \
+        description:
+            "A modern LED lantern powered by a small battery pack. Provides bright, steady \
 illumination for navigating dark spaces. Much more reliable than torches and won't run out during \
-exploration. Has adjustable brightness settings.".to_string(),
+exploration. Has adjustable brightness settings."
+                .to_string(),
         owner: ObjectOwner::World,
         created_at: now,
         weight: 2,
@@ -2652,13 +2702,15 @@ reliable. Commonly used by tunnel maintenance crews.".to_string(),
     objects.push(glowstick);
 
     // CRAFTING MATERIALS & RECIPES (Phase 4.4)
-    
+
     // Additional crafting components beyond basic ones already defined
     let crystal_oscillator = ObjectRecord {
         id: "crystal_oscillator".to_string(),
         name: "Crystal Oscillator".to_string(),
-        description: "A precision electronic component - a small quartz crystal that oscillates at \
-an exact frequency. Essential for advanced signal processing equipment. Rare and valuable.".to_string(),
+        description:
+            "A precision electronic component - a small quartz crystal that oscillates at \
+an exact frequency. Essential for advanced signal processing equipment. Rare and valuable."
+                .to_string(),
         owner: ObjectOwner::World,
         created_at: now,
         weight: 1,
@@ -2682,7 +2734,8 @@ an exact frequency. Essential for advanced signal processing equipment. Rare and
         id: "power_cell".to_string(),
         name: "Power Cell".to_string(),
         description: "A rechargeable battery cell used to power portable equipment. Still holds a \
-charge. Can be used in crafting or sold for credits.".to_string(),
+charge. Can be used in crafting or sold for credits."
+            .to_string(),
         owner: ObjectOwner::World,
         created_at: now,
         weight: 2,
@@ -2705,8 +2758,10 @@ charge. Can be used in crafting or sold for credits.".to_string(),
     let circuit_board = ObjectRecord {
         id: "circuit_board".to_string(),
         name: "Circuit Board".to_string(),
-        description: "A bare printed circuit board with copper traces ready for component placement. \
-Used in advanced crafting projects. The traces form an elegant pattern of interconnected pathways.".to_string(),
+        description:
+            "A bare printed circuit board with copper traces ready for component placement. \
+Used in advanced crafting projects. The traces form an elegant pattern of interconnected pathways."
+                .to_string(),
         owner: ObjectOwner::World,
         created_at: now,
         weight: 1,
@@ -2739,7 +2794,7 @@ Used in advanced crafting projects. The traces form an elegant pattern of interc
 pub fn create_content_npcs(now: DateTime<Utc>) -> Vec<crate::tmush::types::NpcRecord> {
     use crate::tmush::types::{DialogChoice, DialogNode, NpcRecord};
     use std::collections::HashMap;
-    
+
     let mut npcs = Vec::new();
 
     // 1. OLD GRAYBEARD - Repeater Tower technician and quest giver
@@ -2755,15 +2810,18 @@ Despite his age, his movements are precise and purposeful as he tends to the tow
     );
 
     let mut graybeard_tree = HashMap::new();
-    
+
     // Greeting node
-    graybeard_tree.insert("greeting".to_string(), DialogNode::new(
-        "Ah, a visitor! Not many folks make the climb up here. I'm Graybeard - been keeping \
-this tower running for nigh on forty years now. What brings you up to my domain?"
-    )
-    .with_choice(DialogChoice::new("What is this place?").goto("about_tower"))
-    .with_choice(DialogChoice::new("Can I help with anything?").goto("quest_offer"))
-    .with_choice(DialogChoice::new("Just looking around").exit()));
+    graybeard_tree.insert(
+        "greeting".to_string(),
+        DialogNode::new(
+            "Ah, a visitor! Not many folks make the climb up here. I'm Graybeard - been keeping \
+this tower running for nigh on forty years now. What brings you up to my domain?",
+        )
+        .with_choice(DialogChoice::new("What is this place?").goto("about_tower"))
+        .with_choice(DialogChoice::new("Can I help with anything?").goto("quest_offer"))
+        .with_choice(DialogChoice::new("Just looking around").exit()),
+    );
 
     // About the tower
     graybeard_tree.insert("about_tower".to_string(), DialogNode::new(
@@ -3081,7 +3139,7 @@ diagnostic panel, climb to the upper platform, and inspect the northern array an
     );
 
     tower_diagnostics.created_at = now;
-    
+
     tower_diagnostics = tower_diagnostics
         .with_objective(QuestObjective::new(
             "Talk to Old Graybeard",
@@ -3130,7 +3188,7 @@ Visit the grove and examine the four great trees in the proper sequence: oak, el
     );
 
     grove_mystery.created_at = now;
-    
+
     grove_mystery = grove_mystery
         .with_prerequisite("tower_diagnostics") // Must complete tower quest first
         .with_objective(QuestObjective::new(
@@ -3196,7 +3254,7 @@ salvage materials. Navigate the tunnels and collect useful components for the co
     );
 
     tunnel_salvage.created_at = now;
-    
+
     tunnel_salvage = tunnel_salvage
         .with_objective(QuestObjective::new(
             "Enter the maintenance tunnels",
@@ -3245,7 +3303,7 @@ salvage materials. Navigate the tunnels and collect useful components for the co
     );
 
     first_craft.created_at = now;
-    
+
     first_craft = first_craft
         .with_objective(QuestObjective::new(
             "Talk to Tinker Brass",
@@ -3299,7 +3357,7 @@ the cycle of seasons: Spring (growth), Summer (strength), Autumn (change), Winte
     );
 
     the_cipher.created_at = now;
-    
+
     the_cipher = the_cipher
         .with_prerequisite("grove_mystery") // Must complete grove mystery first
         .with_objective(QuestObjective::new(
@@ -3345,7 +3403,7 @@ need a light source to navigate safely. Rumors speak of a hidden chamber contain
     );
 
     into_the_depths.created_at = now;
-    
+
     into_the_depths = into_the_depths
         .with_prerequisite("tunnel_salvage") // Must complete tunnel salvage first
         .with_objective(QuestObjective::new(
@@ -3394,7 +3452,7 @@ multiple items from scratch: an antenna, a relay module, and finally a complex s
     );
 
     master_artisan.created_at = now;
-    
+
     master_artisan = master_artisan
         .with_prerequisite("first_craft") // Must complete basic crafting first
         .with_objective(QuestObjective::new(
@@ -3439,7 +3497,7 @@ unlock the artifact chamber. This is the ultimate test of your skills.",
     );
 
     the_lost_artifact.created_at = now;
-    
+
     the_lost_artifact = the_lost_artifact
         .with_prerequisite("the_cipher") // Must complete cipher quest
         .with_prerequisite("into_the_depths") // Must complete dark navigation quest
@@ -3506,7 +3564,7 @@ unlock the artifact chamber. This is the ultimate test of your skills.",
 /// Create faction definitions for the reputation system (Phase 5)
 pub fn create_factions() -> Vec<crate::tmush::types::FactionRecord> {
     use crate::tmush::types::FactionRecord;
-    
+
     let mut factions = Vec::new();
 
     // FACTION 1: Old Towne Citizens
@@ -3555,7 +3613,10 @@ with maps, equipment, and tales of distant places.",
     .with_quest("tunnel_salvage")
     .with_quest("into_the_depths")
     .with_benefit("Friendly", "Access to exploration maps, 10% faster travel")
-    .with_benefit("Honored", "Pathfinder title, rare light sources, danger sense")
+    .with_benefit(
+        "Honored",
+        "Pathfinder title, rare light sources, danger sense",
+    )
     .with_benefit("Revered", "Legendary Explorer title, teleportation access");
 
     factions.push(wanderers);

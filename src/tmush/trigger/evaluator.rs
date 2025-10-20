@@ -424,7 +424,7 @@ impl<'a> Evaluator<'a> {
         // Add to player's inventory using proper inventory system
         use crate::tmush::inventory::add_item_to_inventory;
         use crate::tmush::types::{InventoryConfig, InventoryResult};
-        
+
         match self.store.get_player(&self.context.player_username) {
             Ok(mut player) => {
                 match self.store.get_object(&item_id) {
@@ -433,18 +433,18 @@ impl<'a> Evaluator<'a> {
                         match add_item_to_inventory(&mut player, &object, 1, &config) {
                             InventoryResult::Added { .. } => {
                                 player.updated_at = chrono::Utc::now();
-                                
+
                                 if let Err(e) = self.store.put_player(player) {
                                     return Err(format!("Failed to grant item: {}", e));
                                 }
-                                
+
                                 self.messages.push(format!("🎁 Received: {}!", object.name));
                                 Ok(Value::Boolean(true))
                             }
                             InventoryResult::Failed { reason } => {
                                 Err(format!("Could not add item: {}", reason))
                             }
-                            _ => Ok(Value::Boolean(false)) // Other result types
+                            _ => Ok(Value::Boolean(false)), // Other result types
                         }
                     }
                     Err(e) => Err(format!("Failed to load object: {}", e)),
@@ -458,7 +458,7 @@ impl<'a> Evaluator<'a> {
         // Consume the object that triggered this script (remove from inventory and delete)
         use crate::tmush::inventory::remove_item_from_inventory;
         use crate::tmush::types::InventoryResult;
-        
+
         let object_id = self.context.object_id.clone();
 
         // Remove from player's inventory using proper inventory system
@@ -474,20 +474,21 @@ impl<'a> Evaluator<'a> {
 
                         // Delete the object (optional - could leave as orphan)
                         // For now, just remove from inventory
-                        
+
                         // Get object name for better message
-                        let object_name = self.store
+                        let object_name = self
+                            .store
                             .get_object(&object_id)
                             .map(|obj| obj.name)
                             .unwrap_or_else(|_| object_id.clone());
-                            
+
                         self.messages.push(format!("💨 {} consumed!", object_name));
                         Ok(Value::Boolean(true))
                     }
                     InventoryResult::Failed { .. } => {
                         Ok(Value::Boolean(false)) // Item not in inventory
                     }
-                    _ => Ok(Value::Boolean(false)) // Other result types
+                    _ => Ok(Value::Boolean(false)), // Other result types
                 }
             }
             Err(e) => Err(format!("Failed to get player: {}", e)),
@@ -824,7 +825,10 @@ mod tests {
 
         // Verify player has the item in inventory_stacks
         let player = store.get_player("test_player").unwrap();
-        assert!(player.inventory_stacks.iter().any(|s| s.object_id == "magic_key"));
+        assert!(player
+            .inventory_stacks
+            .iter()
+            .any(|s| s.object_id == "magic_key"));
     }
 
     #[test]
@@ -893,7 +897,12 @@ mod tests {
 
         // Verify BOTH messages were added
         let messages = evaluator.messages();
-        assert_eq!(messages.len(), 2, "Should have 2 messages, got: {:?}", messages);
+        assert_eq!(
+            messages.len(),
+            2,
+            "Should have 2 messages, got: {:?}",
+            messages
+        );
         assert_eq!(messages[0], "✨ Flash!");
         assert!(messages[1].contains("Teleported to destination_room"));
 
@@ -909,11 +918,13 @@ mod tests {
         // Create player with an item in inventory_stacks
         let mut player =
             crate::tmush::types::PlayerRecord::new("test_player", "Test Player", "test_room");
-        player.inventory_stacks.push(crate::tmush::types::ItemStack {
-            object_id: "potion".to_string(),
-            quantity: 1,
-            added_at: chrono::Utc::now(),
-        });
+        player
+            .inventory_stacks
+            .push(crate::tmush::types::ItemStack {
+                object_id: "potion".to_string(),
+                quantity: 1,
+                added_at: chrono::Utc::now(),
+            });
         store.put_player(player).unwrap();
 
         // Set context object to the potion
@@ -931,7 +942,10 @@ mod tests {
 
         // Verify item removed from inventory_stacks
         let player = store.get_player("test_player").unwrap();
-        assert!(!player.inventory_stacks.iter().any(|s| s.object_id == "potion"));
+        assert!(!player
+            .inventory_stacks
+            .iter()
+            .any(|s| s.object_id == "potion"));
     }
 
     #[test]

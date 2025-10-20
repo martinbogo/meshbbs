@@ -18,30 +18,37 @@ pub fn load_npcs_from_json<P: AsRef<Path>>(path: P) -> Result<Vec<NpcRecord>, Ti
     let path = path.as_ref();
     let contents = fs::read_to_string(path)?;
 
-    let npcs: Vec<NpcSeed> = serde_json::from_str(&contents)
-        .map_err(|e| TinyMushError::Io(std::io::Error::new(
+    let npcs: Vec<NpcSeed> = serde_json::from_str(&contents).map_err(|e| {
+        TinyMushError::Io(std::io::Error::new(
             std::io::ErrorKind::InvalidData,
             format!("Failed to parse {}: {}", path.display(), e),
-        )))?;
+        ))
+    })?;
 
     // Convert seed format to NpcRecord
     let records: Vec<NpcRecord> = npcs
         .into_iter()
         .map(|seed| {
-            let mut npc = NpcRecord::new(&seed.id, &seed.name, &seed.title, &seed.description, &seed.location);
-            
+            let mut npc = NpcRecord::new(
+                &seed.id,
+                &seed.name,
+                &seed.title,
+                &seed.description,
+                &seed.location,
+            );
+
             // Add dialogues
             for (topic, text) in seed.dialogues {
                 npc = npc.with_dialog(&topic, &text);
             }
-            
+
             // Add flags
             for flag_str in seed.flags {
                 if let Ok(flag) = serde_json::from_value(serde_json::json!(flag_str)) {
                     npc = npc.with_flag(flag);
                 }
             }
-            
+
             npc
         })
         .collect();
@@ -56,11 +63,12 @@ pub fn load_companions_from_json<P: AsRef<Path>>(
     let path = path.as_ref();
     let contents = fs::read_to_string(path)?;
 
-    let companions: Vec<CompanionSeed> = serde_json::from_str(&contents)
-        .map_err(|e| TinyMushError::Io(std::io::Error::new(
+    let companions: Vec<CompanionSeed> = serde_json::from_str(&contents).map_err(|e| {
+        TinyMushError::Io(std::io::Error::new(
             std::io::ErrorKind::InvalidData,
             format!("Failed to parse {}: {}", path.display(), e),
-        )))?;
+        ))
+    })?;
 
     // Convert seed format to CompanionRecord
     let records: Vec<CompanionRecord> = companions
@@ -73,8 +81,9 @@ pub fn load_companions_from_json<P: AsRef<Path>>(
                 "Cat" => CompanionType::Cat,
                 _ => CompanionType::Dog, // Default fallback
             };
-            
-            let mut companion = CompanionRecord::new(&seed.id, &seed.name, companion_type, &seed.location);
+
+            let mut companion =
+                CompanionRecord::new(&seed.id, &seed.name, companion_type, &seed.location);
             if let Some(desc) = seed.description {
                 companion = companion.with_description(&desc);
             }
@@ -90,11 +99,12 @@ pub fn load_rooms_from_json<P: AsRef<Path>>(path: P) -> Result<Vec<RoomRecord>, 
     let path = path.as_ref();
     let contents = fs::read_to_string(path)?;
 
-    let rooms: Vec<RoomSeed> = serde_json::from_str(&contents)
-        .map_err(|e| TinyMushError::Io(std::io::Error::new(
+    let rooms: Vec<RoomSeed> = serde_json::from_str(&contents).map_err(|e| {
+        TinyMushError::Io(std::io::Error::new(
             std::io::ErrorKind::InvalidData,
             format!("Failed to parse {}: {}", path.display(), e),
-        )))?;
+        ))
+    })?;
 
     use crate::tmush::types::{Direction, RoomFlag};
     use chrono::Utc;
@@ -170,11 +180,12 @@ pub fn load_achievements_from_json<P: AsRef<Path>>(
     let contents = fs::read_to_string(path)?;
 
     // Deserialize directly to AchievementRecord since it already has serde support
-    let achievements: Vec<AchievementSeed> = serde_json::from_str(&contents)
-        .map_err(|e| TinyMushError::Io(std::io::Error::new(
+    let achievements: Vec<AchievementSeed> = serde_json::from_str(&contents).map_err(|e| {
+        TinyMushError::Io(std::io::Error::new(
             std::io::ErrorKind::InvalidData,
             format!("Failed to parse {}: {}", path.display(), e),
-        )))?;
+        ))
+    })?;
 
     let records: Vec<AchievementRecord> = achievements
         .into_iter()
@@ -203,18 +214,17 @@ pub fn load_achievements_from_json<P: AsRef<Path>>(
 }
 
 /// Load quests from data/seeds/quests.json
-pub fn load_quests_from_json<P: AsRef<Path>>(
-    path: P,
-) -> Result<Vec<QuestRecord>, TinyMushError> {
+pub fn load_quests_from_json<P: AsRef<Path>>(path: P) -> Result<Vec<QuestRecord>, TinyMushError> {
     let path = path.as_ref();
     let contents = fs::read_to_string(path)?;
 
     // QuestRecord should already have Deserialize support
-    let quests: Vec<QuestRecord> = serde_json::from_str(&contents)
-        .map_err(|e| TinyMushError::Io(std::io::Error::new(
+    let quests: Vec<QuestRecord> = serde_json::from_str(&contents).map_err(|e| {
+        TinyMushError::Io(std::io::Error::new(
             std::io::ErrorKind::InvalidData,
             format!("Failed to parse {}: {}", path.display(), e),
-        )))?;
+        ))
+    })?;
 
     Ok(quests)
 }
@@ -227,11 +237,12 @@ pub fn load_recipes_from_json<P: AsRef<Path>>(
     let contents = fs::read_to_string(path)?;
 
     // CraftingRecipe should already have Deserialize support
-    let recipes: Vec<CraftingRecipe> = serde_json::from_str(&contents)
-        .map_err(|e| TinyMushError::Io(std::io::Error::new(
+    let recipes: Vec<CraftingRecipe> = serde_json::from_str(&contents).map_err(|e| {
+        TinyMushError::Io(std::io::Error::new(
             std::io::ErrorKind::InvalidData,
             format!("Failed to parse {}: {}", path.display(), e),
-        )))?;
+        ))
+    })?;
 
     Ok(recipes)
 }

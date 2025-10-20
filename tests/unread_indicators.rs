@@ -1,8 +1,8 @@
 use chrono::{Duration, Utc};
 use meshbbs::bbs::BbsServer;
 use meshbbs::config::{
-    BbsConfig, Config, GamesConfig, IdentBeaconConfig, LoggingConfig, MeshtasticConfig,
-    MessageTopicConfig, StorageConfig, WeatherConfig,
+    AdminDashboardConfig, BbsConfig, Config, GamesConfig, IdentBeaconConfig, LoggingConfig,
+    MeshtasticConfig, MessageTopicConfig, StorageConfig, WeatherConfig,
 };
 use std::collections::HashMap;
 
@@ -84,6 +84,7 @@ async fn unread_indicators_topics_and_threads() {
             cooldown_minutes: 5,
             max_welcomes_per_node: 1,
         },
+        admin_dashboard: AdminDashboardConfig::default(),
     };
 
     let mut server = BbsServer::new(cfg.clone()).await.unwrap();

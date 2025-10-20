@@ -1,6 +1,5 @@
 /// Integration tests for @NPC admin command system (Phase 2: Data-Driven Migration)
 /// Tests CRUD operations for data-driven NPC management using the storage layer directly.
-
 use meshbbs::tmush::types::{NpcFlag, NpcRecord};
 use meshbbs::tmush::{TinyMushStore, TinyMushStoreBuilder};
 use tempfile::TempDir;
@@ -116,28 +115,43 @@ fn npc_dialogue_management() {
         "NPC for dialogue testing",
         "test_room",
     );
-    
+
     // Add dialogue responses
-    npc.dialog.insert("greeting".to_string(), "Hello, traveler!".to_string());
-    npc.dialog.insert("farewell".to_string(), "Safe travels!".to_string());
-    npc.dialog.insert("quest".to_string(), "I have a task for you.".to_string());
-    
+    npc.dialog
+        .insert("greeting".to_string(), "Hello, traveler!".to_string());
+    npc.dialog
+        .insert("farewell".to_string(), "Safe travels!".to_string());
+    npc.dialog
+        .insert("quest".to_string(), "I have a task for you.".to_string());
+
     store.put_npc(npc.clone()).unwrap();
 
     // Verify dialogue was saved
     let retrieved = store.get_npc("dialogue_test").unwrap();
     assert_eq!(retrieved.dialog.len(), 3);
-    assert_eq!(retrieved.dialog.get("greeting").unwrap(), "Hello, traveler!");
+    assert_eq!(
+        retrieved.dialog.get("greeting").unwrap(),
+        "Hello, traveler!"
+    );
     assert_eq!(retrieved.dialog.get("farewell").unwrap(), "Safe travels!");
-    assert_eq!(retrieved.dialog.get("quest").unwrap(), "I have a task for you.");
+    assert_eq!(
+        retrieved.dialog.get("quest").unwrap(),
+        "I have a task for you."
+    );
 
     // Add more dialogue
-    npc.dialog.insert("trade".to_string(), "What do you want to trade?".to_string());
+    npc.dialog.insert(
+        "trade".to_string(),
+        "What do you want to trade?".to_string(),
+    );
     store.put_npc(npc.clone()).unwrap();
 
     let retrieved = store.get_npc("dialogue_test").unwrap();
     assert_eq!(retrieved.dialog.len(), 4);
-    assert_eq!(retrieved.dialog.get("trade").unwrap(), "What do you want to trade?");
+    assert_eq!(
+        retrieved.dialog.get("trade").unwrap(),
+        "What do you want to trade?"
+    );
 }
 
 #[test]
@@ -162,7 +176,7 @@ fn npc_flag_management() {
             "test_room",
         )
         .with_flag(flag.clone());
-        
+
         store.put_npc(npc).unwrap();
 
         let retrieved = store.get_npc(&format!("flag_{}", i)).unwrap();
@@ -184,7 +198,7 @@ fn npc_multiple_flags() {
     )
     .with_flag(NpcFlag::Vendor)
     .with_flag(NpcFlag::QuestGiver);
-    
+
     store.put_npc(npc).unwrap();
 
     let retrieved = store.get_npc("multi_flag").unwrap();
@@ -233,7 +247,7 @@ fn default_npcs_seeded() {
 
     // Verify some known starter NPCs exist
     let ids = store.list_npc_ids().unwrap();
-    
+
     // Check that we have the expected starter NPCs
     assert!(ids.len() >= 5, "Should have at least 5 starter NPCs");
 
@@ -251,6 +265,12 @@ fn default_npcs_seeded() {
 
     // Verify a seeded NPC has dialogue
     let mayor = store.get_npc("mayor_thompson").unwrap();
-    assert!(mayor.dialog.contains_key("greeting"), "Mayor should have greeting dialogue");
-    assert!(!mayor.dialog.is_empty(), "Mayor should have dialogue responses");
+    assert!(
+        mayor.dialog.contains_key("greeting"),
+        "Mayor should have greeting dialogue"
+    );
+    assert!(
+        !mayor.dialog.is_empty(),
+        "Mayor should have dialogue responses"
+    );
 }

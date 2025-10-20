@@ -69,7 +69,11 @@
   - [x] Phase 2c: Statistics API (comprehensive system metrics)
   - [~] Phase 2d: User management UI (in progress)
   - [ ] Phase 2e: Dashboard stats UI
-  - [ ] Phase 3: TinyMUSH content management (NPCs, Achievements, etc.)
+  - [ ] Phase 3a: TinyMUSH seed management API (list/create/update/delete for all seed files)
+  - [ ] Phase 3b: TinyMUSH runtime state controls (save, reload, wipe, backup download/upload)
+  - [ ] Phase 3c: Admin UI list/detail editors for TinyMUSH seeds (rooms, NPCs, quests, etc.)
+  - [ ] Phase 3d: Bulk operations and diff previews (multi-edit, import/export JSON)
+  - [ ] Phase 3e: Audit logging + permissions for TinyMUSH actions
 - [ ] Metrics and analytics system
 - [ ] Localization support (multiple languages)
 

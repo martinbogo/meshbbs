@@ -1,11 +1,10 @@
+use chrono::Utc;
 /// Integration tests for fuzzy object name matching and disambiguation
 /// Tests partial name matching, disambiguation menus, and selection handling
-
 use meshbbs::tmush::{
     storage::TinyMushStore,
     types::{ObjectOwner, ObjectRecord, RoomOwner, RoomRecord, RoomVisibility},
 };
-use chrono::Utc;
 use std::collections::HashMap;
 use tempfile::tempdir;
 
@@ -89,8 +88,16 @@ fn test_disambiguation_format_prompt() {
         "testuser",
         "take",
         "key",
-        vec!["ancient_key".to_string(), "rusty_key".to_string(), "broken_key".to_string()],
-        vec!["Ancient Key".to_string(), "Rusty Key".to_string(), "Broken Key".to_string()],
+        vec![
+            "ancient_key".to_string(),
+            "rusty_key".to_string(),
+            "broken_key".to_string(),
+        ],
+        vec![
+            "Ancient Key".to_string(),
+            "Rusty Key".to_string(),
+            "Broken Key".to_string(),
+        ],
         DisambiguationContext::Room,
     );
 
@@ -171,8 +178,11 @@ fn test_disambiguation_storage_operations() {
 
     // Test get
     let retrieved = store.get_disambiguation_session("testuser").unwrap();
-    assert!(retrieved.is_some(), "Failed to retrieve disambiguation session");
-    
+    assert!(
+        retrieved.is_some(),
+        "Failed to retrieve disambiguation session"
+    );
+
     let retrieved_session = retrieved.unwrap();
     assert_eq!(retrieved_session.player_id, "testuser");
     assert_eq!(retrieved_session.command, "examine");
@@ -307,29 +317,34 @@ fn test_fuzzy_matching_no_results() {
 
 #[test]
 fn test_fuzzy_matching_case_insensitive() {
-    let objects = vec![
-        create_test_object("test1", "Healing Potion", true),
-    ];
+    let objects = vec![create_test_object("test1", "Healing Potion", true)];
 
     // Test various case combinations
-    for search in &["HEALING", "healing", "Healing", "hEaLiNg", "POTION", "potion"] {
+    for search in &[
+        "HEALING", "healing", "Healing", "hEaLiNg", "POTION", "potion",
+    ] {
         let matches: Vec<&ObjectRecord> = objects
             .iter()
             .filter(|obj| obj.name.to_uppercase().contains(&search.to_uppercase()))
             .collect();
 
-        assert_eq!(matches.len(), 1, "Should match regardless of case: {}", search);
+        assert_eq!(
+            matches.len(),
+            1,
+            "Should match regardless of case: {}",
+            search
+        );
     }
 }
 
 #[test]
 fn test_fuzzy_matching_substring() {
-    let objects = vec![
-        create_test_object("test1", "Crystal Sword of Power", true),
-    ];
+    let objects = vec![create_test_object("test1", "Crystal Sword of Power", true)];
 
     // Test various substrings
-    for search in &["Crystal", "Sword", "Power", "Sword of", "of Power", "stal Swo"] {
+    for search in &[
+        "Crystal", "Sword", "Power", "Sword of", "of Power", "stal Swo",
+    ] {
         let matches: Vec<&ObjectRecord> = objects
             .iter()
             .filter(|obj| obj.name.to_uppercase().contains(&search.to_uppercase()))
@@ -342,7 +357,7 @@ fn test_fuzzy_matching_substring() {
 #[test]
 fn test_disambiguation_session_timeout_simulation() {
     use meshbbs::tmush::types::{DisambiguationContext, DisambiguationSession};
-    
+
     let store = create_test_store();
 
     let session = DisambiguationSession::new(
@@ -356,15 +371,21 @@ fn test_disambiguation_session_timeout_simulation() {
 
     // Store session
     store.put_disambiguation_session(session).unwrap();
-    
+
     // Verify it exists
-    assert!(store.get_disambiguation_session("testuser").unwrap().is_some());
+    assert!(store
+        .get_disambiguation_session("testuser")
+        .unwrap()
+        .is_some());
 
     // Simulate timeout by deleting
     store.delete_disambiguation_session("testuser").unwrap();
-    
+
     // Verify it's gone
-    assert!(store.get_disambiguation_session("testuser").unwrap().is_none());
+    assert!(store
+        .get_disambiguation_session("testuser")
+        .unwrap()
+        .is_none());
 }
 
 #[test]

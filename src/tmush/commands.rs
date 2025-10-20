@@ -19,8 +19,8 @@ use crate::tmush::trigger::{
 };
 use crate::tmush::types::{
     AchievementCategory, AchievementRecord, AchievementTrigger, BulletinBoard, BulletinMessage,
-    CurrencyAmount, Direction as TmushDirection, ItemStack, ObjectRecord, ObjectTrigger, RoomFlag, TutorialState,
-    TutorialStep,
+    CurrencyAmount, Direction as TmushDirection, ItemStack, ObjectRecord, ObjectTrigger, RoomFlag,
+    TutorialState, TutorialStep,
 };
 use crate::tmush::{PlayerRecord, TinyMushError, TinyMushStore};
 
@@ -175,9 +175,9 @@ pub enum TinyMushCommand {
     Recipe(String, Vec<String>), // @RECIPE <subcommand> [args] - manage crafting recipes (admin only)
     QuestAdmin(String, Vec<String>), // @QUEST <subcommand> [args] - manage quests (admin only)
     AchievementAdmin(String, Vec<String>), // @ACHIEVEMENT <subcommand> [args] - manage achievements (admin only)
-    NPCAdmin(String, Vec<String>), // @NPC <subcommand> [args] - manage NPCs (admin only)
+    NPCAdmin(String, Vec<String>),         // @NPC <subcommand> [args] - manage NPCs (admin only)
     CompanionAdmin(String, Vec<String>), // @COMPANION <subcommand> [args] - manage companions (admin only)
-    RoomAdmin(String, Vec<String>), // @ROOM <subcommand> [args] - manage rooms (admin only)
+    RoomAdmin(String, Vec<String>),      // @ROOM <subcommand> [args] - manage rooms (admin only)
     ObjectAdmin(String, Vec<String>), // @OBJECT <subcommand> [args] - manage objects (admin only)
 
     /// Admin permission commands (Phase 9.2)
@@ -219,7 +219,7 @@ pub enum TinyMushCommand {
     /// Permission requirements:
     /// - Requires admin level 2+ (Admin or higher)
     Give(String, Vec<String>), // @GIVE player object/currency [amount]
-    
+
     /// Player teleportation and stat management commands
     ///
     /// These commands enable administrators to manage players:
@@ -454,7 +454,7 @@ impl TinyMushProcessor {
         // route it to the dialog handler
         if let Ok(username) = session.username.as_deref().ok_or("no username") {
             let trimmed = command.trim().to_uppercase();
-            
+
             // First, check for disambiguation session (highest priority for numeric input)
             if let Ok(Some(disambiguation)) = self.store().get_disambiguation_session(username) {
                 if let Ok(choice) = trimmed.parse::<usize>() {
@@ -462,7 +462,7 @@ impl TinyMushProcessor {
                     if let Some((object_id, _object_name)) = disambiguation.get_selection(choice) {
                         // Delete the disambiguation session
                         let _ = self.store().delete_disambiguation_session(username);
-                        
+
                         // Route back to the original command with the specific object ID
                         match disambiguation.command.as_str() {
                             "take" => {
@@ -479,31 +479,39 @@ impl TinyMushProcessor {
                                 return self.handle_examine_by_id(session, object_id, config).await;
                             }
                             _ => {
-                                return Ok(format!("Unknown disambiguation command: {}", disambiguation.command));
+                                return Ok(format!(
+                                    "Unknown disambiguation command: {}",
+                                    disambiguation.command
+                                ));
                             }
                         }
                     } else {
-                        return Ok(format!("Invalid selection. Please choose a number between 1 and {}.", disambiguation.matched_ids.len()));
+                        return Ok(format!(
+                            "Invalid selection. Please choose a number between 1 and {}.",
+                            disambiguation.matched_ids.len()
+                        ));
                     }
                 }
             }
-            
+
             // Check if input looks like dialog navigation
-            let is_dialog_input = trimmed.parse::<usize>().is_ok() 
-                || trimmed == "EXIT" 
-                || trimmed == "QUIT" 
-                || trimmed == "BYE" 
+            let is_dialog_input = trimmed.parse::<usize>().is_ok()
+                || trimmed == "EXIT"
+                || trimmed == "QUIT"
+                || trimmed == "BYE"
                 || trimmed == "BACK";
-            
+
             if is_dialog_input {
                 // Check if player has any active dialog sessions
                 if let Ok(Some((npc_id, _))) = self.get_active_dialog_session(username) {
                     // Route to dialog handler with the NPC
-                    return self.handle_talk(session, npc_id, Some(trimmed), config).await;
+                    return self
+                        .handle_talk(session, npc_id, Some(trimmed), config)
+                        .await;
                 }
             }
         }
-        
+
         let parsed_command = self.parse_command(command);
         debug!(
             "TinyMUSH command parsed: session={} command={:?}",
@@ -649,22 +657,28 @@ impl TinyMushProcessor {
                 self.handle_recipe(session, subcommand, args, config).await
             }
             TinyMushCommand::QuestAdmin(subcommand, args) => {
-                self.handle_quest_admin(session, subcommand, args, config).await
+                self.handle_quest_admin(session, subcommand, args, config)
+                    .await
             }
             TinyMushCommand::AchievementAdmin(subcommand, args) => {
-                self.handle_achievement_admin(session, subcommand, args, config).await
+                self.handle_achievement_admin(session, subcommand, args, config)
+                    .await
             }
             TinyMushCommand::NPCAdmin(subcommand, args) => {
-                self.handle_npc_admin(session, subcommand, args, config).await
+                self.handle_npc_admin(session, subcommand, args, config)
+                    .await
             }
             TinyMushCommand::CompanionAdmin(subcommand, args) => {
-                self.handle_companion_admin(session, subcommand, args, config).await
+                self.handle_companion_admin(session, subcommand, args, config)
+                    .await
             }
             TinyMushCommand::RoomAdmin(subcommand, args) => {
-                self.handle_room_admin(session, subcommand, args, config).await
+                self.handle_room_admin(session, subcommand, args, config)
+                    .await
             }
             TinyMushCommand::ObjectAdmin(subcommand, args) => {
-                self.handle_object_admin(session, subcommand, args, config).await
+                self.handle_object_admin(session, subcommand, args, config)
+                    .await
             }
             TinyMushCommand::ListAbandoned => {
                 self.handle_list_abandoned(session, _storage, config).await
@@ -768,16 +782,19 @@ impl TinyMushProcessor {
     pub fn parse_command(&self, input: &str) -> TinyMushCommand {
         let input_trimmed = input.trim();
         let input_upper = input_trimmed.to_uppercase();
-        
+
         // Determine if we need to preserve case for this command's arguments.
         // Most game commands should be case-insensitive, but user-facing text
         // (chat, emotes, descriptions, trigger scripts) must preserve case.
         let first_char = input_trimmed.chars().next();
         let first_word = input_upper.split_whitespace().next().unwrap_or("");
         let is_text_command = matches!(first_char, Some('\'') | Some(':') | Some(';'))
-            || matches!(first_word, "SAY" | "EMOTE" | "POSE" | "OOC" | "WHISPER" | "WHIS");
+            || matches!(
+                first_word,
+                "SAY" | "EMOTE" | "POSE" | "OOC" | "WHISPER" | "WHIS"
+            );
         let preserve_case = input_trimmed.starts_with('@') || is_text_command;
-        
+
         let parts: Vec<&str> = if preserve_case {
             input_trimmed.split_whitespace().collect()
         } else {
@@ -787,7 +804,7 @@ impl TinyMushProcessor {
         if parts.is_empty() {
             return TinyMushCommand::Unknown(input_upper);
         }
-        
+
         // For case-preserved commands, uppercase just the command for pattern matching
         let cmd_for_match = if preserve_case {
             parts[0].to_uppercase()
@@ -1412,7 +1429,10 @@ impl TinyMushProcessor {
                     TinyMushCommand::Unknown("Usage: @GIVE <player> <object_id> [quantity]\n       @GIVE <player> CURRENCY <amount>\nExample: @GIVE alice basic_torch\nExample: @GIVE alice basic_torch 5\nExample: @GIVE alice CURRENCY 1000".to_string())
                 } else {
                     let player = parts[1].to_lowercase();
-                    TinyMushCommand::Give(player, parts[2..].iter().map(|s| s.to_string()).collect())
+                    TinyMushCommand::Give(
+                        player,
+                        parts[2..].iter().map(|s| s.to_string()).collect(),
+                    )
                 }
             }
             "@STATS" => {
@@ -1420,7 +1440,10 @@ impl TinyMushProcessor {
                     TinyMushCommand::Unknown("Usage: @STATS <player> EDIT <stat> <value>\nExample: @STATS alice EDIT HP 100".to_string())
                 } else {
                     let player = parts[1].to_lowercase();
-                    TinyMushCommand::Stats(player, parts[2..].iter().map(|s| s.to_string()).collect())
+                    TinyMushCommand::Stats(
+                        player,
+                        parts[2..].iter().map(|s| s.to_string()).collect(),
+                    )
                 }
             }
             "@PLAYERS" | "@WHO" => TinyMushCommand::Players,
@@ -2019,11 +2042,11 @@ impl TinyMushProcessor {
             response.push_str("There are no visible exits from here.\n");
         } else {
             response.push_str("You can see paths leading:\n");
-            
+
             // Sort exits for consistent display
             let mut exits: Vec<_> = current_room.exits.iter().collect();
             exits.sort_by_key(|(direction, _)| format!("{:?}", direction));
-            
+
             for (direction, destination_id) in exits {
                 if let Ok(dest_room) = room_manager.get_room(destination_id) {
                     response.push_str(&format!("  {:?} → {}\n", direction, dest_room.name));
@@ -2072,8 +2095,8 @@ impl TinyMushProcessor {
         item_name: String,
         _config: &Config,
     ) -> Result<String> {
-        use crate::tmush::trigger::integration::execute_on_take;
         use crate::tmush::inventory::{add_item_to_inventory, can_add_item};
+        use crate::tmush::trigger::integration::execute_on_take;
         use crate::tmush::types::InventoryConfig;
 
         let player_node_id = &session.node_id;
@@ -2126,7 +2149,10 @@ impl TinyMushProcessor {
                 );
 
                 // Store session
-                if let Err(e) = self.store().put_disambiguation_session(disambiguation.clone()) {
+                if let Err(e) = self
+                    .store()
+                    .put_disambiguation_session(disambiguation.clone())
+                {
                     return Ok(format!("Error creating disambiguation: {}", e));
                 }
 
@@ -2153,7 +2179,7 @@ impl TinyMushProcessor {
 
         // Use inventory config
         let inventory_config = InventoryConfig::default();
-        
+
         // Check if player can add item to inventory
         let store = self.store();
         let get_item = |object_id: &str| store.get_object(object_id).ok();
@@ -2263,11 +2289,11 @@ impl TinyMushProcessor {
         // Use inventory system
         use crate::tmush::inventory::{add_item_to_inventory, can_add_item};
         use crate::tmush::types::InventoryConfig;
-        
+
         let inventory_config = InventoryConfig::default();
         let store = self.store();
         let get_item = |object_id: &str| store.get_object(object_id).ok();
-        
+
         if let Err(reason) = can_add_item(&player, &object, 1, &inventory_config, get_item) {
             return Ok(reason);
         }
@@ -2374,7 +2400,10 @@ impl TinyMushProcessor {
                 );
 
                 // Store session
-                if let Err(e) = self.store().put_disambiguation_session(disambiguation.clone()) {
+                if let Err(e) = self
+                    .store()
+                    .put_disambiguation_session(disambiguation.clone())
+                {
                     return Ok(format!("Error creating disambiguation: {}", e));
                 }
 
@@ -2393,7 +2422,10 @@ impl TinyMushProcessor {
 
         // Remove from player inventory using inventory system
         if !Self::remove_item_from_player(&mut player, &object.id, quantity) {
-            return Ok(format!("Error: Failed to remove {} from inventory.", object.name));
+            return Ok(format!(
+                "Error: Failed to remove {} from inventory.",
+                object.name
+            ));
         }
 
         // Add to room
@@ -2475,7 +2507,10 @@ impl TinyMushProcessor {
 
         // Remove from player inventory using inventory system
         if !Self::remove_item_from_player(&mut player, &object.id, 1) {
-            return Ok(format!("Error: Failed to remove {} from inventory.", object.name));
+            return Ok(format!(
+                "Error: Failed to remove {} from inventory.",
+                object.name
+            ));
         }
 
         // Add to room
@@ -2537,25 +2572,28 @@ impl TinyMushProcessor {
 
         // First, try inventory with fuzzy matching
         let inv_matches = self.find_objects_by_partial_name(&target, &inventory_ids);
-        
+
         if !inv_matches.is_empty() {
             match inv_matches.len() {
                 1 => {
                     let object = inv_matches.into_iter().next().unwrap();
                     let quantity = get_item_quantity(&player, &object.id);
                     let examination = format_item_examination(&object, quantity);
-                    
+
                     // Track carved symbol examination for grove mystery puzzle (Phase 4.2)
                     if object.id.starts_with("carved_symbol_") {
-                        self.track_symbol_examination(&mut player, &object.id).await?;
+                        self.track_symbol_examination(&mut player, &object.id)
+                            .await?;
                     }
-                    
+
                     return Ok(examination.join("\n"));
                 }
                 _ => {
                     // Multiple matches in inventory
-                    let matched_ids: Vec<String> = inv_matches.iter().map(|o| o.id.clone()).collect();
-                    let matched_names: Vec<String> = inv_matches.iter().map(|o| o.name.clone()).collect();
+                    let matched_ids: Vec<String> =
+                        inv_matches.iter().map(|o| o.id.clone()).collect();
+                    let matched_names: Vec<String> =
+                        inv_matches.iter().map(|o| o.name.clone()).collect();
 
                     let disambiguation = crate::tmush::types::DisambiguationSession::new(
                         &player.username,
@@ -2566,7 +2604,10 @@ impl TinyMushProcessor {
                         crate::tmush::types::DisambiguationContext::Inventory,
                     );
 
-                    if let Err(e) = self.store().put_disambiguation_session(disambiguation.clone()) {
+                    if let Err(e) = self
+                        .store()
+                        .put_disambiguation_session(disambiguation.clone())
+                    {
                         return Ok(format!("Error creating disambiguation: {}", e));
                     }
 
@@ -2582,7 +2623,7 @@ impl TinyMushProcessor {
         };
 
         let room_matches = self.find_objects_by_partial_name(&target, &room.items);
-        
+
         match room_matches.len() {
             0 => {
                 return Ok(format!(
@@ -2593,18 +2634,20 @@ impl TinyMushProcessor {
             1 => {
                 let object = room_matches.into_iter().next().unwrap();
                 let examination = format_item_examination(&object, 1);
-                
+
                 // Track carved symbol examination for grove mystery puzzle (Phase 4.2)
                 if object.id.starts_with("carved_symbol_") {
-                    self.track_symbol_examination(&mut player, &object.id).await?;
+                    self.track_symbol_examination(&mut player, &object.id)
+                        .await?;
                 }
-                
+
                 return Ok(examination.join("\n"));
             }
             _ => {
                 // Multiple matches in room
                 let matched_ids: Vec<String> = room_matches.iter().map(|o| o.id.clone()).collect();
-                let matched_names: Vec<String> = room_matches.iter().map(|o| o.name.clone()).collect();
+                let matched_names: Vec<String> =
+                    room_matches.iter().map(|o| o.name.clone()).collect();
 
                 let disambiguation = crate::tmush::types::DisambiguationSession::new(
                     &player.username,
@@ -2615,7 +2658,10 @@ impl TinyMushProcessor {
                     crate::tmush::types::DisambiguationContext::Room,
                 );
 
-                if let Err(e) = self.store().put_disambiguation_session(disambiguation.clone()) {
+                if let Err(e) = self
+                    .store()
+                    .put_disambiguation_session(disambiguation.clone())
+                {
                     return Ok(format!("Error creating disambiguation: {}", e));
                 }
 
@@ -2652,12 +2698,13 @@ impl TinyMushProcessor {
         };
 
         let examination = format_item_examination(&object, quantity);
-        
+
         // Track carved symbol examination for grove mystery puzzle (Phase 4.2)
         if object.id.starts_with("carved_symbol_") {
-            self.track_symbol_examination(&mut player, &object.id).await?;
+            self.track_symbol_examination(&mut player, &object.id)
+                .await?;
         }
-        
+
         Ok(examination.join("\n"))
     }
 
@@ -2685,8 +2732,9 @@ impl TinyMushProcessor {
             None => {
                 // List available recipes
                 let all_recipes = self.store().list_recipes(None)?;
-                let recipe_names: Vec<String> = all_recipes.iter().map(|r| r.name.clone()).collect();
-                
+                let recipe_names: Vec<String> =
+                    all_recipes.iter().map(|r| r.name.clone()).collect();
+
                 return Ok(format!(
                     "Unknown recipe: '{}'\nAvailable recipes: {}",
                     recipe_name,
@@ -2702,10 +2750,11 @@ impl TinyMushProcessor {
         // Check if station requirement is met
         if let Some(required_station) = &recipe.requires_station {
             // Check if player has the station in inventory or is in a room with it
-            let has_station = player.inventory_stacks
+            let has_station = player
+                .inventory_stacks
                 .iter()
                 .any(|stack| stack.object_id.starts_with(required_station));
-            
+
             if !has_station {
                 return Ok(format!(
                     "You need a {} to craft {}.",
@@ -2719,14 +2768,12 @@ impl TinyMushProcessor {
         for material in &recipe.materials {
             if !material.consumed {
                 // Tool requirement - just need to have it
-                let has_tool = player.inventory_stacks
+                let has_tool = player
+                    .inventory_stacks
                     .iter()
                     .any(|stack| stack.object_id.starts_with(&material.item_id));
                 if !has_tool {
-                    missing_materials.push(format!(
-                        "{} (tool)",
-                        material.item_id
-                    ));
+                    missing_materials.push(format!("{} (tool)", material.item_id));
                 }
             } else {
                 // Material requirement - need enough to consume
@@ -2771,15 +2818,18 @@ Missing: {}",
                     if remaining == 0 {
                         break;
                     }
-                    
+
                     match remove_item_from_inventory(&mut player, &object_id, remaining) {
                         crate::tmush::types::InventoryResult::Removed { quantity, .. } => {
                             remaining = remaining.saturating_sub(quantity);
-                        },
+                        }
                         crate::tmush::types::InventoryResult::Failed { reason } => {
-                            return Ok(format!("Failed to remove material {}: {}", material.item_id, reason));
-                        },
-                        _ => {},
+                            return Ok(format!(
+                                "Failed to remove material {}: {}",
+                                material.item_id, reason
+                            ));
+                        }
+                        _ => {}
                     }
                 }
             }
@@ -2791,27 +2841,31 @@ Missing: {}",
             max_weight: 1000,
             max_stacks: 100,
         };
-        
+
         for _ in 0..recipe.result_quantity {
             let crafted_item = self.create_crafted_item(&recipe.result_item_id)?;
             self.store().put_object(crafted_item.clone())?;
-            
+
             match add_item_to_inventory(&mut player, &crafted_item, 1, &inv_config) {
-                crate::tmush::types::InventoryResult::Added { .. } => {},
+                crate::tmush::types::InventoryResult::Added { .. } => {}
                 crate::tmush::types::InventoryResult::Failed { reason } => {
-                    return Ok(format!("Failed to add crafted item to inventory: {}", reason));
-                },
-                _ => {},
+                    return Ok(format!(
+                        "Failed to add crafted item to inventory: {}",
+                        reason
+                    ));
+                }
+                _ => {}
             }
         }
-        
+
         // Save player
         self.store().put_player(player.clone())?;
 
         // Update quest objective if player has first_craft quest
-        let has_craft_quest = player.quests.iter().any(|q| {
-            q.quest_id == "first_craft" && matches!(q.state, QuestState::Active { .. })
-        });
+        let has_craft_quest = player
+            .quests
+            .iter()
+            .any(|q| q.quest_id == "first_craft" && matches!(q.state, QuestState::Active { .. }));
 
         if has_craft_quest {
             let _ = update_quest_objective(
@@ -2827,7 +2881,10 @@ Missing: {}",
         }
 
         let result_msg = if recipe.result_quantity > 1 {
-            format!("You successfully craft {} x{}!", recipe.name, recipe.result_quantity)
+            format!(
+                "You successfully craft {} x{}!",
+                recipe.name, recipe.result_quantity
+            )
         } else {
             format!("You successfully craft {}!", recipe.name)
         };
@@ -2842,24 +2899,27 @@ Missing: {}",
     }
 
     /// Find a recipe by ID or name (case-insensitive)
-    fn find_recipe_by_name_or_id(&self, search: &str) -> Option<crate::tmush::types::CraftingRecipe> {
+    fn find_recipe_by_name_or_id(
+        &self,
+        search: &str,
+    ) -> Option<crate::tmush::types::CraftingRecipe> {
         let all_recipes = self.store().list_recipes(None).ok()?;
         let search_lower = search.to_lowercase();
-        
+
         // First try exact ID match
         for recipe in &all_recipes {
             if recipe.id == search_lower {
                 return Some(recipe.clone());
             }
         }
-        
+
         // Then try case-insensitive name match
         for recipe in &all_recipes {
             if recipe.name.to_lowercase() == search_lower {
                 return Some(recipe.clone());
             }
         }
-        
+
         None
     }
 
@@ -2935,9 +2995,10 @@ Not fancy, but it gets the job done.",
         }
 
         // Check if player has grove_mystery quest active
-        let has_grove_quest = player.quests.iter().any(|q| {
-            q.quest_id == "grove_mystery" && matches!(q.state, QuestState::Active { .. })
-        });
+        let has_grove_quest = player
+            .quests
+            .iter()
+            .any(|q| q.quest_id == "grove_mystery" && matches!(q.state, QuestState::Active { .. }));
 
         if !has_grove_quest {
             return Ok(());
@@ -2995,7 +3056,10 @@ Not fancy, but it gets the job done.",
     fn player_has_light_source(&self, player: &crate::tmush::types::PlayerRecord) -> bool {
         for object_id in &player.inventory {
             if let Ok(object) = self.store().get_object(object_id) {
-                if object.flags.contains(&crate::tmush::types::ObjectFlag::LightSource) {
+                if object
+                    .flags
+                    .contains(&crate::tmush::types::ObjectFlag::LightSource)
+                {
                     return true;
                 }
             }
@@ -3047,7 +3111,10 @@ Not fancy, but it gets the job done.",
                 );
 
                 // Store session
-                if let Err(e) = self.store().put_disambiguation_session(disambiguation.clone()) {
+                if let Err(e) = self
+                    .store()
+                    .put_disambiguation_session(disambiguation.clone())
+                {
                     return Ok(format!("Error creating disambiguation: {}", e));
                 }
 
@@ -3270,7 +3337,7 @@ Not fancy, but it gets the job done.",
                 use crate::tmush::inventory::add_item_to_inventory;
                 use crate::tmush::types::InventoryConfig;
                 let config = InventoryConfig::default();
-                
+
                 for _ in 0..actual_qty {
                     let item_to_add = if shop.clone_items {
                         // Vending machine mode: clone the template object
@@ -3821,10 +3888,10 @@ Not fancy, but it gets the job done.",
         if let Some(mut dialog_session) = self.store().get_dialog_session(&username, &npc_name)? {
             // We have an active session - npc_name is actually the npc_id
             let npc_id = npc_name;
-            
+
             // Get the NPC to access its name
             let npc = self.store().get_npc(&npc_id)?;
-            
+
             // Player is in an active conversation
             if let Some(ref input) = topic {
                 // Check for special keywords
@@ -4329,9 +4396,9 @@ Not fancy, but it gets the job done.",
                     // Add item to player inventory using proper inventory system
                     use crate::tmush::inventory::add_item_to_inventory;
                     use crate::tmush::types::{InventoryConfig, InventoryResult};
-                    
+
                     let mut player = self.store().get_player(player_name)?;
-                    
+
                     // Get the object to add
                     let object = match self.store().get_object(item_id) {
                         Ok(obj) => obj,
@@ -4340,10 +4407,12 @@ Not fancy, but it gets the job done.",
                             continue;
                         }
                     };
-                    
+
                     let config = InventoryConfig::default();
                     match add_item_to_inventory(&mut player, &object, *quantity, &config) {
-                        InventoryResult::Added { quantity: added, .. } => {
+                        InventoryResult::Added {
+                            quantity: added, ..
+                        } => {
                             self.store().put_player(player)?;
                             let qty_msg = if added > 1 {
                                 format!("{} x{}", object.name, added)
@@ -4353,7 +4422,8 @@ Not fancy, but it gets the job done.",
                             messages.push(format!("🎁 You received: {}", qty_msg));
                         }
                         InventoryResult::Failed { reason } => {
-                            messages.push(format!("⚠️ Could not receive {}: {}", object.name, reason));
+                            messages
+                                .push(format!("⚠️ Could not receive {}: {}", object.name, reason));
                         }
                         _ => {} // Other result types not applicable
                     }
@@ -4363,11 +4433,13 @@ Not fancy, but it gets the job done.",
                     // Remove item from player inventory using proper inventory system
                     use crate::tmush::inventory::remove_item_from_inventory;
                     use crate::tmush::types::InventoryResult;
-                    
+
                     let mut player = self.store().get_player(player_name)?;
 
                     match remove_item_from_inventory(&mut player, item_id, *quantity) {
-                        InventoryResult::Removed { quantity: removed, .. } => {
+                        InventoryResult::Removed {
+                            quantity: removed, ..
+                        } => {
                             self.store().put_player(player)?;
                             let qty_msg = if removed > 1 {
                                 format!("{} x{}", item_id, removed)
@@ -6956,27 +7028,40 @@ Not fancy, but it gets the job done.",
                 match field.as_str() {
                     "MATERIAL" => {
                         if args.len() < 3 {
-                            return Ok("Usage: @RECIPE EDIT <id> MATERIAL ADD/REMOVE <item_id> [qty]".to_string());
+                            return Ok(
+                                "Usage: @RECIPE EDIT <id> MATERIAL ADD/REMOVE <item_id> [qty]"
+                                    .to_string(),
+                            );
                         }
 
                         let action = args[2].to_uppercase();
                         match action.as_str() {
                             "ADD" => {
                                 if args.len() < 5 {
-                                    return Ok("Usage: @RECIPE EDIT <id> MATERIAL ADD <item_id> <qty>".to_string());
+                                    return Ok(
+                                        "Usage: @RECIPE EDIT <id> MATERIAL ADD <item_id> <qty>"
+                                            .to_string(),
+                                    );
                                 }
 
                                 let item_id = &args[3];
                                 let quantity: u32 = args[4].parse().unwrap_or(1);
 
-                                recipe.materials.push(crate::tmush::types::RecipeMaterial::new(item_id, quantity));
+                                recipe
+                                    .materials
+                                    .push(crate::tmush::types::RecipeMaterial::new(
+                                        item_id, quantity,
+                                    ));
                                 store.put_recipe(recipe)?;
 
                                 Ok(format!("Added material: {} x{}", item_id, quantity))
                             }
                             "REMOVE" => {
                                 if args.len() < 4 {
-                                    return Ok("Usage: @RECIPE EDIT <id> MATERIAL REMOVE <item_id>".to_string());
+                                    return Ok(
+                                        "Usage: @RECIPE EDIT <id> MATERIAL REMOVE <item_id>"
+                                            .to_string(),
+                                    );
                                 }
 
                                 let item_id = &args[3];
@@ -6985,12 +7070,17 @@ Not fancy, but it gets the job done.",
 
                                 Ok(format!("Removed material: {}", item_id))
                             }
-                            _ => Ok("Usage: @RECIPE EDIT <id> MATERIAL ADD/REMOVE <item_id> [qty]".to_string()),
+                            _ => Ok(
+                                "Usage: @RECIPE EDIT <id> MATERIAL ADD/REMOVE <item_id> [qty]"
+                                    .to_string(),
+                            ),
                         }
                     }
                     "RESULT" => {
                         if args.len() < 3 {
-                            return Ok("Usage: @RECIPE EDIT <id> RESULT <item_id> [qty]".to_string());
+                            return Ok(
+                                "Usage: @RECIPE EDIT <id> RESULT <item_id> [qty]".to_string()
+                            );
                         }
 
                         recipe.result_item_id = args[2].clone();
@@ -7025,7 +7115,9 @@ Not fancy, but it gets the job done.",
 
                         Ok(format!("Recipe requires crafting station: {}", args[2]))
                     }
-                    _ => Ok("Unknown field. Use: MATERIAL, RESULT, DESCRIPTION, or STATION".to_string()),
+                    _ => Ok(
+                        "Unknown field. Use: MATERIAL, RESULT, DESCRIPTION, or STATION".to_string(),
+                    ),
                 }
             }
             "DELETE" => {
@@ -7069,7 +7161,10 @@ Not fancy, but it gets the job done.",
                     }
 
                     output.push_str(&format!("   Materials: {}\n", recipe.materials.len()));
-                    output.push_str(&format!("   Creates: {} x{}\n\n", recipe.result_item_id, recipe.result_quantity));
+                    output.push_str(&format!(
+                        "   Creates: {} x{}\n\n",
+                        recipe.result_item_id, recipe.result_quantity
+                    ));
                 }
 
                 Ok(output)
@@ -7103,7 +7198,11 @@ Not fancy, but it gets the job done.",
                     output.push_str("  (no materials set - use @RECIPE EDIT to add)\n");
                 } else {
                     for material in &recipe.materials {
-                        let consumed = if material.consumed { "consumed" } else { "tool" };
+                        let consumed = if material.consumed {
+                            "consumed"
+                        } else {
+                            "tool"
+                        };
                         output.push_str(&format!(
                             "  - {} x{} ({})\n",
                             material.item_id, material.quantity, consumed
@@ -7171,9 +7270,9 @@ Not fancy, but it gets the job done.",
                 let quest = crate::tmush::types::QuestRecord::new(
                     &quest_id,
                     &quest_name,
-                    "", // Empty description initially
+                    "",       // Empty description initially
                     "system", // Default NPC
-                    1, // Default level
+                    1,        // Default level
                 );
 
                 store.put_quest(quest)?;
@@ -7424,8 +7523,15 @@ Not fancy, but it gets the job done.",
                             quest.name,
                             quest.id
                         ));
-                        output.push_str(&format!("   Level: {} | Giver: {}\n", quest.difficulty, quest.quest_giver_npc));
-                        output.push_str(&format!("   Objectives: {} | Prerequisites: {}\n\n", quest.objectives.len(), quest.prerequisites.len()));
+                        output.push_str(&format!(
+                            "   Level: {} | Giver: {}\n",
+                            quest.difficulty, quest.quest_giver_npc
+                        ));
+                        output.push_str(&format!(
+                            "   Objectives: {} | Prerequisites: {}\n\n",
+                            quest.objectives.len(),
+                            quest.prerequisites.len()
+                        ));
                     }
                 }
 
@@ -7465,7 +7571,12 @@ Not fancy, but it gets the job done.",
                     output.push_str("  (no objectives set - use @QUEST EDIT to add)\n");
                 } else {
                     for (idx, obj) in quest.objectives.iter().enumerate() {
-                        output.push_str(&format!("  {}. {} ({})\n", idx + 1, obj.description, obj.required));
+                        output.push_str(&format!(
+                            "  {}. {} ({})\n",
+                            idx + 1,
+                            obj.description,
+                            obj.required
+                        ));
                     }
                 }
 
@@ -7482,7 +7593,9 @@ Not fancy, but it gets the job done.",
                 if quest.rewards.experience > 0 {
                     output.push_str(&format!("  - {} XP\n", quest.rewards.experience));
                 }
-                if let Some(crate::tmush::types::CurrencyAmount::Decimal { minor_units }) = &quest.rewards.currency {
+                if let Some(crate::tmush::types::CurrencyAmount::Decimal { minor_units }) =
+                    &quest.rewards.currency
+                {
                     if *minor_units > 0 {
                         output.push_str(&format!("  - {} currency\n", minor_units));
                     }
@@ -7513,7 +7626,10 @@ Not fancy, but it gets the job done.",
     ) -> Result<String> {
         let player = self.get_or_create_player(session).await?;
         if player.admin_level.unwrap_or(0) < 2 {
-            return Ok("Insufficient permission: admin level 2+ required for @ACHIEVEMENT commands.".to_string());
+            return Ok(
+                "Insufficient permission: admin level 2+ required for @ACHIEVEMENT commands."
+                    .to_string(),
+            );
         }
 
         let store = self.store();
@@ -7543,7 +7659,10 @@ Not fancy, but it gets the job done.",
                 );
 
                 store.put_achievement(achievement)?;
-                Ok(format!("Created achievement '{}' with name \"{}\"", achievement_id, name))
+                Ok(format!(
+                    "Created achievement '{}' with name \"{}\"",
+                    achievement_id, name
+                ))
             }
             "EDIT" => {
                 if args.len() < 2 {
@@ -7555,7 +7674,8 @@ Not fancy, but it gets the job done.",
                         @ACHIEVEMENT EDIT first_blood CATEGORY Combat\n\
                         @ACHIEVEMENT EDIT first_blood TRIGGER KILLCOUNT 1\n\
                         @ACHIEVEMENT EDIT first_blood TITLE \"Rookie Warrior\"\n\
-                        @ACHIEVEMENT EDIT first_blood HIDDEN false".to_string()
+                        @ACHIEVEMENT EDIT first_blood HIDDEN false"
+                            .to_string(),
                     );
                 }
 
@@ -7565,7 +7685,9 @@ Not fancy, but it gets the job done.",
 
                 let mut achievement = match store.get_achievement(achievement_id) {
                     Ok(ach) => ach,
-                    Err(_) => return Ok(format!("Achievement '{}' does not exist", achievement_id)),
+                    Err(_) => {
+                        return Ok(format!("Achievement '{}' does not exist", achievement_id))
+                    }
                 };
 
                 match field.as_str() {
@@ -7723,7 +7845,7 @@ Not fancy, but it gets the job done.",
             }
             "LIST" => {
                 let category_filter = args.get(0).map(|s| s.to_uppercase());
-                
+
                 let achievements = if let Some(cat_str) = category_filter {
                     let category = match cat_str.as_str() {
                         "COMBAT" => AchievementCategory::Combat,
@@ -7755,7 +7877,10 @@ Not fancy, but it gets the job done.",
                 output.push('\n');
                 for ach in achievements {
                     let hidden_str = if ach.hidden { " [HIDDEN]" } else { "" };
-                    output.push_str(&format!("• {} - \"{}\" [{:?}]{}\n", ach.id, ach.name, ach.category, hidden_str));
+                    output.push_str(&format!(
+                        "• {} - \"{}\" [{:?}]{}\n",
+                        ach.id, ach.name, ach.category, hidden_str
+                    ));
                 }
 
                 Ok(output)
@@ -7768,7 +7893,9 @@ Not fancy, but it gets the job done.",
 
                 let achievement = match store.get_achievement(achievement_id) {
                     Ok(ach) => ach,
-                    Err(_) => return Ok(format!("Achievement '{}' does not exist", achievement_id)),
+                    Err(_) => {
+                        return Ok(format!("Achievement '{}' does not exist", achievement_id))
+                    }
                 };
 
                 let mut output = format!("Achievement: {}\n", achievement.id);
@@ -7806,7 +7933,9 @@ Not fancy, but it gets the job done.",
         let player = self.get_or_create_player(session).await?;
 
         if player.admin_level.unwrap_or(0) < 2 {
-            return Ok("Insufficient permission: admin level 2+ required for @NPC commands.".to_string());
+            return Ok(
+                "Insufficient permission: admin level 2+ required for @NPC commands.".to_string(),
+            );
         }
 
         let store = self.store();
@@ -7841,8 +7970,7 @@ Not fancy, but it gets the job done.",
             }
             "EDIT" => {
                 if args.len() < 2 {
-                    return Ok(
-                        "Usage: @NPC EDIT <npc_id> <field> <value>\n\
+                    return Ok("Usage: @NPC EDIT <npc_id> <field> <value>\n\
                         Fields: NAME, TITLE, DESCRIPTION, ROOM, DIALOG, FLAG\n\
                         Examples:\n\
                         @NPC EDIT blacksmith NAME Forge Master Grimm\n\
@@ -7850,8 +7978,8 @@ Not fancy, but it gets the job done.",
                         @NPC EDIT blacksmith DESCRIPTION A burly dwarf with...\n\
                         @NPC EDIT blacksmith ROOM town_forge\n\
                         @NPC EDIT blacksmith DIALOG greeting Welcome to my forge!\n\
-                        @NPC EDIT blacksmith FLAG VENDOR".to_string()
-                    );
+                        @NPC EDIT blacksmith FLAG VENDOR"
+                        .to_string());
                 }
 
                 let npc_id = &args[0];
@@ -7954,7 +8082,7 @@ Not fancy, but it gets the job done.",
             }
             "LIST" => {
                 let ids = store.list_npc_ids()?;
-                
+
                 if ids.is_empty() {
                     return Ok("No NPCs found".to_string());
                 }
@@ -7962,7 +8090,7 @@ Not fancy, but it gets the job done.",
                 let mut output = format!("NPCs ({})\n", ids.len());
                 output.push_str("─".repeat(60).as_str());
                 output.push('\n');
-                
+
                 for id in ids {
                     if let Ok(npc) = store.get_npc(&id) {
                         let flags_str = if !npc.flags.is_empty() {
@@ -7970,7 +8098,10 @@ Not fancy, but it gets the job done.",
                         } else {
                             String::new()
                         };
-                        output.push_str(&format!("• {} - \"{}\" ({}){}\n", npc.id, npc.name, npc.room_id, flags_str));
+                        output.push_str(&format!(
+                            "• {} - \"{}\" ({}){}\n",
+                            npc.id, npc.name, npc.room_id, flags_str
+                        ));
                     }
                 }
 
@@ -7994,11 +8125,11 @@ Not fancy, but it gets the job done.",
                 output.push_str(&format!("Title: {}\n", npc.title));
                 output.push_str(&format!("Description: {}\n", npc.description));
                 output.push_str(&format!("Location: {}\n", npc.room_id));
-                
+
                 if !npc.flags.is_empty() {
                     output.push_str(&format!("Flags: {:?}\n", npc.flags));
                 }
-                
+
                 if !npc.dialog.is_empty() {
                     output.push_str("\nDialogue responses:\n");
                     for (key, response) in &npc.dialog {
@@ -8027,7 +8158,10 @@ Not fancy, but it gets the job done.",
         let player = self.get_or_create_player(session).await?;
 
         if player.admin_level.unwrap_or(0) < 2 {
-            return Ok("Insufficient permission: admin level 2+ required for @COMPANION commands.".to_string());
+            return Ok(
+                "Insufficient permission: admin level 2+ required for @COMPANION commands."
+                    .to_string(),
+            );
         }
 
         let store = self.store();
@@ -8043,15 +8177,22 @@ Not fancy, but it gets the job done.",
 
                 // Check if companion already exists
                 if store.companion_exists(&companion_id)? {
-                    return Ok(format!("Companion '{}' already exists. Use @COMPANION EDIT to modify it.", companion_id));
+                    return Ok(format!(
+                        "Companion '{}' already exists. Use @COMPANION EDIT to modify it.",
+                        companion_id
+                    ));
                 }
 
                 // Create companion with default type (Dog) and default room (starting_room)
                 use crate::tmush::types::{CompanionRecord, CompanionType};
-                let companion = CompanionRecord::new(&companion_id, &name, CompanionType::Dog, "starting_room");
+                let companion =
+                    CompanionRecord::new(&companion_id, &name, CompanionType::Dog, "starting_room");
                 store.put_companion(companion)?;
 
-                Ok(format!("Created companion '{}' ({}). Use @COMPANION EDIT to customize.", companion_id, name))
+                Ok(format!(
+                    "Created companion '{}' ({}). Use @COMPANION EDIT to customize.",
+                    companion_id, name
+                ))
             }
             "EDIT" => {
                 if args.len() < 3 {
@@ -8063,14 +8204,22 @@ Not fancy, but it gets the job done.",
 
                 let mut companion = match store.get_companion(&companion_id) {
                     Ok(c) => c,
-                    Err(_) => return Ok(format!("Companion '{}' not found. Use @COMPANION CREATE to create it.", companion_id)),
+                    Err(_) => {
+                        return Ok(format!(
+                            "Companion '{}' not found. Use @COMPANION CREATE to create it.",
+                            companion_id
+                        ))
+                    }
                 };
 
                 match field.as_str() {
                     "NAME" => {
                         companion.name = value.clone();
                         store.put_companion(companion)?;
-                        Ok(format!("Updated companion '{}' name to '{}'", companion_id, value))
+                        Ok(format!(
+                            "Updated companion '{}' name to '{}'",
+                            companion_id, value
+                        ))
                     }
                     "DESCRIPTION" => {
                         companion.description = value.clone();
@@ -8090,16 +8239,23 @@ Not fancy, but it gets the job done.",
                         };
                         companion.companion_type = companion_type;
                         store.put_companion(companion)?;
-                        Ok(format!("Updated companion '{}' type to {}", companion_id, value.to_uppercase()))
+                        Ok(format!(
+                            "Updated companion '{}' type to {}",
+                            companion_id,
+                            value.to_uppercase()
+                        ))
                     }
                     "ROOM" => {
                         companion.room_id = value.clone();
                         store.put_companion(companion)?;
-                        Ok(format!("Updated companion '{}' location to room '{}'", companion_id, value))
+                        Ok(format!(
+                            "Updated companion '{}' location to room '{}'",
+                            companion_id, value
+                        ))
                     }
                     "BEHAVIOR" => {
                         use crate::tmush::types::CompanionBehavior;
-                        
+
                         // Parse behavior from args[2..]
                         if args.len() < 3 {
                             return Ok("Usage: @COMPANION EDIT <id> BEHAVIOR <behavior> [params]\nBehaviors:\n  AutoFollow\n  AlertDanger\n  ExtraStorage <capacity>\n  CombatAssist <damage_bonus>\n  Healing <heal_amount> <cooldown_seconds>\n  SkillBoost <skill> <bonus>\n  IdleChatter <message1> [message2...]\nExample: @COMPANION EDIT war_horse BEHAVIOR ExtraStorage 30".to_string());
@@ -8151,14 +8307,23 @@ Not fancy, but it gets the job done.",
 
                         companion.behaviors.push(behavior);
                         store.put_companion(companion)?;
-                        Ok(format!("Added behavior '{}' to companion '{}'", behavior_type, companion_id))
+                        Ok(format!(
+                            "Added behavior '{}' to companion '{}'",
+                            behavior_type, companion_id
+                        ))
                     }
-                    _ => Ok(format!("Unknown field '{}'. Valid fields: NAME, DESCRIPTION, TYPE, ROOM, BEHAVIOR", field)),
+                    _ => Ok(format!(
+                        "Unknown field '{}'. Valid fields: NAME, DESCRIPTION, TYPE, ROOM, BEHAVIOR",
+                        field
+                    )),
                 }
             }
             "DELETE" => {
                 if args.is_empty() {
-                    return Ok("Usage: @COMPANION DELETE <id>\nExample: @COMPANION DELETE war_horse".to_string());
+                    return Ok(
+                        "Usage: @COMPANION DELETE <id>\nExample: @COMPANION DELETE war_horse"
+                            .to_string(),
+                    );
                 }
                 let companion_id = args[0].to_lowercase();
 
@@ -8181,9 +8346,19 @@ Not fancy, but it gets the job done.",
                     match store.get_companion(&companion_id) {
                         Ok(companion) => {
                             let type_str = format!("{:?}", companion.companion_type);
-                            let owner_str = companion.owner.as_ref().map(|o| format!(" [Owner: {}]", o)).unwrap_or_default();
-                            output.push_str(&format!("  {} ({}): {} - {}{}\n", 
-                                companion.id, type_str, companion.name, companion.room_id, owner_str));
+                            let owner_str = companion
+                                .owner
+                                .as_ref()
+                                .map(|o| format!(" [Owner: {}]", o))
+                                .unwrap_or_default();
+                            output.push_str(&format!(
+                                "  {} ({}): {} - {}{}\n",
+                                companion.id,
+                                type_str,
+                                companion.name,
+                                companion.room_id,
+                                owner_str
+                            ));
                         }
                         Err(_) => {} // Skip if companion can't be loaded
                     }
@@ -8192,7 +8367,10 @@ Not fancy, but it gets the job done.",
             }
             "SHOW" => {
                 if args.is_empty() {
-                    return Ok("Usage: @COMPANION SHOW <id>\nExample: @COMPANION SHOW war_horse".to_string());
+                    return Ok(
+                        "Usage: @COMPANION SHOW <id>\nExample: @COMPANION SHOW war_horse"
+                            .to_string(),
+                    );
                 }
                 let companion_id = args[0].to_lowercase();
 
@@ -8207,19 +8385,31 @@ Not fancy, but it gets the job done.",
                 output.push_str(&format!("Type: {:?}\n", companion.companion_type));
                 output.push_str(&format!("Description: {}\n", companion.description));
                 output.push_str(&format!("Room: {}\n", companion.room_id));
-                output.push_str(&format!("Owner: {}\n", companion.owner.as_ref().unwrap_or(&"None".to_string())));
-                output.push_str(&format!("Loyalty: {} | Happiness: {}\n", companion.loyalty, companion.happiness));
-                output.push_str(&format!("Mounted: {}\n", if companion.is_mounted { "Yes" } else { "No" }));
-                
+                output.push_str(&format!(
+                    "Owner: {}\n",
+                    companion.owner.as_ref().unwrap_or(&"None".to_string())
+                ));
+                output.push_str(&format!(
+                    "Loyalty: {} | Happiness: {}\n",
+                    companion.loyalty, companion.happiness
+                ));
+                output.push_str(&format!(
+                    "Mounted: {}\n",
+                    if companion.is_mounted { "Yes" } else { "No" }
+                ));
+
                 if !companion.behaviors.is_empty() {
                     output.push_str("\nBehaviors:\n");
                     for behavior in &companion.behaviors {
                         output.push_str(&format!("  - {:?}\n", behavior));
                     }
                 }
-                
+
                 if !companion.inventory.is_empty() {
-                    output.push_str(&format!("\nInventory ({} items):\n", companion.inventory.len()));
+                    output.push_str(&format!(
+                        "\nInventory ({} items):\n",
+                        companion.inventory.len()
+                    ));
                     for item in &companion.inventory {
                         output.push_str(&format!("  - {}\n", item));
                     }
@@ -8227,7 +8417,10 @@ Not fancy, but it gets the job done.",
 
                 Ok(output)
             }
-            _ => Ok(format!("Unknown subcommand '{}'. Valid: CREATE, EDIT, DELETE, LIST, SHOW", subcmd)),
+            _ => Ok(format!(
+                "Unknown subcommand '{}'. Valid: CREATE, EDIT, DELETE, LIST, SHOW",
+                subcmd
+            )),
         }
     }
 
@@ -8242,7 +8435,9 @@ Not fancy, but it gets the job done.",
         let player = self.get_or_create_player(session).await?;
 
         if player.admin_level.unwrap_or(0) < 2 {
-            return Ok("Insufficient permission: admin level 2+ required for @ROOM commands.".to_string());
+            return Ok(
+                "Insufficient permission: admin level 2+ required for @ROOM commands.".to_string(),
+            );
         }
 
         let store = self.store();
@@ -8258,15 +8453,26 @@ Not fancy, but it gets the job done.",
 
                 // Check if room already exists
                 if store.room_exists(&room_id)? {
-                    return Ok(format!("Room '{}' already exists. Use @ROOM EDIT to modify it.", room_id));
+                    return Ok(format!(
+                        "Room '{}' already exists. Use @ROOM EDIT to modify it.",
+                        room_id
+                    ));
                 }
 
                 // Create room with default settings
                 use crate::tmush::types::RoomRecord;
-                let room = RoomRecord::world(&room_id, &name, "A new location.", "This area has not been fully described yet.");
+                let room = RoomRecord::world(
+                    &room_id,
+                    &name,
+                    "A new location.",
+                    "This area has not been fully described yet.",
+                );
                 store.put_room(room)?;
 
-                Ok(format!("Created room '{}' ({}). Use @ROOM EDIT to customize.", room_id, name))
+                Ok(format!(
+                    "Created room '{}' ({}). Use @ROOM EDIT to customize.",
+                    room_id, name
+                ))
             }
             "EDIT" => {
                 if args.len() < 3 {
@@ -8277,7 +8483,12 @@ Not fancy, but it gets the job done.",
 
                 let mut room = match store.get_room(&room_id) {
                     Ok(r) => r,
-                    Err(_) => return Ok(format!("Room '{}' not found. Use @ROOM CREATE to create it.", room_id)),
+                    Err(_) => {
+                        return Ok(format!(
+                            "Room '{}' not found. Use @ROOM CREATE to create it.",
+                            room_id
+                        ))
+                    }
                 };
 
                 match field.as_str() {
@@ -8487,7 +8698,9 @@ Not fancy, but it gets the job done.",
             }
             "DELETE" => {
                 if args.is_empty() {
-                    return Ok("Usage: @ROOM DELETE <id>\nExample: @ROOM DELETE dark_cave".to_string());
+                    return Ok(
+                        "Usage: @ROOM DELETE <id>\nExample: @ROOM DELETE dark_cave".to_string()
+                    );
                 }
                 let room_id = args[0].to_lowercase();
 
@@ -8512,11 +8725,20 @@ Not fancy, but it gets the job done.",
                             let flags_str = if room.flags.is_empty() {
                                 String::new()
                             } else {
-                                format!(" [{}]", room.flags.iter().map(|f| format!("{:?}", f)).collect::<Vec<_>>().join(", "))
+                                format!(
+                                    " [{}]",
+                                    room.flags
+                                        .iter()
+                                        .map(|f| format!("{:?}", f))
+                                        .collect::<Vec<_>>()
+                                        .join(", ")
+                                )
                             };
                             let exits_count = room.exits.len();
-                            output.push_str(&format!("  {}: {} ({} exits){}\n", 
-                                room.id, room.name, exits_count, flags_str));
+                            output.push_str(&format!(
+                                "  {}: {} ({} exits){}\n",
+                                room.id, room.name, exits_count, flags_str
+                            ));
                         }
                         Err(_) => {} // Skip if room can't be loaded
                     }
@@ -8528,10 +8750,10 @@ Not fancy, but it gets the job done.",
                     return Ok("Usage: @ROOM SEARCH <pattern>\nExample: @ROOM SEARCH square\nSearches room names and descriptions for the pattern.".to_string());
                 }
                 let search_pattern = args.join(" ").to_lowercase();
-                
+
                 let room_ids = store.list_room_ids()?;
                 let mut matches = Vec::new();
-                
+
                 // Search through all rooms
                 for room_id in room_ids {
                     if let Ok(room) = store.get_room(&room_id) {
@@ -8539,7 +8761,7 @@ Not fancy, but it gets the job done.",
                         let name_lower = room.name.to_lowercase();
                         let short_desc_lower = room.short_desc.to_lowercase();
                         let long_desc_lower = room.long_desc.to_lowercase();
-                        
+
                         // Calculate score based on where the pattern matches
                         let mut score = 0;
                         if id_lower.contains(&search_pattern) {
@@ -8554,38 +8776,54 @@ Not fancy, but it gets the job done.",
                         if long_desc_lower.contains(&search_pattern) {
                             score += 10; // Long description match
                         }
-                        
+
                         if score > 0 {
                             matches.push((room, score));
                         }
                     }
                 }
-                
+
                 if matches.is_empty() {
                     return Ok(format!("No rooms found matching '{}'.", search_pattern));
                 }
-                
+
                 // Sort by score (highest first)
                 matches.sort_by(|a, b| b.1.cmp(&a.1));
-                
-                let mut output = format!("Rooms matching '{}' ({} found)\n", search_pattern, matches.len());
+
+                let mut output = format!(
+                    "Rooms matching '{}' ({} found)\n",
+                    search_pattern,
+                    matches.len()
+                );
                 output.push_str("─────────────────────────────────────────────────────\n");
-                
+
                 for (room, score) in matches.iter().take(20) {
                     let flags_str = if room.flags.is_empty() {
                         String::new()
                     } else {
-                        format!(" [{}]", room.flags.iter().map(|f| format!("{:?}", f)).collect::<Vec<_>>().join(", "))
+                        format!(
+                            " [{}]",
+                            room.flags
+                                .iter()
+                                .map(|f| format!("{:?}", f))
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        )
                     };
                     let exits_count = room.exits.len();
-                    output.push_str(&format!("  {} ({}): {} ({} exits){}\n", 
-                        room.id, score, room.name, exits_count, flags_str));
+                    output.push_str(&format!(
+                        "  {} ({}): {} ({} exits){}\n",
+                        room.id, score, room.name, exits_count, flags_str
+                    ));
                 }
-                
+
                 if matches.len() > 20 {
-                    output.push_str(&format!("\n... and {} more results. Be more specific to narrow search.\n", matches.len() - 20));
+                    output.push_str(&format!(
+                        "\n... and {} more results. Be more specific to narrow search.\n",
+                        matches.len() - 20
+                    ));
                 }
-                
+
                 Ok(output)
             }
             "SHOW" => {
@@ -8607,7 +8845,10 @@ Not fancy, but it gets the job done.",
                 output.push_str(&format!("Owner: {:?}\n", room.owner));
                 output.push_str(&format!("Capacity: {}\n", room.max_capacity));
                 output.push_str(&format!("Visibility: {:?}\n", room.visibility));
-                output.push_str(&format!("Locked: {}\n", if room.locked { "Yes" } else { "No" }));
+                output.push_str(&format!(
+                    "Locked: {}\n",
+                    if room.locked { "Yes" } else { "No" }
+                ));
 
                 if !room.flags.is_empty() {
                     output.push_str("\nFlags:\n");
@@ -8632,7 +8873,10 @@ Not fancy, but it gets the job done.",
 
                 Ok(output)
             }
-            _ => Ok(format!("Unknown subcommand '{}'. Valid: CREATE, EDIT, DELETE, LIST, SEARCH, SHOW", subcmd)),
+            _ => Ok(format!(
+                "Unknown subcommand '{}'. Valid: CREATE, EDIT, DELETE, LIST, SEARCH, SHOW",
+                subcmd
+            )),
         }
     }
 
@@ -8647,7 +8891,10 @@ Not fancy, but it gets the job done.",
         let player = self.get_or_create_player(session).await?;
 
         if player.admin_level.unwrap_or(0) < 2 {
-            return Ok("Insufficient permission: admin level 2+ required for @OBJECT commands.".to_string());
+            return Ok(
+                "Insufficient permission: admin level 2+ required for @OBJECT commands."
+                    .to_string(),
+            );
         }
 
         let store = self.store();
@@ -9753,7 +10000,9 @@ Not fancy, but it gets the job done.",
 
         // Check admin permissions (level 2+ required)
         if player.admin_level() < 2 {
-            return Ok("❌ Permission denied. Requires admin level 2+ (Admin or higher).".to_string());
+            return Ok(
+                "❌ Permission denied. Requires admin level 2+ (Admin or higher).".to_string(),
+            );
         }
 
         let store = self.store();
@@ -9762,10 +10011,7 @@ Not fancy, but it gets the job done.",
         let mut target = match store.get_player(&target_username) {
             Ok(p) => p,
             Err(_) => {
-                return Ok(format!(
-                    "❌ Player '{}' not found.",
-                    target_username
-                ));
+                return Ok(format!("❌ Player '{}' not found.", target_username));
             }
         };
 
@@ -9831,11 +10077,17 @@ Not fancy, but it gets the job done.",
         };
 
         // Check if object already exists in inventory (for stacking)
-        if let Some(stack) = target.inventory_stacks.iter_mut().find(|s| s.object_id == *object_id) {
+        if let Some(stack) = target
+            .inventory_stacks
+            .iter_mut()
+            .find(|s| s.object_id == *object_id)
+        {
             stack.quantity += quantity;
         } else {
             // Create new stack
-            target.inventory_stacks.push(ItemStack::new(object_id.clone(), quantity));
+            target
+                .inventory_stacks
+                .push(ItemStack::new(object_id.clone(), quantity));
         }
 
         let display_name = target.display_name.clone();
@@ -9876,7 +10128,9 @@ Not fancy, but it gets the job done.",
 
         // Check admin permissions (level 2+ required)
         if player.admin_level() < 2 {
-            return Ok("❌ Permission denied. Requires admin level 2+ (Admin or higher).".to_string());
+            return Ok(
+                "❌ Permission denied. Requires admin level 2+ (Admin or higher).".to_string(),
+            );
         }
 
         let store = self.store();
@@ -9885,10 +10139,7 @@ Not fancy, but it gets the job done.",
         let mut target = match store.get_player(&target_username) {
             Ok(p) => p,
             Err(_) => {
-                return Ok(format!(
-                    "❌ Player '{}' not found.",
-                    target_username
-                ));
+                return Ok(format!("❌ Player '{}' not found.", target_username));
             }
         };
 
@@ -9936,7 +10187,9 @@ Not fancy, but it gets the job done.",
 
         // Check admin permissions (level 2+ required)
         if player.admin_level() < 2 {
-            return Ok("❌ Permission denied. Requires admin level 2+ (Admin or higher).".to_string());
+            return Ok(
+                "❌ Permission denied. Requires admin level 2+ (Admin or higher).".to_string(),
+            );
         }
 
         let store = self.store();
@@ -9945,15 +10198,15 @@ Not fancy, but it gets the job done.",
         let mut target = match store.get_player(&target_username) {
             Ok(p) => p,
             Err(_) => {
-                return Ok(format!(
-                    "❌ Player '{}' not found.",
-                    target_username
-                ));
+                return Ok(format!("❌ Player '{}' not found.", target_username));
             }
         };
 
         if args.is_empty() {
-            return Ok("❌ Usage: @STATS <player> EDIT <stat> <value>\nExample: @STATS alice EDIT HP 100".to_string());
+            return Ok(
+                "❌ Usage: @STATS <player> EDIT <stat> <value>\nExample: @STATS alice EDIT HP 100"
+                    .to_string(),
+            );
         }
 
         // Handle EDIT subcommand
@@ -9975,10 +10228,7 @@ Not fancy, but it gets the job done.",
                     target.stats.hp = value;
                     let display_name = target.display_name.clone();
                     store.put_player_async(target).await?;
-                    Ok(format!(
-                        "✅ Set {}'s HP to {}.",
-                        display_name, value
-                    ))
+                    Ok(format!("✅ Set {}'s HP to {}.", display_name, value))
                 }
                 _ => Ok(format!("❌ Unknown stat: {}\nAvailable: HP", stat_name)),
             }
@@ -11769,31 +12019,35 @@ Not fancy, but it gets the job done.",
         source_object: &crate::tmush::types::ObjectRecord,
     ) -> Result<crate::tmush::types::ObjectRecord> {
         use uuid::Uuid;
-        
+
         // Create a simple clone for shop purchases (no security checks needed)
         let mut cloned = source_object.clone();
-        
+
         // Generate new unique ID
-        cloned.id = format!("obj_{}", Uuid::new_v4().to_string().replace("-", "")[..12].to_string());
-        
+        cloned.id = format!(
+            "obj_{}",
+            Uuid::new_v4().to_string().replace("-", "")[..12].to_string()
+        );
+
         // Set new owner
         cloned.owner = crate::tmush::types::ObjectOwner::Player {
             username: buyer_username.to_string(),
         };
-        
+
         // Preserve clone depth (vending machines keep originals, so depth stays 0)
         // But track in clone_source_id for genealogy
         cloned.clone_source_id = Some(source_id.to_string());
-        
+
         // Clear any flags that shouldn't transfer
         cloned.flags.retain(|f| {
-            !matches!(f, 
-                crate::tmush::types::ObjectFlag::Unique | 
-                crate::tmush::types::ObjectFlag::QuestItem |
-                crate::tmush::types::ObjectFlag::Companion
+            !matches!(
+                f,
+                crate::tmush::types::ObjectFlag::Unique
+                    | crate::tmush::types::ObjectFlag::QuestItem
+                    | crate::tmush::types::ObjectFlag::Companion
             )
         });
-        
+
         // Record ownership
         Self::record_ownership_transfer(
             &mut cloned,
@@ -11801,10 +12055,10 @@ Not fancy, but it gets the job done.",
             buyer_username.to_string(),
             crate::tmush::types::OwnershipReason::Purchased,
         );
-        
+
         // Save the cloned object to database
         self.store().put_object(cloned.clone())?;
-        
+
         Ok(cloned)
     }
 
@@ -12318,7 +12572,7 @@ Not fancy, but it gets the job done.",
         for object_id in object_ids {
             if let Ok(object) = self.store().get_object(object_id) {
                 let name_upper = object.name.to_uppercase();
-                
+
                 // Check if the object name contains the search term
                 if name_upper.contains(&search_upper) {
                     matches.push(object);
@@ -12331,14 +12585,17 @@ Not fancy, but it gets the job done.",
 
     /// Helper: Check if player has an item in their inventory_stacks
     fn player_has_item(player: &PlayerRecord, object_id: &str) -> bool {
-        player.inventory_stacks.iter().any(|stack| stack.object_id == object_id)
+        player
+            .inventory_stacks
+            .iter()
+            .any(|stack| stack.object_id == object_id)
     }
 
     /// Helper: Remove item from player's inventory_stacks
     fn remove_item_from_player(player: &mut PlayerRecord, object_id: &str, quantity: u32) -> bool {
         use crate::tmush::inventory::remove_item_from_inventory;
         use crate::tmush::types::InventoryResult;
-        
+
         match remove_item_from_inventory(player, object_id, quantity) {
             InventoryResult::Removed { .. } => true,
             _ => false,
@@ -12595,16 +12852,19 @@ Not fancy, but it gets the job done.",
                 // Add to player inventory using proper inventory system
                 use crate::tmush::inventory::add_item_to_inventory;
                 use crate::tmush::types::{InventoryConfig, InventoryResult};
-                
+
                 let mut updated_player = player.clone();
                 let config = InventoryConfig::default();
-                
+
                 match add_item_to_inventory(&mut updated_player, &item, 1, &config) {
                     InventoryResult::Added { .. } => {
                         store.put_player_async(updated_player).await?;
                     }
                     InventoryResult::Failed { reason } => {
-                        return Ok(format!("Could not add {} to inventory: {}", item.name, reason));
+                        return Ok(format!(
+                            "Could not add {} to inventory: {}",
+                            item.name, reason
+                        ));
                     }
                     _ => {} // Other result types not applicable
                 }
@@ -12635,13 +12895,12 @@ Not fancy, but it gets the job done.",
 
                 if is_dark && !has_light {
                     // Dark room without light source - minimal description
-                    return Ok(
-                        "=== Darkness ===\n\
+                    return Ok("=== Darkness ===\n\
 You are in pitch darkness. You can't see anything!\n\
 You might need a light source to explore safely here.\n\
 You can still navigate carefully, but you might miss important details.\n\n\
-Obvious exits: (too dark to see clearly)".to_string()
-                    );
+Obvious exits: (too dark to see clearly)"
+                        .to_string());
                 }
 
                 let mut response = String::new();

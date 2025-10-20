@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
@@ -418,6 +418,12 @@ impl TinyMushStore {
 
     /// Insert or update a room record.
     pub fn put_room(&self, mut room: RoomRecord) -> Result<(), TinyMushError> {
+        if room.flags.len() > 1 {
+            // Preserve the first occurrence of each flag and drop duplicates to keep UI filters sane.
+            let mut seen = HashSet::with_capacity(room.flags.len());
+            room.flags.retain(|flag| seen.insert(flag.clone()));
+        }
+
         if crate::tmush::state::is_personal_landing(&room.id) {
             let mut rooms = self.instanced_rooms.write().unwrap();
             rooms.insert(room.id.clone(), room);
@@ -582,11 +588,11 @@ impl TinyMushStore {
         // Remove from primary object tree
         let key = format!("objects:world:{}", object_id).into_bytes();
         self.objects.remove(key)?;
-        
+
         // Remove from index
         let index_key = format!("oid:{}", object_id);
         self.object_index.remove(index_key.as_bytes())?;
-        
+
         self.objects.flush()?;
         Ok(())
     }
@@ -996,7 +1002,7 @@ impl TinyMushStore {
         if self.object_index.contains_key(index_key.as_bytes())? {
             return Ok(true);
         }
-        
+
         // Fallback: check world objects tree directly
         let key = format!("objects:world:{}", object_id);
         Ok(self.objects.contains_key(key.as_bytes())?)
@@ -1126,19 +1132,21 @@ impl TinyMushStore {
         player_id: &str,
     ) -> Result<Option<(String, crate::tmush::types::DialogSession)>, TinyMushError> {
         let prefix = format!("dialog_session:{}:", player_id).into_bytes();
-        
+
         for item in self.npcs.scan_prefix(&prefix) {
             let (key, value) = item?;
             let session: crate::tmush::types::DialogSession = Self::deserialize(value)?;
-            
+
             // Extract NPC ID from key: dialog_session:{player_id}:{npc_id}
             if let Ok(key_str) = std::str::from_utf8(&key) {
-                if let Some(npc_id) = key_str.strip_prefix(&format!("dialog_session:{}:", player_id)) {
+                if let Some(npc_id) =
+                    key_str.strip_prefix(&format!("dialog_session:{}:", player_id))
+                {
                     return Ok(Some((npc_id.to_string(), session)));
                 }
             }
         }
-        
+
         Ok(None)
     }
 
@@ -1313,7 +1321,10 @@ impl TinyMushStore {
             inserted += 1;
 
             // Find this object's designated room
-            if let Some((_, room_id)) = object_locations.iter().find(|(obj_id, _)| *obj_id == object_id) {
+            if let Some((_, room_id)) = object_locations
+                .iter()
+                .find(|(obj_id, _)| *obj_id == object_id)
+            {
                 if let Ok(mut room) = self.get_room(room_id) {
                     if !room.items.contains(&object_id) {
                         room.items.push(object_id.clone());
@@ -2695,7 +2706,10 @@ impl TinyMushStore {
     }
 
     /// Get a recipe by ID
-    pub fn get_recipe(&self, recipe_id: &str) -> Result<crate::tmush::types::CraftingRecipe, TinyMushError> {
+    pub fn get_recipe(
+        &self,
+        recipe_id: &str,
+    ) -> Result<crate::tmush::types::CraftingRecipe, TinyMushError> {
         let key = format!("recipe:{}", recipe_id);
         let bytes = self
             .objects

@@ -21,7 +21,7 @@ use super::auth::AppState;
 pub struct TopicSummary {
     pub name: String,
     pub message_count: usize,
-    pub last_message_time: Option<String>,  // ISO 8601
+    pub last_message_time: Option<String>, // ISO 8601
 }
 
 /// Response for a single message
@@ -32,7 +32,7 @@ pub struct MessageRecord {
     pub author: String,
     pub title: Option<String>,
     pub content: String,
-    pub timestamp: String,  // ISO 8601
+    pub timestamp: String, // ISO 8601
     pub reply_count: usize,
     pub pinned: bool,
 }
@@ -43,15 +43,15 @@ pub struct MessageStats {
     pub total_messages: usize,
     pub total_replies: usize,
     pub authors: Vec<String>,
-    pub first_message: Option<String>,  // ISO 8601
-    pub last_message: Option<String>,   // ISO 8601
+    pub first_message: Option<String>, // ISO 8601
+    pub last_message: Option<String>,  // ISO 8601
 }
 
 /// Query parameters for message list
 #[derive(Debug, Deserialize)]
 pub struct MessageListQuery {
-    pub limit: Option<usize>,   // Max messages to return (default: 50, max: 200)
-    pub offset: Option<usize>,  // Pagination offset
+    pub limit: Option<usize>,  // Max messages to return (default: 50, max: 200)
+    pub offset: Option<usize>, // Pagination offset
 }
 
 /// List all message topics with statistics
@@ -71,17 +71,16 @@ pub async fn list_topics(
     let storage = storage_arc.lock().await;
 
     // Get list of topic names
-    let topic_names = storage.list_message_topics()
-        .await
-        .map_err(|e| {
-            error!("Failed to list topics: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
+    let topic_names = storage.list_message_topics().await.map_err(|e| {
+        error!("Failed to list topics: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
 
     // For each topic, get messages to calculate stats
     let mut topics = Vec::new();
     for topic_name in topic_names {
-        let messages = storage.get_messages(&topic_name, 1000) // Get all for stats
+        let messages = storage
+            .get_messages(&topic_name, 1000) // Get all for stats
             .await
             .map_err(|e| {
                 error!("Failed to get messages for topic {}: {}", topic_name, e);
@@ -98,9 +97,7 @@ pub async fn list_topics(
     }
 
     // Sort by last message time (most recent first)
-    topics.sort_by(|a, b| {
-        b.last_message_time.cmp(&a.last_message_time)
-    });
+    topics.sort_by(|a, b| b.last_message_time.cmp(&a.last_message_time));
 
     drop(storage);
 
@@ -134,12 +131,10 @@ pub async fn list_messages(
 
     // Get messages from storage
     let limit = query.limit.unwrap_or(50).min(200); // Default 50, max 200
-    let messages = storage.get_messages(&topic, limit)
-        .await
-        .map_err(|e| {
-            error!("Failed to get messages for topic {}: {}", topic, e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
+    let messages = storage.get_messages(&topic, limit).await.map_err(|e| {
+        error!("Failed to get messages for topic {}: {}", topic, e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
 
     // Convert to response format
     let mut records: Vec<MessageRecord> = messages
@@ -194,20 +189,16 @@ pub async fn get_topic_stats(
     let storage = storage_arc.lock().await;
 
     // Get all messages for stats calculation
-    let messages = storage.get_messages(&topic, 10000)
-        .await
-        .map_err(|e| {
-            error!("Failed to get messages for topic {}: {}", topic, e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
+    let messages = storage.get_messages(&topic, 10000).await.map_err(|e| {
+        error!("Failed to get messages for topic {}: {}", topic, e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
 
     // Calculate statistics
     let total_messages = messages.len();
     let total_replies: usize = messages.iter().map(|m| m.replies.len()).sum();
-    
-    let mut authors: Vec<String> = messages.iter()
-        .map(|m| m.author.clone())
-        .collect();
+
+    let mut authors: Vec<String> = messages.iter().map(|m| m.author.clone()).collect();
     authors.sort();
     authors.dedup();
 

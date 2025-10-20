@@ -18,15 +18,10 @@ fn recipe_crud_operations() {
         .expect("store");
 
     // Create a recipe
-    let recipe = CraftingRecipe::new(
-        "goat_cheese",
-        "Goat Milk Cheese",
-        "goat_cheese",
-        "admin",
-    )
-    .with_material("goat_milk", 2)
-    .with_station("cheese_press")
-    .with_description("Creamy artisan cheese made from fresh goat milk");
+    let recipe = CraftingRecipe::new("goat_cheese", "Goat Milk Cheese", "goat_cheese", "admin")
+        .with_material("goat_milk", 2)
+        .with_station("cheese_press")
+        .with_description("Creamy artisan cheese made from fresh goat milk");
 
     // Put recipe
     store.put_recipe(recipe.clone()).expect("put recipe");
@@ -40,20 +35,25 @@ fn recipe_crud_operations() {
     assert_eq!(retrieved.materials[0].quantity, 2);
     assert!(retrieved.materials[0].consumed);
     assert_eq!(retrieved.requires_station, Some("cheese_press".to_string()));
-    assert_eq!(retrieved.description, "Creamy artisan cheese made from fresh goat milk");
+    assert_eq!(
+        retrieved.description,
+        "Creamy artisan cheese made from fresh goat milk"
+    );
 
     // List recipes
     let recipes = store.list_recipes(None).expect("list recipes");
     assert!(recipes.iter().any(|r| r.id == "goat_cheese"));
 
     // List recipes by station
-    let cheese_recipes = store.list_recipes(Some("cheese_press")).expect("list by station");
+    let cheese_recipes = store
+        .list_recipes(Some("cheese_press"))
+        .expect("list by station");
     assert_eq!(cheese_recipes.len(), 1);
     assert_eq!(cheese_recipes[0].id, "goat_cheese");
 
     // Delete recipe
     store.delete_recipe("goat_cheese").expect("delete recipe");
-    
+
     // Verify deleted
     assert!(store.get_recipe("goat_cheese").is_err());
 }
@@ -68,21 +68,33 @@ fn recipe_builder_pattern() {
         .with_description("A test recipe");
 
     assert_eq!(recipe.materials.len(), 3);
-    
+
     // Check materials
-    let wood = recipe.materials.iter().find(|m| m.item_id == "wood").unwrap();
+    let wood = recipe
+        .materials
+        .iter()
+        .find(|m| m.item_id == "wood")
+        .unwrap();
     assert_eq!(wood.quantity, 3);
     assert!(wood.consumed);
-    
-    let nails = recipe.materials.iter().find(|m| m.item_id == "nails").unwrap();
+
+    let nails = recipe
+        .materials
+        .iter()
+        .find(|m| m.item_id == "nails")
+        .unwrap();
     assert_eq!(nails.quantity, 6);
     assert!(nails.consumed);
-    
+
     // Check tool (not consumed)
-    let hammer = recipe.materials.iter().find(|m| m.item_id == "hammer").unwrap();
+    let hammer = recipe
+        .materials
+        .iter()
+        .find(|m| m.item_id == "hammer")
+        .unwrap();
     assert_eq!(hammer.quantity, 1);
     assert!(!hammer.consumed);
-    
+
     assert_eq!(recipe.requires_station, Some("workbench".to_string()));
     assert_eq!(recipe.description, "A test recipe");
 }
@@ -95,22 +107,36 @@ fn default_recipes_seeded() {
         .expect("store");
 
     // Verify signal_booster exists
-    let signal_booster = store.get_recipe("signal_booster").expect("signal_booster exists");
+    let signal_booster = store
+        .get_recipe("signal_booster")
+        .expect("signal_booster exists");
     assert_eq!(signal_booster.name, "Signal Booster");
     assert_eq!(signal_booster.result_item_id, "signal_booster");
-    assert_eq!(signal_booster.requires_station, Some("crafting_bench".to_string()));
-    
+    assert_eq!(
+        signal_booster.requires_station,
+        Some("crafting_bench".to_string())
+    );
+
     // Check materials (2x copper_wire, circuit_board, antenna_rod)
     assert_eq!(signal_booster.materials.len(), 3);
-    let copper_wire = signal_booster.materials.iter().find(|m| m.item_id == "copper_wire").unwrap();
+    let copper_wire = signal_booster
+        .materials
+        .iter()
+        .find(|m| m.item_id == "copper_wire")
+        .unwrap();
     assert_eq!(copper_wire.quantity, 2);
 
     // Verify basic_antenna exists
-    let basic_antenna = store.get_recipe("basic_antenna").expect("basic_antenna exists");
+    let basic_antenna = store
+        .get_recipe("basic_antenna")
+        .expect("basic_antenna exists");
     assert_eq!(basic_antenna.name, "Basic Antenna");
     assert_eq!(basic_antenna.result_item_id, "basic_antenna");
-    assert_eq!(basic_antenna.requires_station, Some("crafting_bench".to_string()));
-    
+    assert_eq!(
+        basic_antenna.requires_station,
+        Some("crafting_bench".to_string())
+    );
+
     // Check materials (2x copper_wire, antenna_rod)
     assert_eq!(basic_antenna.materials.len(), 2);
 }
@@ -118,13 +144,21 @@ fn default_recipes_seeded() {
 #[test]
 fn recipe_material_types() {
     let recipe = CraftingRecipe::new("test", "Test", "result", "tester")
-        .with_material("wood", 5)    // Consumed material
-        .with_tool("saw");            // Non-consumed tool
+        .with_material("wood", 5) // Consumed material
+        .with_tool("saw"); // Non-consumed tool
 
-    let wood = recipe.materials.iter().find(|m| m.item_id == "wood").unwrap();
+    let wood = recipe
+        .materials
+        .iter()
+        .find(|m| m.item_id == "wood")
+        .unwrap();
     assert!(wood.consumed, "Materials should be consumed");
 
-    let saw = recipe.materials.iter().find(|m| m.item_id == "saw").unwrap();
+    let saw = recipe
+        .materials
+        .iter()
+        .find(|m| m.item_id == "saw")
+        .unwrap();
     assert!(!saw.consumed, "Tools should not be consumed");
 }
 

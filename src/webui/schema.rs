@@ -55,7 +55,10 @@ pub struct FieldDefinition {
 #[serde(tag = "type", content = "constraints")]
 pub enum FieldType {
     /// String with optional min/max length
-    String { min_length: Option<usize>, max_length: Option<usize> },
+    String {
+        min_length: Option<usize>,
+        max_length: Option<usize>,
+    },
     /// Integer with optional min/max value
     Integer { min: Option<i64>, max: Option<i64> },
     /// Unsigned integer with optional min/max value
@@ -147,14 +150,14 @@ impl SchemaRegistry {
         let mut registry = Self {
             schemas: HashMap::new(),
         };
-        
+
         registry.register_user_schema();
         registry.register_message_schema();
         registry.register_topic_schema();
-        
+
         registry
     }
-    
+
     /// Register the User entity schema
     fn register_user_schema(&mut self) {
         let schema = SchemaDefinition {
@@ -162,14 +165,18 @@ impl SchemaRegistry {
             display_name: "User".to_string(),
             description: "BBS user account with authentication and profile data".to_string(),
             primary_key: "username".to_string(),
-            actions: vec!["read".to_string(), "update".to_string(), "delete".to_string()],
+            actions: vec![
+                "read".to_string(),
+                "update".to_string(),
+                "delete".to_string(),
+            ],
             fields: vec![
                 FieldDefinition {
                     name: "username".to_string(),
                     display_name: "Username".to_string(),
-                    field_type: FieldType::String { 
-                        min_length: Some(3), 
-                        max_length: Some(32) 
+                    field_type: FieldType::String {
+                        min_length: Some(3),
+                        max_length: Some(32),
                     },
                     required: true,
                     readonly: true,
@@ -180,7 +187,8 @@ impl SchemaRegistry {
                         min: None,
                         max: None,
                         custom_rules: vec![
-                            "Must contain only letters, numbers, underscores, and hyphens".to_string()
+                            "Must contain only letters, numbers, underscores, and hyphens"
+                                .to_string(),
                         ],
                     }),
                     display: Some(DisplayHints {
@@ -196,9 +204,9 @@ impl SchemaRegistry {
                 FieldDefinition {
                     name: "longname".to_string(),
                     display_name: "Display Name".to_string(),
-                    field_type: FieldType::String { 
-                        min_length: None, 
-                        max_length: Some(64) 
+                    field_type: FieldType::String {
+                        min_length: None,
+                        max_length: Some(64),
                     },
                     required: false,
                     readonly: false,
@@ -218,9 +226,9 @@ impl SchemaRegistry {
                 FieldDefinition {
                     name: "level".to_string(),
                     display_name: "Access Level".to_string(),
-                    field_type: FieldType::UnsignedInteger { 
-                        min: Some(1), 
-                        max: Some(10) 
+                    field_type: FieldType::UnsignedInteger {
+                        min: Some(1),
+                        max: Some(10),
                     },
                     required: true,
                     readonly: false,
@@ -250,9 +258,9 @@ impl SchemaRegistry {
                 FieldDefinition {
                     name: "last_on".to_string(),
                     display_name: "Last Login".to_string(),
-                    field_type: FieldType::UnsignedInteger { 
-                        min: None, 
-                        max: None 
+                    field_type: FieldType::UnsignedInteger {
+                        min: None,
+                        max: None,
                     },
                     required: false,
                     readonly: true,
@@ -272,9 +280,9 @@ impl SchemaRegistry {
                 FieldDefinition {
                     name: "created".to_string(),
                     display_name: "Created".to_string(),
-                    field_type: FieldType::UnsignedInteger { 
-                        min: None, 
-                        max: None 
+                    field_type: FieldType::UnsignedInteger {
+                        min: None,
+                        max: None,
                     },
                     required: false,
                     readonly: true,
@@ -311,31 +319,29 @@ impl SchemaRegistry {
                     help_text: Some("Whether this user has a password configured".to_string()),
                 },
             ],
-            computed_fields: vec![
-                ComputedFieldDefinition {
-                    name: "role".to_string(),
-                    display_name: "Role".to_string(),
-                    description: "User role derived from access level".to_string(),
-                    field_type: FieldType::String { 
-                        min_length: None, 
-                        max_length: None 
-                    },
-                    depends_on: vec!["level".to_string()],
-                    display: Some(DisplayHints {
-                        widget: "badge".to_string(),
-                        placeholder: None,
-                        options: None,
-                        css_class: Some("role-badge".to_string()),
-                        icon: None,
-                        format: None,
-                    }),
+            computed_fields: vec![ComputedFieldDefinition {
+                name: "role".to_string(),
+                display_name: "Role".to_string(),
+                description: "User role derived from access level".to_string(),
+                field_type: FieldType::String {
+                    min_length: None,
+                    max_length: None,
                 },
-            ],
+                depends_on: vec!["level".to_string()],
+                display: Some(DisplayHints {
+                    widget: "badge".to_string(),
+                    placeholder: None,
+                    options: None,
+                    css_class: Some("role-badge".to_string()),
+                    icon: None,
+                    format: None,
+                }),
+            }],
         };
-        
+
         self.schemas.insert("user".to_string(), schema);
     }
-    
+
     /// Register the Message entity schema
     fn register_message_schema(&mut self) {
         let schema = SchemaDefinition {
@@ -348,9 +354,9 @@ impl SchemaRegistry {
                 FieldDefinition {
                     name: "id".to_string(),
                     display_name: "Message ID".to_string(),
-                    field_type: FieldType::String { 
-                        min_length: None, 
-                        max_length: None 
+                    field_type: FieldType::String {
+                        min_length: None,
+                        max_length: None,
                     },
                     required: true,
                     readonly: true,
@@ -370,9 +376,9 @@ impl SchemaRegistry {
                 FieldDefinition {
                     name: "author".to_string(),
                     display_name: "Author".to_string(),
-                    field_type: FieldType::String { 
-                        min_length: None, 
-                        max_length: None 
+                    field_type: FieldType::String {
+                        min_length: None,
+                        max_length: None,
                     },
                     required: true,
                     readonly: true,
@@ -392,9 +398,9 @@ impl SchemaRegistry {
                 FieldDefinition {
                     name: "subject".to_string(),
                     display_name: "Subject".to_string(),
-                    field_type: FieldType::String { 
-                        min_length: None, 
-                        max_length: Some(256) 
+                    field_type: FieldType::String {
+                        min_length: None,
+                        max_length: Some(256),
                     },
                     required: false,
                     readonly: true,
@@ -414,9 +420,9 @@ impl SchemaRegistry {
                 FieldDefinition {
                     name: "body".to_string(),
                     display_name: "Message Body".to_string(),
-                    field_type: FieldType::String { 
-                        min_length: None, 
-                        max_length: None 
+                    field_type: FieldType::String {
+                        min_length: None,
+                        max_length: None,
                     },
                     required: true,
                     readonly: true,
@@ -436,9 +442,9 @@ impl SchemaRegistry {
                 FieldDefinition {
                     name: "timestamp".to_string(),
                     display_name: "Posted".to_string(),
-                    field_type: FieldType::UnsignedInteger { 
-                        min: None, 
-                        max: None 
+                    field_type: FieldType::UnsignedInteger {
+                        min: None,
+                        max: None,
                     },
                     required: true,
                     readonly: true,
@@ -458,9 +464,9 @@ impl SchemaRegistry {
                 FieldDefinition {
                     name: "reply_to".to_string(),
                     display_name: "Reply To".to_string(),
-                    field_type: FieldType::String { 
-                        min_length: None, 
-                        max_length: None 
+                    field_type: FieldType::String {
+                        min_length: None,
+                        max_length: None,
                     },
                     required: false,
                     readonly: true,
@@ -499,10 +505,10 @@ impl SchemaRegistry {
             ],
             computed_fields: vec![],
         };
-        
+
         self.schemas.insert("message".to_string(), schema);
     }
-    
+
     /// Register the Topic entity schema
     fn register_topic_schema(&mut self) {
         let schema = SchemaDefinition {
@@ -515,9 +521,9 @@ impl SchemaRegistry {
                 FieldDefinition {
                     name: "name".to_string(),
                     display_name: "Topic Name".to_string(),
-                    field_type: FieldType::String { 
-                        min_length: Some(1), 
-                        max_length: Some(64) 
+                    field_type: FieldType::String {
+                        min_length: Some(1),
+                        max_length: Some(64),
                     },
                     required: true,
                     readonly: true,
@@ -545,9 +551,9 @@ impl SchemaRegistry {
                 FieldDefinition {
                     name: "message_count".to_string(),
                     display_name: "Messages".to_string(),
-                    field_type: FieldType::UnsignedInteger { 
-                        min: Some(0), 
-                        max: None 
+                    field_type: FieldType::UnsignedInteger {
+                        min: Some(0),
+                        max: None,
                     },
                     required: false,
                     readonly: true,
@@ -567,9 +573,9 @@ impl SchemaRegistry {
                 FieldDefinition {
                     name: "last_activity".to_string(),
                     display_name: "Last Activity".to_string(),
-                    field_type: FieldType::UnsignedInteger { 
-                        min: None, 
-                        max: None 
+                    field_type: FieldType::UnsignedInteger {
+                        min: None,
+                        max: None,
                     },
                     required: false,
                     readonly: true,
@@ -589,20 +595,20 @@ impl SchemaRegistry {
             ],
             computed_fields: vec![],
         };
-        
+
         self.schemas.insert("topic".to_string(), schema);
     }
-    
+
     /// Get schema by entity name
     pub fn get_schema(&self, name: &str) -> Option<&SchemaDefinition> {
         self.schemas.get(name)
     }
-    
+
     /// Get all schema names
     pub fn list_schemas(&self) -> Vec<String> {
         self.schemas.keys().cloned().collect()
     }
-    
+
     /// Get all schemas
     pub fn get_all_schemas(&self) -> Vec<&SchemaDefinition> {
         self.schemas.values().collect()

@@ -1,7 +1,7 @@
 use meshbbs::bbs::server::BbsServer;
 use meshbbs::config::{
-    BbsConfig, Config, GamesConfig, IdentBeaconConfig, LoggingConfig, MeshtasticConfig,
-    MessageTopicConfig, StorageConfig,
+    AdminDashboardConfig, BbsConfig, Config, GamesConfig, IdentBeaconConfig, LoggingConfig,
+    MeshtasticConfig, MessageTopicConfig, StorageConfig,
 };
 use std::collections::HashMap;
 
@@ -85,6 +85,7 @@ async fn config_with_areas(dir: &str) -> Config {
             cooldown_minutes: 5,
             max_welcomes_per_node: 1,
         },
+        admin_dashboard: AdminDashboardConfig::default(),
     }
 }
 

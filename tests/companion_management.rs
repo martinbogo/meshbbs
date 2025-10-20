@@ -13,7 +13,8 @@ fn companion_crud_operations() {
     let (store, _temp) = setup_test_store();
 
     // CREATE
-    let companion = CompanionRecord::new("test_horse", "Test Horse", CompanionType::Horse, "stable");
+    let companion =
+        CompanionRecord::new("test_horse", "Test Horse", CompanionType::Horse, "stable");
     store.put_companion(companion.clone()).unwrap();
 
     // READ
@@ -40,7 +41,8 @@ fn companion_crud_operations() {
 fn companion_edit_all_fields() {
     let (store, _temp) = setup_test_store();
 
-    let mut companion = CompanionRecord::new("test_dog", "Test Dog", CompanionType::Dog, "town_square");
+    let mut companion =
+        CompanionRecord::new("test_dog", "Test Dog", CompanionType::Dog, "town_square");
     store.put_companion(companion.clone()).unwrap();
 
     // Edit name
@@ -93,16 +95,23 @@ fn companion_type_variants() {
 fn companion_behavior_management() {
     let (store, _temp) = setup_test_store();
 
-    let mut companion = CompanionRecord::new("test_dog", "Test Dog", CompanionType::Dog, "town_square");
-    
+    let mut companion =
+        CompanionRecord::new("test_dog", "Test Dog", CompanionType::Dog, "town_square");
+
     // Dogs start with 3 default behaviors (AutoFollow, AlertDanger, IdleChatter)
     // So behaviors.len() should be 3 initially
     store.put_companion(companion.clone()).unwrap();
     let retrieved = store.get_companion("test_dog").unwrap();
-    assert_eq!(retrieved.behaviors.len(), 3, "Dog should have 3 default behaviors");
+    assert_eq!(
+        retrieved.behaviors.len(),
+        3,
+        "Dog should have 3 default behaviors"
+    );
 
     // Add ExtraStorage behavior
-    companion.behaviors.push(CompanionBehavior::ExtraStorage { capacity: 30 });
+    companion
+        .behaviors
+        .push(CompanionBehavior::ExtraStorage { capacity: 30 });
     store.put_companion(companion.clone()).unwrap();
     let retrieved = store.get_companion("test_dog").unwrap();
     assert_eq!(retrieved.behaviors.len(), 4, "Should have 4 behaviors now");
@@ -117,15 +126,26 @@ fn companion_complex_behaviors() {
     let (store, _temp) = setup_test_store();
 
     // Mercenary starts with 2 default behaviors (AutoFollow, CombatAssist with damage_bonus=15)
-    let mut companion = CompanionRecord::new("test_mercenary", "Guard", CompanionType::Mercenary, "barracks");
-    
+    let mut companion = CompanionRecord::new(
+        "test_mercenary",
+        "Guard",
+        CompanionType::Mercenary,
+        "barracks",
+    );
+
     // Verify default behaviors exist
     store.put_companion(companion.clone()).unwrap();
     let retrieved = store.get_companion("test_mercenary").unwrap();
-    assert_eq!(retrieved.behaviors.len(), 2, "Mercenary should have 2 default behaviors");
-    
+    assert_eq!(
+        retrieved.behaviors.len(),
+        2,
+        "Mercenary should have 2 default behaviors"
+    );
+
     // Add another CombatAssist (testing we can add multiples)
-    companion.behaviors.push(CompanionBehavior::CombatAssist { damage_bonus: 10 });
+    companion
+        .behaviors
+        .push(CompanionBehavior::CombatAssist { damage_bonus: 10 });
     store.put_companion(companion.clone()).unwrap();
     let retrieved = store.get_companion("test_mercenary").unwrap();
     assert_eq!(retrieved.behaviors.len(), 3, "Should have 3 behaviors now");
@@ -143,7 +163,10 @@ fn companion_complex_behaviors() {
     let retrieved = store.get_companion("test_mercenary").unwrap();
     assert_eq!(retrieved.behaviors.len(), 4, "Should have 4 behaviors now");
     match &retrieved.behaviors[3] {
-        CompanionBehavior::Healing { heal_amount, cooldown_seconds } => {
+        CompanionBehavior::Healing {
+            heal_amount,
+            cooldown_seconds,
+        } => {
             assert_eq!(*heal_amount, 15);
             assert_eq!(*cooldown_seconds, 300);
         }
@@ -174,7 +197,11 @@ fn companion_complex_behaviors() {
     store.put_companion(cat).unwrap();
     let retrieved = store.get_companion("test_cat").unwrap();
     // Cat has 1 default IdleChatter behavior, we added another, so 2 total
-    assert_eq!(retrieved.behaviors.len(), 2, "Cat should have 2 IdleChatter behaviors");
+    assert_eq!(
+        retrieved.behaviors.len(),
+        2,
+        "Cat should have 2 IdleChatter behaviors"
+    );
     match &retrieved.behaviors[1] {
         CompanionBehavior::IdleChatter { messages } => {
             assert_eq!(messages.len(), 2);
@@ -193,7 +220,8 @@ fn companion_exists_check() {
     assert!(!store.companion_exists("nonexistent").unwrap());
 
     // Create companion
-    let companion = CompanionRecord::new("test_horse", "Test Horse", CompanionType::Horse, "stable");
+    let companion =
+        CompanionRecord::new("test_horse", "Test Horse", CompanionType::Horse, "stable");
     store.put_companion(companion).unwrap();
 
     // Should exist now

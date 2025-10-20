@@ -3,13 +3,13 @@
 //! Tests that crafted items can be created, stored, and have proper ownership.
 //! Also tests InventoryConfig structure with max_stacks field.
 
+use chrono::Utc;
 use meshbbs::tmush::types::{
-    ObjectRecord, ObjectOwner, CurrencyAmount, InventoryConfig, PlayerRecord,
+    CurrencyAmount, InventoryConfig, ObjectOwner, ObjectRecord, PlayerRecord,
 };
 use meshbbs::tmush::TinyMushStoreBuilder;
 use std::collections::HashMap;
 use tempfile::TempDir;
-use chrono::Utc;
 
 #[test]
 fn inventory_config_has_max_stacks_field() {
@@ -19,7 +19,7 @@ fn inventory_config_has_max_stacks_field() {
         max_weight: 1000,
         max_stacks: 100,
     };
-    
+
     assert_eq!(config.max_stacks, 100);
     assert_eq!(config.max_weight, 1000);
     assert!(config.allow_stacking);
@@ -57,18 +57,22 @@ fn crafted_item_with_player_owner() {
         created_by: "engineer_bob".to_string(),
         schema_version: 1,
     };
-    
+
     // Save the crafted item
-    store.put_object(crafted_item.clone()).expect("save crafted item");
-    
+    store
+        .put_object(crafted_item.clone())
+        .expect("save crafted item");
+
     // Reload and verify
-    let loaded = store.get_object("crafted_signal_booster_12345").expect("get crafted item");
-    
+    let loaded = store
+        .get_object("crafted_signal_booster_12345")
+        .expect("get crafted item");
+
     assert_eq!(loaded.name, "Signal Booster");
     assert_eq!(loaded.weight, 3);
     assert_eq!(loaded.value, 50);
     assert!(loaded.takeable);
-    
+
     // Verify player ownership
     match loaded.owner {
         ObjectOwner::Player { username } => {
@@ -110,11 +114,13 @@ fn crafted_basic_antenna() {
         created_by: "radio_enthusiast".to_string(),
         schema_version: 1,
     };
-    
+
     // Save and reload
     store.put_object(antenna.clone()).expect("save antenna");
-    let loaded = store.get_object("crafted_basic_antenna_67890").expect("get antenna");
-    
+    let loaded = store
+        .get_object("crafted_basic_antenna_67890")
+        .expect("get antenna");
+
     assert_eq!(loaded.name, "Basic Antenna");
     assert_eq!(loaded.weight, 2);
     assert_eq!(loaded.value, 25);
@@ -153,10 +159,10 @@ fn multiple_crafted_items_with_unique_ids() {
             created_by: "crafter".to_string(),
             schema_version: 1,
         };
-        
+
         store.put_object(item).expect(&format!("save item {}", i));
     }
-    
+
     // Verify all items exist with unique IDs
     for i in 1..=5 {
         let id = format!("crafted_signal_booster_{}", i);
@@ -177,10 +183,10 @@ fn player_can_own_crafted_items() {
     // Create a player
     let player = PlayerRecord::new("master_crafter", "Master Crafter", "workshop");
     store.put_player(player.clone()).expect("save player");
-    
+
     // Create multiple crafted items owned by this player
     let item_names = vec!["Signal Booster", "Basic Antenna", "Advanced Circuit"];
-    
+
     for (i, name) in item_names.iter().enumerate() {
         let item = ObjectRecord {
             id: format!("crafted_{}_{}", name.to_lowercase().replace(" ", "_"), i),
@@ -205,20 +211,20 @@ fn player_can_own_crafted_items() {
             created_by: "master_crafter".to_string(),
             schema_version: 1,
         };
-        
+
         store.put_object(item).expect(&format!("save {}", name));
     }
-    
+
     // Verify player exists and items are stored
     let loaded_player = store.get_player("master_crafter").expect("get player");
     assert_eq!(loaded_player.username, "master_crafter");
-    
+
     // Verify all crafted items exist
     for (i, name) in item_names.iter().enumerate() {
         let id = format!("crafted_{}_{}", name.to_lowercase().replace(" ", "_"), i);
         let item = store.get_object(&id).expect(&format!("get {}", name));
         assert_eq!(item.name, *name);
-        
+
         match item.owner {
             ObjectOwner::Player { username } => {
                 assert_eq!(username, "master_crafter");

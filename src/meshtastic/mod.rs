@@ -2605,14 +2605,14 @@ impl MeshtasticWriter {
                 _ = heartbeat_interval.tick() => {
                     // periodic heartbeat
                     if let Err(e) = self.send_heartbeat() { debug!("Heartbeat send error: {:?}", e); }
-                    
+
                     // Clean up pending sends periodically
                     let now = std::time::Instant::now();
                     if now.duration_since(self.last_pending_cleanup).as_secs() >= PENDING_CLEANUP_INTERVAL_SECS {
                         self.cleanup_pending();
                         self.last_pending_cleanup = now;
                     }
-                    
+
                     // Log warning if pending HashMap is getting large
                     if self.pending.len() > MAX_PENDING_SENDS * 80 / 100 {
                         warn!(
@@ -2620,7 +2620,7 @@ impl MeshtasticWriter {
                             self.pending.len(), MAX_PENDING_SENDS
                         );
                     }
-                    
+
                     // expire stale broadcast ack trackers
                     let expired: Vec<u32> = self.pending_broadcast.iter()
                         .filter_map(|(id, bp)| if bp.expires_at <= now { Some(*id) } else { None })
@@ -3024,13 +3024,13 @@ impl MeshtasticWriter {
     }
 
     /// Clean up old pending sends to prevent HashMap from growing unbounded
-    /// 
+    ///
     /// Called periodically (every 5 minutes) to remove:
     /// - Sends older than MAX_AGE (10 minutes)
     /// - Excess entries beyond MAX_PENDING_SENDS when at limit
     fn cleanup_pending(&mut self) {
         let now = std::time::Instant::now();
-        
+
         // Remove entries older than max age
         let before_count = self.pending.len();
         self.pending.retain(|id, p| {
@@ -3038,24 +3038,29 @@ impl MeshtasticWriter {
             if age.as_secs() > PENDING_MAX_AGE_SECS {
                 warn!(
                     "Dropping stale pending send: id={} to=0x{:08x} age={}s ({})",
-                    id, p.to, age.as_secs(), p.content_preview
+                    id,
+                    p.to,
+                    age.as_secs(),
+                    p.content_preview
                 );
                 false
             } else {
                 true
             }
         });
-        
+
         let after_age_cleanup = self.pending.len();
-        
+
         // If still over limit, remove oldest entries
         if self.pending.len() > MAX_PENDING_SENDS {
             let to_remove = self.pending.len() - MAX_PENDING_SENDS;
-            let mut entries: Vec<_> = self.pending.iter()
+            let mut entries: Vec<_> = self
+                .pending
+                .iter()
                 .map(|(id, p)| (*id, p.sent_at))
                 .collect();
             entries.sort_by_key(|(_id, sent_at)| *sent_at);
-            
+
             for (id, _) in entries.iter().take(to_remove) {
                 if let Some(removed) = self.pending.remove(id) {
                     warn!(
@@ -3065,7 +3070,7 @@ impl MeshtasticWriter {
                 }
             }
         }
-        
+
         let removed_count = before_count.saturating_sub(self.pending.len());
         if removed_count > 0 {
             info!(

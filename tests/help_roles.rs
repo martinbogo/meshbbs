@@ -72,7 +72,7 @@ async fn help_moderator_and_sysop() {
         .unwrap();
     assert!(sys_help.contains("ADM:"), "sysop help missing ADM section");
     assert!(
-        sys_help.contains("Roles/logging"),
+        sys_help.contains("SYSLOG") && sys_help.contains("ADMIN"),
         "sysop help should highlight admin tooling"
     );
 }

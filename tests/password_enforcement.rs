@@ -1,6 +1,6 @@
 use meshbbs::config::{
-    BbsConfig, Config, GamesConfig, IdentBeaconConfig, LoggingConfig, MeshtasticConfig,
-    StorageConfig,
+    AdminDashboardConfig, BbsConfig, Config, GamesConfig, IdentBeaconConfig, LoggingConfig,
+    MeshtasticConfig, StorageConfig,
 };
 use tempfile::tempdir;
 
@@ -60,6 +60,7 @@ async fn passwordless_user_prompt_and_set() {
             cooldown_minutes: 5,
             max_welcomes_per_node: 1,
         },
+        admin_dashboard: AdminDashboardConfig::default(),
     };
     // Server instance not required for this test; we manipulate user file directly.
     // Use test helper to create passwordless legacy user via storage public method not exposed; mimic by writing file through create_or_update_user equivalent path: call internal method via public test_register? Not possible without password.

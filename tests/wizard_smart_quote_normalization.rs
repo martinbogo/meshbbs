@@ -1,9 +1,9 @@
 //! Test smart quote normalization in wizard/builder commands
-use meshbbs::tmush::builder_commands::{WizardSession, WizardState, handle_wizard_step};
-use meshbbs::tmush::{ObjectRecord, ObjectOwner, ObjectTrigger};
+use chrono::Utc;
+use meshbbs::tmush::builder_commands::{handle_wizard_step, WizardSession, WizardState};
 use meshbbs::tmush::types::CurrencyAmount;
 use meshbbs::tmush::TinyMushStore;
-use chrono::Utc;
+use meshbbs::tmush::{ObjectOwner, ObjectRecord, ObjectTrigger};
 use std::collections::HashMap;
 use tempfile::TempDir;
 
@@ -11,7 +11,7 @@ use tempfile::TempDir;
 fn test_wizard_normalizes_smart_quotes_in_custom_script() {
     let temp = TempDir::new().unwrap();
     let store = TinyMushStore::open(temp.path()).unwrap();
-    
+
     // Create a test object
     let obj = ObjectRecord {
         id: "test_obj".to_string(),
@@ -35,7 +35,7 @@ fn test_wizard_normalizes_smart_quotes_in_custom_script() {
         schema_version: 1,
     };
     store.put_object(obj).unwrap();
-    
+
     // Create wizard session in CustomizeAction state with custom template
     let mut session = WizardSession {
         state: WizardState::CustomizeAction {
@@ -46,32 +46,40 @@ fn test_wizard_normalizes_smart_quotes_in_custom_script() {
         },
         available_objects: vec![],
     };
-    
+
     // Simulate user input with smart quotes (using Unicode escapes)
     let input_with_smart_quotes = "teleport(\u{201C}town_square\u{201D})";
-    
+
     println!("Input with smart quotes: {}", input_with_smart_quotes);
     println!("Input bytes: {:?}", input_with_smart_quotes.as_bytes());
-    
+
     // Handle the wizard step - this should normalize quotes and save the trigger
     let result = handle_wizard_step(&mut session, input_with_smart_quotes, &store);
-    
+
     match result {
         Ok(msg) => {
             println!("✓ Wizard succeeded: {}", msg);
-            
+
             // Verify the trigger was saved with normalized quotes
             let saved_obj = store.get_object("test_obj").unwrap();
             if let Some(script) = saved_obj.actions.get(&ObjectTrigger::OnUse) {
                 println!("Saved script: {}", script);
                 println!("Saved script bytes: {:?}", script.as_bytes());
-                
+
                 // Should have straight quotes, not smart quotes
-                assert_eq!(script, r#"teleport("town_square")"#, 
-                          "Script should have normalized straight quotes");
-                assert!(!script.contains('\u{201C}'), "Should not contain left smart quote");
-                assert!(!script.contains('\u{201D}'), "Should not contain right smart quote");
-                
+                assert_eq!(
+                    script, r#"teleport("town_square")"#,
+                    "Script should have normalized straight quotes"
+                );
+                assert!(
+                    !script.contains('\u{201C}'),
+                    "Should not contain left smart quote"
+                );
+                assert!(
+                    !script.contains('\u{201D}'),
+                    "Should not contain right smart quote"
+                );
+
                 // Verify the normalized script can be parsed
                 use meshbbs::tmush::trigger::parser::Tokenizer;
                 let mut tokenizer = Tokenizer::new(script);
@@ -93,7 +101,7 @@ fn test_wizard_normalizes_smart_quotes_in_custom_script() {
 fn test_wizard_normalizes_smart_quotes_in_message() {
     let temp = TempDir::new().unwrap();
     let store = TinyMushStore::open(temp.path()).unwrap();
-    
+
     // Create a test object
     let obj = ObjectRecord {
         id: "test_obj2".to_string(),
@@ -117,7 +125,7 @@ fn test_wizard_normalizes_smart_quotes_in_message() {
         schema_version: 1,
     };
     store.put_object(obj).unwrap();
-    
+
     // Create wizard session in CustomizeAction state with message template
     let mut session = WizardSession {
         state: WizardState::CustomizeAction {
@@ -128,28 +136,37 @@ fn test_wizard_normalizes_smart_quotes_in_message() {
         },
         available_objects: vec![],
     };
-    
+
     // Simulate user input with smart quotes - simple message without internal quotes
     let input_with_smart_quotes = "It\u{2019}s magical!";
-    
-    println!("Message input with smart quotes: {}", input_with_smart_quotes);
-    
+
+    println!(
+        "Message input with smart quotes: {}",
+        input_with_smart_quotes
+    );
+
     // Handle the wizard step
     let result = handle_wizard_step(&mut session, input_with_smart_quotes, &store);
-    
+
     match result {
         Ok(msg) => {
             println!("✓ Wizard succeeded: {}", msg);
-            
+
             // Verify the trigger was saved with normalized quotes
             let saved_obj = store.get_object("test_obj2").unwrap();
             if let Some(script) = saved_obj.actions.get(&ObjectTrigger::OnLook) {
                 println!("Saved message script: {}", script);
-                
+
                 // Should have straight apostrophe
-                assert!(script.contains("It's magical!"), 
-                       "Message should have normalized straight quotes: {}", script);
-                assert!(!script.contains('\u{2019}'), "Should not contain right smart quote");
+                assert!(
+                    script.contains("It's magical!"),
+                    "Message should have normalized straight quotes: {}",
+                    script
+                );
+                assert!(
+                    !script.contains('\u{2019}'),
+                    "Should not contain right smart quote"
+                );
             } else {
                 panic!("Trigger was not saved");
             }

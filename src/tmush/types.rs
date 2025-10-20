@@ -588,8 +588,8 @@ impl DialogSession {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct DisambiguationSession {
     pub player_id: String,
-    pub command: String,         // Original command (e.g., "take", "examine", "use")
-    pub search_term: String,     // What the user typed (e.g., "potion", "key")
+    pub command: String,     // Original command (e.g., "take", "examine", "use")
+    pub search_term: String, // What the user typed (e.g., "potion", "key")
     pub matched_ids: Vec<String>, // Object IDs that matched
     pub matched_names: Vec<String>, // Display names for the matches
     pub context: DisambiguationContext, // Where to search (room vs inventory)
@@ -635,7 +635,10 @@ impl DisambiguationSession {
     pub fn get_selection(&self, choice: usize) -> Option<(String, String)> {
         if choice > 0 && choice <= self.matched_ids.len() {
             let idx = choice - 1;
-            Some((self.matched_ids[idx].clone(), self.matched_names[idx].clone()))
+            Some((
+                self.matched_ids[idx].clone(),
+                self.matched_names[idx].clone(),
+            ))
         } else {
             None
         }
@@ -1365,8 +1368,8 @@ pub enum ObjectiveType {
     UseItem { item_id: String, target: String },
     /// Examine objects in a specific sequence (Phase 4.2 symbol puzzles)
     /// Tracks if player examined objects in correct order
-    ExamineSequence { 
-        object_ids: Vec<String>,  // Required sequence of object IDs
+    ExamineSequence {
+        object_ids: Vec<String>, // Required sequence of object IDs
     },
     /// Navigate dark rooms with a light source (Phase 4.3 dark navigation)
     /// Requires visiting a dark room while carrying a LightSource object
@@ -1375,10 +1378,7 @@ pub enum ObjectiveType {
         requires_light: bool,
     },
     /// Craft a specific item (Phase 4.4 crafting system)
-    CraftItem {
-        item_id: String,
-        count: u32,
-    },
+    CraftItem { item_id: String, count: u32 },
     /// Have a specific object with LightSource flag in inventory
     ObtainLightSource,
 }
@@ -1983,14 +1983,16 @@ impl PlayerRecord {
     pub fn add_reputation(&mut self, faction_id: &str, points: i32) {
         let current = self.get_reputation(faction_id);
         let new_total = (current + points).clamp(-100, 100);
-        self.faction_reputation.insert(faction_id.to_string(), new_total);
+        self.faction_reputation
+            .insert(faction_id.to_string(), new_total);
         self.touch();
     }
 
     /// Set reputation with a faction to a specific value
     pub fn set_reputation(&mut self, faction_id: &str, points: i32) {
         let clamped = points.clamp(-100, 100);
-        self.faction_reputation.insert(faction_id.to_string(), clamped);
+        self.faction_reputation
+            .insert(faction_id.to_string(), clamped);
         self.touch();
     }
 

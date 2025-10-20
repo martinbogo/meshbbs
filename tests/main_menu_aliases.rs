@@ -45,7 +45,8 @@ async fn main_menu_single_letter_aliases() {
         .await
         .unwrap();
     assert!(
-        messages_word.starts_with("Invalid command") || messages_word.contains("Authentication required"),
+        messages_word.starts_with("Invalid command")
+            || messages_word.contains("Authentication required"),
         "Long-form MESSAGES should be rejected or require auth. Got: {messages_word}"
     );
 }

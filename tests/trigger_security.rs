@@ -85,7 +85,8 @@ fn test_malformed_trigger_script_handling() {
     // This is intentional - script errors should be visible to users/admins
     assert!(
         !messages.is_empty() && messages[0].contains("Trigger error"),
-        "Malformed scripts should return error message, got: {:?}", messages
+        "Malformed scripts should return error message, got: {:?}",
+        messages
     );
 }
 
@@ -125,7 +126,8 @@ fn test_missing_function_handling() {
     // Should show user-friendly error message instead of crashing
     assert!(
         !messages.is_empty() && messages[0].contains("Trigger error"),
-        "Undefined functions should return error message, got: {:?}", messages
+        "Undefined functions should return error message, got: {:?}",
+        messages
     );
 }
 
@@ -216,8 +218,11 @@ fn test_nested_logic_depth() {
     // Should handle nested logic correctly (if parser supports it) OR show error
     // Note: Current parser may not support complex nesting
     assert!(
-        messages.iter().any(|m| m.contains("Deep!") || m.contains("Trigger error")),
-        "Should either execute nested logic or fail with error message, got: {:?}", messages
+        messages
+            .iter()
+            .any(|m| m.contains("Deep!") || m.contains("Trigger error")),
+        "Should either execute nested logic or fail with error message, got: {:?}",
+        messages
     );
 }
 

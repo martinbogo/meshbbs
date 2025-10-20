@@ -95,8 +95,8 @@ prost-build = { version = "0.12" }
 protoc-bin-vendored = "3"
 
 [features]
-# Enable major functional features by default (serial IO, protobuf, weather, extra API re-exports)
-default = ["serial", "meshtastic-proto", "weather", "api-reexports", "daemon"]
+# Enable major functional features by default (serial IO, protobuf, weather, extra API re-exports, webui)
+default = ["serial", "meshtastic-proto", "weather", "api-reexports", "daemon", "webui"]
 serial = ["dep:serialport"]
 meshtastic-proto = ["dep:prost", "dep:prost-types", "dep:bytes"]
 weather = ["dep:reqwest"]

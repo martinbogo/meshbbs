@@ -38,7 +38,9 @@ async fn first_help_no_banner() {
     let body = &collected[0];
     // Updated to expect minimal security message for unauthenticated users
     assert!(
-        body.contains("Authentication required") && body.contains("Please REGISTER <username> <password> or LOGIN <username> [password]"),
+        body.contains("Authentication required")
+            && body
+                .contains("Please REGISTER <username> <password> or LOGIN <username> [password]"),
         "Missing authentication message: {}",
         body
     );

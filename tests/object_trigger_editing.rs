@@ -39,7 +39,11 @@ fn test_object_trigger_lifecycle() {
 
     // Verify object starts with no triggers
     let loaded = store.get_object("test_mushroom").unwrap();
-    assert_eq!(loaded.actions.len(), 0, "Object should start with no triggers");
+    assert_eq!(
+        loaded.actions.len(),
+        0,
+        "Object should start with no triggers"
+    );
 
     // Add OnEnter trigger
     test_object.actions.insert(
@@ -84,7 +88,11 @@ fn test_object_trigger_lifecycle() {
     store.put_object(test_object.clone()).unwrap();
 
     let loaded = store.get_object("test_mushroom").unwrap();
-    assert_eq!(loaded.actions.len(), 1, "Object should have 1 trigger after removal");
+    assert_eq!(
+        loaded.actions.len(),
+        1,
+        "Object should have 1 trigger after removal"
+    );
     assert!(
         !loaded.actions.contains_key(&ObjectTrigger::OnLook),
         "OnLook trigger should be removed"
@@ -127,22 +135,46 @@ fn test_all_trigger_types() {
     };
 
     // Add all trigger types
-    test_object.actions.insert(ObjectTrigger::OnEnter, "message(\"OnEnter\")".to_string());
-    test_object.actions.insert(ObjectTrigger::OnLook, "message(\"OnLook\")".to_string());
-    test_object.actions.insert(ObjectTrigger::OnTake, "message(\"OnTake\")".to_string());
-    test_object.actions.insert(ObjectTrigger::OnDrop, "message(\"OnDrop\")".to_string());
-    test_object.actions.insert(ObjectTrigger::OnUse, "message(\"OnUse\")".to_string());
-    test_object.actions.insert(ObjectTrigger::OnPoke, "message(\"OnPoke\")".to_string());
-    test_object.actions.insert(ObjectTrigger::OnFollow, "message(\"OnFollow\")".to_string());
-    test_object.actions.insert(ObjectTrigger::OnIdle, "message(\"OnIdle\")".to_string());
-    test_object.actions.insert(ObjectTrigger::OnCombat, "message(\"OnCombat\")".to_string());
-    test_object.actions.insert(ObjectTrigger::OnHeal, "message(\"OnHeal\")".to_string());
+    test_object
+        .actions
+        .insert(ObjectTrigger::OnEnter, "message(\"OnEnter\")".to_string());
+    test_object
+        .actions
+        .insert(ObjectTrigger::OnLook, "message(\"OnLook\")".to_string());
+    test_object
+        .actions
+        .insert(ObjectTrigger::OnTake, "message(\"OnTake\")".to_string());
+    test_object
+        .actions
+        .insert(ObjectTrigger::OnDrop, "message(\"OnDrop\")".to_string());
+    test_object
+        .actions
+        .insert(ObjectTrigger::OnUse, "message(\"OnUse\")".to_string());
+    test_object
+        .actions
+        .insert(ObjectTrigger::OnPoke, "message(\"OnPoke\")".to_string());
+    test_object
+        .actions
+        .insert(ObjectTrigger::OnFollow, "message(\"OnFollow\")".to_string());
+    test_object
+        .actions
+        .insert(ObjectTrigger::OnIdle, "message(\"OnIdle\")".to_string());
+    test_object
+        .actions
+        .insert(ObjectTrigger::OnCombat, "message(\"OnCombat\")".to_string());
+    test_object
+        .actions
+        .insert(ObjectTrigger::OnHeal, "message(\"OnHeal\")".to_string());
 
     store.put_object(test_object).unwrap();
 
     let loaded = store.get_object("test_multi_trigger").unwrap();
-    assert_eq!(loaded.actions.len(), 10, "Object should have all 10 trigger types");
-    
+    assert_eq!(
+        loaded.actions.len(),
+        10,
+        "Object should have all 10 trigger types"
+    );
+
     // Verify each trigger
     assert!(loaded.actions.contains_key(&ObjectTrigger::OnEnter));
     assert!(loaded.actions.contains_key(&ObjectTrigger::OnLook));

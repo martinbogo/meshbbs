@@ -1,5 +1,7 @@
 use meshbbs::bbs::session::{Session, SessionState};
-use meshbbs::config::{BbsConfig, Config, LoggingConfig, MeshtasticConfig, StorageConfig};
+use meshbbs::config::{
+    AdminDashboardConfig, BbsConfig, Config, LoggingConfig, MeshtasticConfig, StorageConfig,
+};
 use meshbbs::tmush::commands::TinyMushProcessor;
 /// Integration tests for TinyMUSH admin command handlers
 /// Tests: @ADMIN, @SETADMIN, @REMOVEADMIN, @ADMINS commands
@@ -63,6 +65,7 @@ fn test_config(data_dir: String) -> Config {
             tinymush_db_path: Some(tinymush_path_str),
         },
         welcome: Default::default(),
+        admin_dashboard: AdminDashboardConfig::default(),
     }
 }
 

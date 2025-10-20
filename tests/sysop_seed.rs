@@ -1,8 +1,8 @@
 use argon2::Argon2;
 use meshbbs::bbs::server::BbsServer;
 use meshbbs::config::{
-    BbsConfig, Config, GamesConfig, IdentBeaconConfig, LoggingConfig, MeshtasticConfig,
-    StorageConfig,
+    AdminDashboardConfig, BbsConfig, Config, GamesConfig, IdentBeaconConfig, LoggingConfig,
+    MeshtasticConfig, StorageConfig,
 };
 use password_hash::{PasswordHasher, SaltString};
 use std::collections::HashMap;
@@ -32,7 +32,7 @@ fn sysop_user_seeded_with_hash() {
                 sysop_password_hash: Some(hash.clone()),
                 public_command_prefix: None,
                 allow_public_login: true,
-            help_command: "HELP".to_string(),
+                help_command: "HELP".to_string(),
             },
             meshtastic: MeshtasticConfig {
                 port: "".into(),
@@ -47,12 +47,12 @@ fn sysop_user_seeded_with_hash() {
                 scheduler_max_queue: None,
                 scheduler_aging_threshold_ms: None,
                 scheduler_stats_interval_ms: None,
-            require_device_at_startup: false,
+                require_device_at_startup: false,
             },
             storage: StorageConfig {
                 data_dir: datadir.to_str().unwrap().to_string(),
                 max_message_size: 1024,
-            show_chunk_markers: false,
+                show_chunk_markers: false,
             },
             message_topics: HashMap::new(),
             logging: LoggingConfig {
@@ -71,6 +71,7 @@ fn sysop_user_seeded_with_hash() {
                 cooldown_minutes: 5,
                 max_welcomes_per_node: 1,
             },
+            admin_dashboard: AdminDashboardConfig::default(),
         };
         let mut server = BbsServer::new(cfg).await.unwrap();
         server.seed_sysop().await.unwrap();

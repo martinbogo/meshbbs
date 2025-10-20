@@ -39,11 +39,11 @@ use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation}
 /// JWT claims for session tokens
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SessionClaims {
-    pub sub: String,        // Username
-    pub exp: i64,           // Expiration timestamp
-    pub iat: i64,           // Issued at timestamp
-    pub jti: String,        // Token ID (UUID)
-    pub admin_level: u8,    // Admin level for authorization
+    pub sub: String,     // Username
+    pub exp: i64,        // Expiration timestamp
+    pub iat: i64,        // Issued at timestamp
+    pub jti: String,     // Token ID (UUID)
+    pub admin_level: u8, // Admin level for authorization
 }
 
 /// Session information
@@ -71,14 +71,14 @@ impl AuthManager {
         use rand::Rng;
         let mut rng = rand::thread_rng();
         let jwt_secret: Vec<u8> = (0..64).map(|_| rng.gen::<u8>()).collect();
-        
+
         Self {
             config,
             sessions: Arc::new(RwLock::new(HashMap::new())),
             jwt_secret,
         }
     }
-    
+
     /// Verify admin credentials using BBS password hash
     #[cfg(feature = "webui")]
     pub async fn verify_credentials(
@@ -92,22 +92,24 @@ impl AuthManager {
         if admin_level < self.config.require_admin_level {
             return Ok(false);
         }
-        
+
         // Verify password using Argon2
         let parsed_hash = PasswordHash::new(bbs_password_hash)
             .map_err(|e| anyhow!("Invalid password hash: {}", e))?;
-        
+
         let argon2 = Argon2::default();
-        Ok(argon2.verify_password(password.as_bytes(), &parsed_hash).is_ok())
+        Ok(argon2
+            .verify_password(password.as_bytes(), &parsed_hash)
+            .is_ok())
     }
-    
+
     /// Create new session and generate JWT token
     #[cfg(feature = "webui")]
     pub async fn create_session(&self, username: &str, admin_level: u8) -> Result<String> {
         let now = chrono::Utc::now().timestamp();
         let exp = now + self.config.session_timeout as i64;
         let token_id = uuid::Uuid::new_v4().to_string();
-        
+
         let claims = SessionClaims {
             sub: username.to_string(),
             exp,
@@ -115,14 +117,14 @@ impl AuthManager {
             jti: token_id.clone(),
             admin_level,
         };
-        
+
         let token = encode(
             &Header::default(),
             &claims,
             &EncodingKey::from_secret(&self.jwt_secret),
         )
         .map_err(|e| anyhow!("Failed to generate JWT: {}", e))?;
-        
+
         // Store session
         let session = Session {
             username: username.to_string(),
@@ -131,28 +133,28 @@ impl AuthManager {
             created_at: now,
             last_activity: now,
         };
-        
+
         let mut sessions = self.sessions.write().await;
-        
+
         // Enforce max sessions per admin
         let user_sessions: Vec<_> = sessions
             .iter()
             .filter(|(_, s)| s.username == username)
             .map(|(k, _)| k.clone())
             .collect();
-        
+
         if user_sessions.len() >= self.config.max_sessions_per_admin as usize {
             // Remove oldest session
             if let Some(oldest) = user_sessions.first() {
                 sessions.remove(oldest);
             }
         }
-        
+
         sessions.insert(token.clone(), session);
-        
+
         Ok(token)
     }
-    
+
     /// Validate and potentially rotate session token
     #[cfg(feature = "webui")]
     pub async fn validate_token(&self, token: &str) -> Result<(SessionClaims, Option<String>)> {
@@ -163,15 +165,15 @@ impl AuthManager {
             &Validation::default(),
         )
         .map_err(|e| anyhow!("Invalid token: {}", e))?;
-        
+
         let claims = token_data.claims;
-        
+
         // Check expiry
         let now = chrono::Utc::now().timestamp();
         if self.config.enforce_token_expiry && claims.exp < now {
             return Err(anyhow!("Token expired"));
         }
-        
+
         // Update last activity
         let mut sessions = self.sessions.write().await;
         if let Some(session) = sessions.get_mut(token) {
@@ -179,35 +181,35 @@ impl AuthManager {
         } else {
             return Err(anyhow!("Session not found"));
         }
-        
+
         // Rotate token if enabled
         let new_token = if self.config.session_token_rotation {
             drop(sessions); // Release lock before creating new session
             let rotated = self.create_session(&claims.sub, claims.admin_level).await?;
-            
+
             // Remove old token
             let mut sessions = self.sessions.write().await;
             sessions.remove(token);
-            
+
             Some(rotated)
         } else {
             None
         };
-        
+
         Ok((claims, new_token))
     }
-    
+
     /// Invalidate session (logout)
     pub async fn invalidate_session(&self, token: &str) {
         let mut sessions = self.sessions.write().await;
         sessions.remove(token);
     }
-    
+
     /// Clean up expired sessions
     pub async fn cleanup_expired_sessions(&self) {
         let now = chrono::Utc::now().timestamp();
         let mut sessions = self.sessions.write().await;
-        
+
         sessions.retain(|_, session| {
             let age = now - session.created_at;
             age < self.config.session_timeout as i64

@@ -37,13 +37,13 @@ pub struct MessageOperationResponse {
 }
 
 /// Delete a message (moderator+)
-/// 
+///
 /// DELETE /api/topics/:topic/messages/:id
-/// 
+///
 /// Requires:
 /// - User must be authenticated (session-based in future)
 /// - User access level >= 5 (moderator)
-/// 
+///
 /// Returns:
 /// - 200 OK: Message deleted successfully
 /// - 403 Forbidden: Insufficient permissions
@@ -56,7 +56,7 @@ pub async fn delete_message(
     // TODO: Add proper session authentication when auth system is integrated
     // For now, we'll check minimum level requirement but allow the operation
     // This assumes the webui has its own authentication layer
-    
+
     let storage_arc = match &state.storage {
         Some(s) => s,
         None => {
@@ -69,9 +69,9 @@ pub async fn delete_message(
             )
         }
     };
-    
+
     let mut storage = storage_arc.lock().await;
-    
+
     match storage.delete_message(&topic, &message_id).await {
         Ok(deleted) => {
             if deleted {
@@ -82,7 +82,7 @@ pub async fn delete_message(
                 {
                     eprintln!("Failed to write deletion audit log: {}", e);
                 }
-                
+
                 state.audit_logger.log(AuditEntry {
                     action: AuditAction::Delete,
                     username: "webui_admin".to_string(),
@@ -133,14 +133,14 @@ pub async fn delete_message(
 }
 
 /// Pin or unpin a message (moderator+)
-/// 
+///
 /// PUT /api/topics/:topic/messages/:id/pin
 /// Body: { "pinned": true/false }
-/// 
+///
 /// Requires:
 /// - User must be authenticated
 /// - User access level >= 5 (moderator)
-/// 
+///
 /// Returns:
 /// - 200 OK: Pin status updated
 /// - 403 Forbidden: Insufficient permissions
@@ -163,9 +163,9 @@ pub async fn toggle_pin_message(
             )
         }
     };
-    
+
     let storage = storage_arc.lock().await;
-    
+
     match storage
         .set_message_pinned(&topic, &message_id, request.pinned)
         .await
@@ -215,14 +215,14 @@ pub async fn toggle_pin_message(
 }
 
 /// Update message title (moderator+)
-/// 
+///
 /// PUT /api/topics/:topic/messages/:id/title
 /// Body: { "title": "New Title" } or { "title": null } to clear
-/// 
+///
 /// Requires:
 /// - User must be authenticated
 /// - User access level >= 5 (moderator)
-/// 
+///
 /// Returns:
 /// - 200 OK: Title updated
 /// - 403 Forbidden: Insufficient permissions  
@@ -245,9 +245,9 @@ pub async fn update_message_title(
             )
         }
     };
-    
+
     let storage = storage_arc.lock().await;
-    
+
     match storage
         .set_message_title(&topic, &message_id, request.title.as_deref())
         .await

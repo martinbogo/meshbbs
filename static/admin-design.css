@@ -69,6 +69,28 @@
     --transition-swift: 200ms cubic-bezier(0.4, 0, 0.2, 1);
     --transition-smooth: 350ms cubic-bezier(0.4, 0, 0.2, 1);
     --transition-gentle: 500ms cubic-bezier(0.4, 0, 0.1, 1);
+    
+    /* ============================================
+       ALIASES for app.html compatibility
+       ============================================ */
+    /* Spacing aliases */
+    --spacing-xs: var(--space-xs);
+    --spacing-sm: var(--space-sm);
+    --spacing-md: var(--space-md);
+    --spacing-lg: var(--space-lg);
+    --spacing-xl: var(--space-xl);
+    --spacing-2xl: var(--space-2xl);
+    --spacing-xxs: calc(var(--space-xs) * 0.5);
+    
+    /* Color aliases */
+    --color-stone-lightest: var(--color-stone-light);
+    --color-stone-border: var(--color-stone);
+    --color-forest-mist: #c6f6d5;
+    
+    /* Shadow aliases */
+    --shadow-subtle: var(--shadow-sm);
+    --shadow-lifted: var(--shadow-md);
+    --shadow-distant: var(--shadow-lg);
 }
 
 /* ============================================

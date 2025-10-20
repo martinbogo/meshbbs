@@ -39,14 +39,16 @@ pub async fn get_all_schemas(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<SchemaResponse>, StatusCode> {
     // Get all schemas from registry
-    let schemas = state.schema_registry.get_all_schemas()
+    let schemas = state
+        .schema_registry
+        .get_all_schemas()
         .into_iter()
         .cloned()
         .collect();
-    
+
     // Get role definitions from config
     let roles = state.config.roles.clone();
-    
+
     // Log audit entry
     state.audit_logger.log(AuditEntry {
         action: AuditAction::View,
@@ -57,7 +59,7 @@ pub async fn get_all_schemas(
         status: "success".to_string(),
         reason: None,
     });
-    
+
     Ok(Json(SchemaResponse { schemas, roles }))
 }
 
@@ -67,16 +69,18 @@ pub async fn get_schema_by_type(
     Path(entity_type): Path<String>,
 ) -> Result<Json<SingleSchemaResponse>, StatusCode> {
     // Get schema from registry
-    let schema = state.schema_registry.get_schema(&entity_type)
+    let schema = state
+        .schema_registry
+        .get_schema(&entity_type)
         .ok_or_else(|| {
             eprintln!("Schema not found for entity type: {}", entity_type);
             StatusCode::NOT_FOUND
         })?
         .clone();
-    
+
     // Get role definitions from config
     let roles = state.config.roles.clone();
-    
+
     // Log audit entry
     state.audit_logger.log(AuditEntry {
         action: AuditAction::View,
@@ -87,7 +91,7 @@ pub async fn get_schema_by_type(
         status: "success".to_string(),
         reason: None,
     });
-    
+
     Ok(Json(SingleSchemaResponse { schema, roles }))
 }
 
@@ -96,7 +100,7 @@ pub async fn get_roles(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Vec<RoleDefinition>>, StatusCode> {
     let roles = state.config.roles.clone();
-    
+
     // Log audit entry
     state.audit_logger.log(AuditEntry {
         action: AuditAction::View,
@@ -107,6 +111,6 @@ pub async fn get_roles(
         status: "success".to_string(),
         reason: None,
     });
-    
+
     Ok(Json(roles))
 }

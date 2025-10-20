@@ -2,22 +2,30 @@
 //!
 //! REST API endpoints for the admin dashboard.
 
-pub mod auth;
-pub mod npcs;
-pub mod users;
-pub mod topics;
-pub mod messages;
-pub mod audit;
 pub mod activity;
-pub mod stats;
+pub mod apps;
+pub mod audit;
+pub mod auth;
+pub mod content;
+pub mod fortune;
+pub mod messages;
+pub mod npcs;
 pub mod schema;
+pub mod stats;
+pub mod tinymush;
+pub mod topics;
+pub mod users;
 
-pub use auth::*;
-pub use npcs::*;
-pub use users::*;
-pub use topics::*;
-pub use messages::*;
-pub use audit::*;
 pub use activity::*;
-pub use stats::*;
+pub use apps::*;
+pub use audit::*;
+pub use auth::*;
+pub use content::*;
+pub use fortune::*;
+pub use messages::*;
+pub use npcs::*;
 pub use schema::*;
+pub use stats::*;
+pub use tinymush::*;
+pub use topics::*;
+pub use users::*;

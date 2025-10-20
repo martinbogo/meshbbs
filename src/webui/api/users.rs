@@ -21,19 +21,19 @@ use super::auth::AppState;
 #[derive(Debug, Clone, Serialize)]
 pub struct UserRecord {
     pub username: String,
-    pub role: String,           // Derived from level (User/Moderator/Admin/Sysop)
+    pub role: String, // Derived from level (User/Moderator/Admin/Sysop)
     pub level: u8,
-    pub last_seen: String,      // ISO 8601 timestamp (last_login)
+    pub last_seen: String, // ISO 8601 timestamp (last_login)
     pub message_count: u32,
     pub has_password: bool,
-    pub created_at: String,     // ISO 8601 timestamp (first_login)
+    pub created_at: String, // ISO 8601 timestamp (first_login)
     pub node_id: Option<String>,
 }
 
 /// Request to update a user's level
 #[derive(Debug, Deserialize)]
 pub struct UpdateLevelRequest {
-    pub level: u8,  // 1-10
+    pub level: u8, // 1-10
 }
 
 /// Response for successful operations
@@ -46,10 +46,10 @@ pub struct SuccessResponse {
 /// Query parameters for user list filtering
 #[derive(Debug, Deserialize)]
 pub struct UserListQuery {
-    pub min_level: Option<u8>,     // Filter by minimum level
-    pub max_level: Option<u8>,     // Filter by maximum level
-    pub limit: Option<usize>,       // Pagination
-    pub offset: Option<usize>,      // Pagination
+    pub min_level: Option<u8>, // Filter by minimum level
+    pub max_level: Option<u8>, // Filter by maximum level
+    pub limit: Option<usize>,  // Pagination
+    pub offset: Option<usize>, // Pagination
 }
 
 /// List all BBS users with optional filtering
@@ -71,12 +71,10 @@ pub async fn list_users(
     let storage = storage_arc.lock().await;
 
     // Get all users from storage
-    let users = storage.list_all_users()
-        .await
-        .map_err(|e| {
-            error!("Failed to list users: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
+    let users = storage.list_all_users().await.map_err(|e| {
+        error!("Failed to list users: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
 
     // Convert to UserRecord format with filtering
     let mut records: Vec<UserRecord> = users
@@ -119,7 +117,9 @@ pub async fn list_users(
 
     drop(storage); // Release lock before audit log
 
-    state.audit_logger.log_user_list(&state.sysop_username, "webui_session");
+    state
+        .audit_logger
+        .log_user_list(&state.sysop_username, "webui_session");
 
     Ok(Json(records))
 }
@@ -138,7 +138,8 @@ pub async fn get_user(
 
     let storage = storage_arc.lock().await;
 
-    let user = storage.get_user(&username)
+    let user = storage
+        .get_user(&username)
         .await
         .map_err(|e| {
             error!("Failed to get user {}: {}", username, e);
@@ -159,7 +160,9 @@ pub async fn get_user(
 
     drop(storage); // Release lock
 
-    state.audit_logger.log_user_view(&state.sysop_username, &username, "webui_session");
+    state
+        .audit_logger
+        .log_user_view(&state.sysop_username, &username, "webui_session");
 
     Ok(Json(record))
 }
@@ -188,7 +191,8 @@ pub async fn update_user_level(
     let mut storage = storage_arc.lock().await;
 
     // Use storage's update_user_level method which includes sysop protection
-    let updated_user = storage.update_user_level(&username, req.level, &state.sysop_username)
+    let updated_user = storage
+        .update_user_level(&username, req.level, &state.sysop_username)
         .await
         .map_err(|e| {
             error!("Failed to update user level for {}: {}", username, e);

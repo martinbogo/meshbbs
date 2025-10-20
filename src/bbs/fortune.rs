@@ -466,6 +466,15 @@ pub fn max_fortune_length() -> usize {
     FORTUNES.iter().map(|f| f.len()).max().unwrap_or(0)
 }
 
+/// Expose the complete fortune database for diagnostics and analytics.
+///
+/// This returns the static slice so callers can compute aggregate statistics
+/// without duplicating the data. Use sparingly to avoid leaking fortunes into
+/// telemetry or logs.
+pub fn fortunes() -> &'static [&'static str] {
+    &FORTUNES
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

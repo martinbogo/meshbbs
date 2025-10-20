@@ -8,7 +8,6 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Json},
 };
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
@@ -86,9 +85,7 @@ fn parse_audit_activity(line: &str) -> Option<ActivityEntry> {
         let key_start = rest[current_pos..]
             .find(|c: char| c.is_alphabetic())
             .map(|i| current_pos + i)?;
-        let key_end = rest[key_start..]
-            .find('=')
-            .map(|i| key_start + i)?;
+        let key_end = rest[key_start..].find('=').map(|i| key_start + i)?;
         let key = &rest[key_start..key_end];
 
         // Find value
@@ -136,7 +133,10 @@ fn parse_audit_activity(line: &str) -> Option<ActivityEntry> {
         "UPDATE" => {
             if let Some(res) = resource {
                 let detail = reason.unwrap_or_default();
-                (format!("updated {} ({})", res, detail), Some("✏️".to_string()))
+                (
+                    format!("updated {} ({})", res, detail),
+                    Some("✏️".to_string()),
+                )
             } else {
                 return None;
             }
@@ -170,43 +170,38 @@ pub async fn get_activity_feed(
     let mut activities = Vec::new();
 
     // Read recent messages from general topic
-    if let Ok(messages) = state
-        .storage
-        .lock()
-        .await
-        .get_messages("general", 5)
-        .await
-    {
-        for msg in messages {
-            let timestamp = msg.timestamp.format("%Y-%m-%dT%H:%M:%S").to_string();
-            let preview = if msg.content.len() > 60 {
-                format!("{}...", &msg.content[..60])
-            } else {
-                msg.content.clone()
-            };
+    if let Some(ref storage) = state.storage {
+        if let Ok(messages) = storage.lock().await.get_messages("general", 5).await {
+            for msg in messages {
+                let timestamp = msg.timestamp.format("%Y-%m-%dT%H:%M:%S").to_string();
+                let preview = if msg.content.len() > 60 {
+                    format!("{}...", &msg.content[..60])
+                } else {
+                    msg.content.clone()
+                };
 
-            activities.push(ActivityEntry {
-                activity_type: ActivityType::Message,
-                timestamp,
-                actor: msg.sender.clone(),
-                description: format!("posted: {}", preview),
-                icon: Some("💬".to_string()),
-                link: Some(format!("messages.html?topic=general&highlight={}", msg.id)),
-            });
+                activities.push(ActivityEntry {
+                    activity_type: ActivityType::Message,
+                    timestamp,
+                    actor: msg.author.clone(),
+                    description: format!("posted: {}", preview),
+                    icon: Some("💬".to_string()),
+                    link: Some(format!("messages.html?topic=general&highlight={}", msg.id)),
+                });
+            }
         }
     }
 
     // Read recent audit log entries
-    let audit_path = state
-        .config
-        .audit_log_directory
-        .as_ref()
-        .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            let mut path = PathBuf::from(&state.config.data_dir);
-            path.push("admin_dashboard.log");
-            path
-        });
+    let audit_path = if let Some(ref storage) = state.storage {
+        let guard = storage.lock().await;
+        let data_dir = guard.base_dir().to_string();
+        drop(guard);
+        PathBuf::from(data_dir).join(&state.config.audit_log_file)
+    } else {
+        let total = activities.len();
+        return (StatusCode::OK, Json(ActivityResponse { activities, total }));
+    };
 
     if let Ok(file) = File::open(&audit_path) {
         let reader = BufReader::new(file);
@@ -229,11 +224,5 @@ pub async fn get_activity_feed(
     let total = activities.len();
     activities.truncate(limit);
 
-    (
-        StatusCode::OK,
-        Json(ActivityResponse {
-            activities,
-            total,
-        }),
-    )
+    (StatusCode::OK, Json(ActivityResponse { activities, total }))
 }

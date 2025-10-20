@@ -488,12 +488,10 @@ impl CommandProcessor {
         // Security: Check authentication before allowing access to BBS functions
         // Only HELP and QUIT commands are allowed for unauthenticated users
         if !session.is_logged_in() && cmd != "H" && cmd != "?" && cmd != "Q" {
-            return Ok(
-                "Authentication required.\n\
+            return Ok("Authentication required.\n\
                 Please REGISTER <username> <password> or LOGIN <username> [password]\n\
                 Type H for help.\n"
-                    .to_string(),
-            );
+                .to_string());
         }
 
         let game_doors = games::enabled_doors(&config.games);
@@ -581,7 +579,9 @@ impl CommandProcessor {
                 if !session.is_logged_in() {
                     // Security: Minimal information for unauthenticated users
                     out.push_str("Authentication required.\n");
-                    out.push_str("Please REGISTER <username> <password> or LOGIN <username> [password]\n");
+                    out.push_str(
+                        "Please REGISTER <username> <password> or LOGIN <username> [password]\n",
+                    );
                     out.push_str("Type H for help.\n");
                     return Ok(out);
                 }

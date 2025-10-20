@@ -79,7 +79,8 @@ pub fn clone_object(
     // Check 0: Builder permissions required (Phase 6 Security Enhancement)
     if player.builder_level() < 1 {
         return Err(TinyMushError::PermissionDenied(
-            "Cloning requires builder privileges (level 1+). Contact an admin for access.".to_string()
+            "Cloning requires builder privileges (level 1+). Contact an admin for access."
+                .to_string(),
         ));
     }
 

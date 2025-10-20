@@ -1,6 +1,6 @@
 use meshbbs::config::{
-    BbsConfig, Config, GamesConfig, LoggingConfig, MeshtasticConfig, MessageTopicConfig,
-    StorageConfig,
+    AdminDashboardConfig, BbsConfig, Config, GamesConfig, LoggingConfig, MeshtasticConfig,
+    MessageTopicConfig, StorageConfig,
 };
 use meshbbs::{bbs::server::BbsServer, config::*};
 use std::collections::HashMap;
@@ -74,6 +74,7 @@ async fn base_config() -> Config {
             cooldown_minutes: 5,
             max_welcomes_per_node: 1,
         },
+        admin_dashboard: AdminDashboardConfig::default(),
     }
 }
 

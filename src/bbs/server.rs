@@ -558,12 +558,13 @@ impl BbsServer {
         if server.config.games.tinymush_enabled {
             info!("[games] TinyMUSH enabled: available in Games menu");
         }
-        
+
         // Start admin web dashboard if enabled
         #[cfg(feature = "webui")]
         if server.config.admin_dashboard.enabled {
             let config_clone = server.config.clone();
             let data_dir = server.config.storage.data_dir.clone();
+            let tinymush_store = server.game_registry.get_tinymush_store().cloned();
             tokio::spawn(async move {
                 // Create a separate Storage instance for the web UI
                 let storage = match Storage::new(&data_dir).await {
@@ -573,15 +574,17 @@ impl BbsServer {
                         None
                     }
                 };
-                
-                if let Err(e) = crate::webui::start_webui_server(config_clone, storage).await {
+
+                if let Err(e) =
+                    crate::webui::start_webui_server(config_clone, storage, tinymush_store).await
+                {
                     error!("[webui] Failed to start admin dashboard: {}", e);
                 } else {
                     info!("[webui] Admin dashboard started successfully");
                 }
             });
         }
-        
+
         Ok(server)
     }
 
@@ -953,7 +956,7 @@ impl BbsServer {
     }
 
     /// Check scheduler health and log warnings about queue saturation
-    /// 
+    ///
     /// This monitors the message scheduler for signs of trouble:
     /// - High queue depth (>80% capacity)
     /// - Message drops due to overflow
@@ -966,7 +969,7 @@ impl BbsServer {
             if let Some(stats) = scheduler.snapshot().await {
                 let max_queue = self.config.meshtastic.scheduler_max_queue.unwrap_or(512);
                 let queue_pct = (stats.queued as f64 / max_queue as f64) * 100.0;
-                
+
                 // Warn if queue is >80% full
                 if stats.queued > (max_queue * 80 / 100) {
                     self.scheduler_queue_high_warnings += 1;
@@ -976,7 +979,7 @@ impl BbsServer {
                         stats.escalations, self.scheduler_queue_high_warnings
                     );
                 }
-                
+
                 // Alert if new drops detected
                 if stats.dropped_total > self.scheduler_drops_last_count {
                     let new_drops = stats.dropped_total - self.scheduler_drops_last_count;
@@ -986,7 +989,7 @@ impl BbsServer {
                     );
                     self.scheduler_drops_last_count = stats.dropped_total;
                 }
-                
+
                 // Periodic info log when things are healthy
                 if stats.queued == 0 && self.scheduler_queue_high_warnings > 0 {
                     info!("Scheduler queue recovered: 0 messages queued");
@@ -2080,8 +2083,13 @@ impl BbsServer {
         if self.config.welcome.private_guide {
             let cmd_prefix = self.public_parser.primary_prefix_char();
             let help_cmd = self.public_parser.help_command();
-            let guide =
-                welcome::private_guide(&event.long_name, &suggested_callsign, &emoji, cmd_prefix, help_cmd);
+            let guide = welcome::private_guide(
+                &event.long_name,
+                &suggested_callsign,
+                &emoji,
+                cmd_prefix,
+                help_cmd,
+            );
 
             // Send via scheduler as a reliable DM
             if let Some(scheduler) = &self.scheduler {
@@ -2361,8 +2369,10 @@ impl BbsServer {
                 if upper == "HELP+" || upper == "HELP V" || upper == "HELP  V" || upper == "HELP  +"
                 {
                     // tolerate minor spacing variants - store chunks to send after borrow ends
-                    let chunks =
-                        chunk_verbose_help_with_prefix(self.public_parser.primary_prefix_char(), self.public_parser.help_command());
+                    let chunks = chunk_verbose_help_with_prefix(
+                        self.public_parser.primary_prefix_char(),
+                        self.public_parser.help_command(),
+                    );
                     deferred_chunks = Some(chunks);
                 } else if upper == "H"
                     || (upper == "?" && session.state != super::session::SessionState::TinyHack)
@@ -3725,19 +3735,17 @@ impl BbsServer {
                 // Check if we should throttle based on queue state
                 if let Some(stats) = scheduler.snapshot().await {
                     let max_queue = self.config.meshtastic.scheduler_max_queue.unwrap_or(512);
-                    
+
                     // If queue is critically full (>95%), reject non-critical messages
                     if stats.queued > (max_queue * 95 / 100) {
                         warn!(
                             "Scheduler queue critically full ({}/{}), dropping message to {} to prevent total failure",
                             stats.queued, max_queue, to_node
                         );
-                        return Err(anyhow::anyhow!(
-                            "Message queue full - system overloaded"
-                        ));
+                        return Err(anyhow::anyhow!("Message queue full - system overloaded"));
                     }
                 }
-                
+
                 let node_id = if let Some(hex) = to_node
                     .strip_prefix("0x")
                     .or_else(|| to_node.strip_prefix("0X"))
@@ -3919,7 +3927,7 @@ impl BbsServer {
                 if body.len() > budget {
                     // Auto-chunk oversized body into UTF-8 safe segments of size <= budget.
                     // Send intermediate chunks without prompt; attach prompt only to the last one.
-                    
+
                     // Calculate chunk marker overhead if enabled
                     // Markers will be in format " [n/total]" where total <= 99
                     // Worst case: " [99/99]" = 9 bytes
@@ -3928,19 +3936,21 @@ impl BbsServer {
                     } else {
                         0
                     };
-                    
+
                     let chunk_budget = budget.saturating_sub(marker_overhead);
                     let parts = self.chunk_utf8(body, chunk_budget);
                     let total = parts.len();
-                    debug!("Chunking message into {} parts (markers={}, overhead={})", 
-                           total, self.config.storage.show_chunk_markers, marker_overhead);
-                    
+                    debug!(
+                        "Chunking message into {} parts (markers={}, overhead={})",
+                        total, self.config.storage.show_chunk_markers, marker_overhead
+                    );
+
                     for (i, chunk) in parts.into_iter().enumerate() {
                         let is_last = i + 1 == total;
                         let chunk_num = i + 1;
-                        
+
                         debug!("Chunk {}/{}: {} bytes", chunk_num, total, chunk.len());
-                        
+
                         if is_last {
                             let clamped = clamp_utf8(&chunk, chunk_budget);
                             let clamped_len = clamped.len();
@@ -3949,7 +3959,7 @@ impl BbsServer {
                             } else {
                                 clamped
                             };
-                            
+
                             let msg = if with_marker.ends_with('\n') {
                                 format!("{}{}", with_marker, prompt)
                             } else {
@@ -3959,7 +3969,11 @@ impl BbsServer {
                                 "Sending last chunk: {} bytes (clamped={}, marker={}, prompt={})",
                                 msg.len(),
                                 clamped_len,
-                                if self.config.storage.show_chunk_markers { marker_overhead } else { 0 },
+                                if self.config.storage.show_chunk_markers {
+                                    marker_overhead
+                                } else {
+                                    0
+                                },
                                 prompt.len()
                             );
                             self.send_message(node_key, &msg).await?;
@@ -4023,8 +4037,10 @@ impl BbsServer {
         if let Some(session) = self.sessions.get_mut(node_key) {
             session.update_activity();
             if upper == "HELP+" || upper == "HELP V" || upper == "HELP  V" || upper == "HELP  +" {
-                let chunks =
-                    chunk_verbose_help_with_prefix(self.public_parser.primary_prefix_char(), self.public_parser.help_command());
+                let chunks = chunk_verbose_help_with_prefix(
+                    self.public_parser.primary_prefix_char(),
+                    self.public_parser.help_command(),
+                );
                 let total = chunks.len();
                 for (i, chunk) in chunks.into_iter().enumerate() {
                     let last = i + 1 == total;

@@ -2,8 +2,8 @@
 use chrono::{Timelike, Utc};
 use meshbbs::bbs::server::BbsServer;
 use meshbbs::config::{
-    BbsConfig, Config, GamesConfig, IdentBeaconConfig, LoggingConfig, MeshtasticConfig,
-    StorageConfig,
+    AdminDashboardConfig, BbsConfig, Config, GamesConfig, IdentBeaconConfig, LoggingConfig,
+    MeshtasticConfig, StorageConfig,
 };
 use std::collections::HashMap;
 
@@ -68,6 +68,7 @@ async fn test_config_with_beacon(enabled: bool, frequency: &str) -> Config {
             cooldown_minutes: 5,
             max_welcomes_per_node: 1,
         },
+        admin_dashboard: AdminDashboardConfig::default(),
     }
 }
 

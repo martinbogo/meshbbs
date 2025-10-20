@@ -148,7 +148,7 @@ async fn main() -> Result<()> {
                         Ok(_) => info!("Connected to Meshtastic device on {}", port_path),
                         Err(e) => {
                             error!("Failed to connect to device on {}: {}", port_path, e);
-                            
+
                             // Check if device is required at startup
                             if require_device {
                                 error!("Device connection required but failed - exiting");
@@ -213,7 +213,7 @@ async fn main() -> Result<()> {
                     Ok(_) => info!("Connected to Meshtastic device on {}", port_path),
                     Err(e) => {
                         error!("Failed to connect to device on {}: {}", port_path, e);
-                        
+
                         // Check if device is required at startup
                         if require_device {
                             error!("Device connection required but failed - exiting");

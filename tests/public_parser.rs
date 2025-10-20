@@ -104,7 +104,10 @@ fn test_help_command_menu() {
     // Old HELP command should not work
     match parser.parse("^HELP") {
         PublicCommand::Unknown => {}
-        other => panic!("Expected Unknown for HELP when MENU is configured, got {:?}", other),
+        other => panic!(
+            "Expected Unknown for HELP when MENU is configured, got {:?}",
+            other
+        ),
     }
 }
 
@@ -127,6 +130,9 @@ fn test_help_command_invalid_fallback() {
     let parser = PublicCommandParser::new_with_prefix(None, Some("EMERGENCY".to_string()));
     match parser.parse("^HELP") {
         PublicCommand::Help => {}
-        other => panic!("Expected Help to fallback to default when invalid keyword provided, got {:?}", other),
+        other => panic!(
+            "Expected Help to fallback to default when invalid keyword provided, got {:?}",
+            other
+        ),
     }
 }

@@ -5,7 +5,7 @@ use meshbbs::tmush::trigger::parser::Tokenizer;
 fn test_unicode_emoji_in_string() {
     let script = r#"message("✨ The stone flashes!")"#;
     let mut tokenizer = Tokenizer::new(script);
-    
+
     match tokenizer.tokenize() {
         Ok(tokens) => {
             println!("Tokens: {:?}", tokens);
@@ -21,7 +21,7 @@ fn test_unicode_emoji_in_string() {
 fn test_unicode_in_compound_expression() {
     let script = r#"message("✨ Flash!") && teleport("room")"#;
     let mut tokenizer = Tokenizer::new(script);
-    
+
     match tokenizer.tokenize() {
         Ok(tokens) => {
             println!("Tokens: {:?}", tokens);
@@ -42,7 +42,7 @@ fn test_various_unicode_characters() {
         r#"message("Hello 世界")"#,
         r#"message("Привет мир")"#,
     ];
-    
+
     for script in test_cases {
         let mut tokenizer = Tokenizer::new(script);
         match tokenizer.tokenize() {

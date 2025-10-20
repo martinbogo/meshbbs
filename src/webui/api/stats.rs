@@ -2,11 +2,7 @@
 //!
 //! Provides comprehensive system health and usage metrics.
 
-use axum::{
-    extract::State,
-    http::StatusCode,
-    response::Json,
-};
+use axum::{extract::State, http::StatusCode, response::Json};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -21,22 +17,22 @@ pub struct SystemStats {
     pub total_users: usize,
     pub users_with_passwords: usize,
     pub users_by_role: HashMap<String, usize>,
-    
+
     // Legacy role counts (for backwards compatibility)
     pub sysops: usize,
     pub admins: usize,
     pub moderators: usize,
     pub regular_users: usize,
-    
+
     // Message statistics
     pub total_topics: usize,
     pub total_messages: usize,
     pub total_replies: usize,
-    
+
     // Activity metrics
     pub unique_message_authors: usize,
     pub messages_per_topic: Vec<TopicMessageCount>,
-    
+
     // System info
     pub bbs_name: String,
     pub bbs_location: String,
@@ -67,23 +63,21 @@ pub async fn get_system_stats(
     let storage = storage_arc.lock().await;
 
     // Get all users for statistics
-    let users = storage.list_all_users()
-        .await
-        .map_err(|e| {
-            error!("Failed to list users: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
+    let users = storage.list_all_users().await.map_err(|e| {
+        error!("Failed to list users: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
 
     let total_users = users.len();
     let users_with_passwords = users.iter().filter(|u| u.password_hash.is_some()).count();
-    
+
     // Calculate role counts dynamically from config
     let mut users_by_role = HashMap::new();
     for user in &users {
         let role = state.config.level_to_role(user.user_level);
         *users_by_role.entry(role).or_insert(0) += 1;
     }
-    
+
     // Legacy counts for backwards compatibility (using default role names)
     let sysops = users_by_role.get("Sysop").copied().unwrap_or(0);
     let admins = users_by_role.get("Admin").copied().unwrap_or(0);
@@ -91,12 +85,10 @@ pub async fn get_system_stats(
     let regular_users = users_by_role.get("User").copied().unwrap_or(0);
 
     // Get topic statistics
-    let topic_names = storage.list_message_topics()
-        .await
-        .map_err(|e| {
-            error!("Failed to list topics: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
+    let topic_names = storage.list_message_topics().await.map_err(|e| {
+        error!("Failed to list topics: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
 
     let total_topics = topic_names.len();
     let mut total_messages = 0;
@@ -105,7 +97,8 @@ pub async fn get_system_stats(
     let mut messages_per_topic = Vec::new();
 
     for topic_name in topic_names {
-        let messages = storage.get_messages(&topic_name, 10000) // Get all for stats
+        let messages = storage
+            .get_messages(&topic_name, 10000) // Get all for stats
             .await
             .map_err(|e| {
                 error!("Failed to get messages for topic {}: {}", topic_name, e);

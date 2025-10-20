@@ -2,17 +2,17 @@
 //!
 //! Tests that ObjectFlag::LightSource exists and can be used on objects.
 
-use meshbbs::tmush::types::{ObjectFlag, ObjectRecord, ObjectOwner, CurrencyAmount};
+use chrono::Utc;
+use meshbbs::tmush::types::{CurrencyAmount, ObjectFlag, ObjectOwner, ObjectRecord};
 use meshbbs::tmush::TinyMushStoreBuilder;
 use std::collections::HashMap;
 use tempfile::TempDir;
-use chrono::Utc;
 
 #[test]
 fn light_source_flag_variant_exists() {
     // Create a LightSource flag
     let flag = ObjectFlag::LightSource;
-    
+
     // Verify it exists and has correct debug representation
     let debug_str = format!("{:?}", flag);
     assert!(
@@ -51,11 +51,11 @@ fn object_can_have_light_source_flag() {
         created_by: "system".to_string(),
         schema_version: 1,
     };
-    
+
     // Save and reload
     store.put_object(torch.clone()).expect("save torch");
     let loaded = store.get_object("test_torch").expect("get torch");
-    
+
     // Verify flag persists
     assert!(
         loaded.flags.contains(&ObjectFlag::LightSource),
@@ -93,11 +93,11 @@ fn multiple_flags_including_light_source() {
         created_by: "system".to_string(),
         schema_version: 1,
     };
-    
+
     // Save and reload
     store.put_object(lantern.clone()).expect("save lantern");
     let loaded = store.get_object("test_lantern").expect("get lantern");
-    
+
     // Verify both flags persist
     assert!(loaded.flags.contains(&ObjectFlag::LightSource));
     assert!(loaded.flags.contains(&ObjectFlag::Container));
@@ -134,11 +134,11 @@ fn object_without_light_source_flag() {
         created_by: "system".to_string(),
         schema_version: 1,
     };
-    
+
     // Save and reload
     store.put_object(stick.clone()).expect("save stick");
     let loaded = store.get_object("test_stick").expect("get stick");
-    
+
     // Verify it doesn't have LightSource flag
     assert!(
         !loaded.flags.contains(&ObjectFlag::LightSource),
@@ -176,14 +176,14 @@ fn light_source_flag_can_be_added() {
         created_by: "system".to_string(),
         schema_version: 1,
     };
-    
+
     store.put_object(candle.clone()).expect("save unlit");
-    
+
     // Add LightSource flag (simulating lighting the candle)
     candle.flags.push(ObjectFlag::LightSource);
     candle.name = "Lit Candle".to_string();
     store.put_object(candle.clone()).expect("save lit");
-    
+
     // Reload and verify flag was added
     let loaded = store.get_object("test_candle").expect("get candle");
     assert!(

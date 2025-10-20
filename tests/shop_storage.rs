@@ -2,13 +2,16 @@
 
 use chrono::Utc;
 use meshbbs::tmush::types::{CurrencyAmount, ObjectOwner, ObjectRecord};
-use meshbbs::tmush::{ShopItem, ShopRecord, TinyMushStore};
+use meshbbs::tmush::{ShopItem, ShopRecord, TinyMushStoreBuilder};
 use tempfile::tempdir;
 
 #[test]
 fn test_shop_round_trip() {
     let tmp = tempdir().unwrap();
-    let store = TinyMushStore::open(tmp.path()).unwrap();
+    let store = TinyMushStoreBuilder::new(tmp.path())
+        .without_world_seed()
+        .open()
+        .unwrap();
 
     let mut shop = ShopRecord::new(
         "blacksmith".to_string(),
@@ -52,7 +55,10 @@ fn test_shop_round_trip() {
 #[test]
 fn test_shop_list_and_delete() {
     let tmp = tempdir().unwrap();
-    let store = TinyMushStore::open(tmp.path()).unwrap();
+    let store = TinyMushStoreBuilder::new(tmp.path())
+        .without_world_seed()
+        .open()
+        .unwrap();
 
     // Create multiple shops
     let shop1 = ShopRecord::new(
@@ -93,7 +99,10 @@ fn test_shop_list_and_delete() {
 #[test]
 fn test_get_shops_in_location() {
     let tmp = tempdir().unwrap();
-    let store = TinyMushStore::open(tmp.path()).unwrap();
+    let store = TinyMushStoreBuilder::new(tmp.path())
+        .without_world_seed()
+        .open()
+        .unwrap();
 
     // Create shops in different locations
     let shop1 = ShopRecord::new(
@@ -140,7 +149,10 @@ fn test_get_shops_in_location() {
 #[test]
 fn test_shop_update_and_persistence() {
     let tmp = tempdir().unwrap();
-    let store = TinyMushStore::open(tmp.path()).unwrap();
+    let store = TinyMushStoreBuilder::new(tmp.path())
+        .without_world_seed()
+        .open()
+        .unwrap();
 
     let mut shop = ShopRecord::new(
         "blacksmith".to_string(),
@@ -198,7 +210,10 @@ fn test_shop_update_and_persistence() {
 #[test]
 fn test_shop_config_persistence() {
     let tmp = tempdir().unwrap();
-    let store = TinyMushStore::open(tmp.path()).unwrap();
+    let store = TinyMushStoreBuilder::new(tmp.path())
+        .without_world_seed()
+        .open()
+        .unwrap();
 
     let mut shop = ShopRecord::new(
         "shop1".to_string(),

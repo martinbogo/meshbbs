@@ -141,7 +141,7 @@ fn quest_edit_objective_remove() {
 
     // Create quest with objectives
     let mut quest = QuestRecord::new("obj_test", "ObjectiveTest", "", "mayor_npc", 1);
-    
+
     let objective1 = QuestObjective::new(
         "Kill 3 rats",
         ObjectiveType::KillEnemy {
@@ -150,7 +150,7 @@ fn quest_edit_objective_remove() {
         },
         3,
     );
-    
+
     let objective2 = QuestObjective::new(
         "Collect 5 herbs",
         ObjectiveType::CollectItem {
@@ -159,7 +159,7 @@ fn quest_edit_objective_remove() {
         },
         5,
     );
-    
+
     quest.objectives.push(objective1);
     quest.objectives.push(objective2);
     store.put_quest(quest).unwrap();

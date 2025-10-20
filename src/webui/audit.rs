@@ -79,19 +79,19 @@ impl AuditEntry {
             format!("ACTION={}", self.action.as_str()),
             format!("USER={}", self.username),
         ];
-        
+
         if let Some(ref resource) = self.resource {
             parts.push(format!("RESOURCE={}", resource));
         }
-        
+
         parts.push(format!("IP={}", self.ip_address));
         parts.push(format!("SESSION={}", &self.session_token[..8])); // Only first 8 chars for brevity
         parts.push(format!("STATUS={}", self.status));
-        
+
         if let Some(ref reason) = self.reason {
             parts.push(format!("REASON=\"{}\"", reason));
         }
-        
+
         parts.join(" ")
     }
 }
@@ -107,22 +107,22 @@ impl AuditLogger {
     #[cfg(feature = "webui")]
     pub fn new(config: &AdminDashboardConfig, data_dir: &str) -> Result<Self> {
         let (sender, mut receiver) = mpsc::unbounded_channel::<AuditEntry>();
-        
+
         // Determine audit log path
         let log_path = if let Some(ref dir) = config.audit_log_directory {
             PathBuf::from(dir).join(&config.audit_log_file)
         } else {
             PathBuf::from(data_dir).join(&config.audit_log_file)
         };
-        
+
         info!("Starting audit logger: {:?}", log_path);
-        
+
         // Spawn background task to write audit entries
         tokio::spawn(async move {
             // Open log file for append
             use tokio::fs::OpenOptions;
             use tokio::io::AsyncWriteExt;
-            
+
             let mut file = match OpenOptions::new()
                 .create(true)
                 .append(true)
@@ -135,7 +135,7 @@ impl AuditLogger {
                     return;
                 }
             };
-            
+
             while let Some(entry) = receiver.recv().await {
                 let line = format!("{}\n", entry.format());
                 if let Err(e) = file.write_all(line.as_bytes()).await {
@@ -146,10 +146,10 @@ impl AuditLogger {
                 }
             }
         });
-        
+
         Ok(Self { sender })
     }
-    
+
     /// Log an audit entry
     pub fn log(&self, entry: AuditEntry) {
         if let Err(e) = self.sender.send(entry.clone()) {
@@ -158,7 +158,7 @@ impl AuditLogger {
             info!("{}", entry.format());
         }
     }
-    
+
     /// Convenience method for logging successful login
     pub fn log_login(&self, username: &str, ip: &str, session_token: &str) {
         self.log(AuditEntry {
@@ -171,7 +171,7 @@ impl AuditLogger {
             reason: None,
         });
     }
-    
+
     /// Convenience method for logging failed login
     pub fn log_login_failed(&self, username: &str, ip: &str, reason: &str) {
         self.log(AuditEntry {
@@ -184,7 +184,7 @@ impl AuditLogger {
             reason: Some(reason.to_string()),
         });
     }
-    
+
     /// Convenience method for logging logout
     pub fn log_logout(&self, username: &str, ip: &str, session_token: &str) {
         self.log(AuditEntry {
@@ -197,7 +197,7 @@ impl AuditLogger {
             reason: None,
         });
     }
-    
+
     /// Convenience method for logging user list view
     pub fn log_user_list(&self, username: &str, session_token: &str) {
         self.log(AuditEntry {
@@ -210,7 +210,7 @@ impl AuditLogger {
             reason: None,
         });
     }
-    
+
     /// Convenience method for logging user detail view
     pub fn log_user_view(&self, admin_username: &str, target_user: &str, session_token: &str) {
         self.log(AuditEntry {
@@ -223,9 +223,15 @@ impl AuditLogger {
             reason: None,
         });
     }
-    
+
     /// Convenience method for logging user level update
-    pub fn log_user_update(&self, admin_username: &str, target_user: &str, details: &str, session_token: &str) {
+    pub fn log_user_update(
+        &self,
+        admin_username: &str,
+        target_user: &str,
+        details: &str,
+        session_token: &str,
+    ) {
         self.log(AuditEntry {
             action: AuditAction::Update,
             username: admin_username.to_string(),

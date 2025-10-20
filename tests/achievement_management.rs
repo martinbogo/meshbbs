@@ -1,6 +1,5 @@
 /// Integration tests for @ACHIEVEMENT admin command system (Phase 1: Data-Driven Migration)
 /// Tests CRUD operations for data-driven achievement management using the storage layer directly.
-
 use meshbbs::tmush::types::{AchievementCategory, AchievementRecord, AchievementTrigger};
 use meshbbs::tmush::{TinyMushStore, TinyMushStoreBuilder};
 use tempfile::TempDir;
@@ -93,7 +92,10 @@ fn achievement_edit_all_fields() {
         achievement.category = category.clone();
         store.put_achievement(achievement.clone()).unwrap();
         let retrieved = store.get_achievement("full_test").unwrap();
-        assert_eq!(format!("{:?}", retrieved.category), format!("{:?}", category));
+        assert_eq!(
+            format!("{:?}", retrieved.category),
+            format!("{:?}", category)
+        );
     }
 
     // Edit title
@@ -127,14 +129,42 @@ fn achievement_trigger_types() {
     // Test all 9 trigger types
     let triggers = vec![
         ("killcount", AchievementTrigger::KillCount { required: 10 }),
-        ("roomvisits", AchievementTrigger::RoomVisits { required: 50 }),
-        ("friendcount", AchievementTrigger::FriendCount { required: 5 }),
-        ("messagessent", AchievementTrigger::MessagesSent { required: 100 }),
-        ("tradecount", AchievementTrigger::TradeCount { required: 20 }),
-        ("currencyearned", AchievementTrigger::CurrencyEarned { amount: 1000 }),
-        ("questcompletion", AchievementTrigger::QuestCompletion { required: 3 }),
-        ("visitlocation", AchievementTrigger::VisitLocation { room_id: "secret_room".to_string() }),
-        ("completequest", AchievementTrigger::CompleteQuest { quest_id: "epic_quest".to_string() }),
+        (
+            "roomvisits",
+            AchievementTrigger::RoomVisits { required: 50 },
+        ),
+        (
+            "friendcount",
+            AchievementTrigger::FriendCount { required: 5 },
+        ),
+        (
+            "messagessent",
+            AchievementTrigger::MessagesSent { required: 100 },
+        ),
+        (
+            "tradecount",
+            AchievementTrigger::TradeCount { required: 20 },
+        ),
+        (
+            "currencyearned",
+            AchievementTrigger::CurrencyEarned { amount: 1000 },
+        ),
+        (
+            "questcompletion",
+            AchievementTrigger::QuestCompletion { required: 3 },
+        ),
+        (
+            "visitlocation",
+            AchievementTrigger::VisitLocation {
+                room_id: "secret_room".to_string(),
+            },
+        ),
+        (
+            "completequest",
+            AchievementTrigger::CompleteQuest {
+                quest_id: "epic_quest".to_string(),
+            },
+        ),
     ];
 
     for (id, trigger) in triggers {
@@ -176,7 +206,10 @@ fn achievement_category_validation() {
         store.put_achievement(achievement).unwrap();
 
         let retrieved = store.get_achievement(&format!("cat_{}", i)).unwrap();
-        assert_eq!(format!("{:?}", retrieved.category), format!("{:?}", category));
+        assert_eq!(
+            format!("{:?}", retrieved.category),
+            format!("{:?}", category)
+        );
     }
 }
 
@@ -246,13 +279,19 @@ fn achievement_list_filtering() {
     assert!(all_ids.contains(&"custom_social1".to_string()));
 
     // Filter by category - should at least contain our custom ones
-    let combat_achs = store.get_achievements_by_category(&AchievementCategory::Combat).unwrap();
+    let combat_achs = store
+        .get_achievements_by_category(&AchievementCategory::Combat)
+        .unwrap();
     assert!(combat_achs.iter().any(|a| a.id == "custom_combat1"));
 
-    let explore_achs = store.get_achievements_by_category(&AchievementCategory::Exploration).unwrap();
+    let explore_achs = store
+        .get_achievements_by_category(&AchievementCategory::Exploration)
+        .unwrap();
     assert!(explore_achs.iter().any(|a| a.id == "custom_explore1"));
 
-    let social_achs = store.get_achievements_by_category(&AchievementCategory::Social).unwrap();
+    let social_achs = store
+        .get_achievements_by_category(&AchievementCategory::Social)
+        .unwrap();
     assert!(social_achs.iter().any(|a| a.id == "custom_social1"));
 }
 
@@ -269,9 +308,12 @@ fn default_achievements_seeded() {
 
     // Verify some known starter achievements exist
     let ids = store.list_achievement_ids().unwrap();
-    
+
     // Check that we have multiple achievements seeded
-    assert!(ids.len() >= 10, "Should have at least 10 starter achievements");
+    assert!(
+        ids.len() >= 10,
+        "Should have at least 10 starter achievements"
+    );
 
     // Verify first_blood exists (from seed_starter_achievements)
     assert!(

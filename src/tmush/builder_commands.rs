@@ -446,14 +446,14 @@ pub fn handle_wizard_step(
     store: &TinyMushStore,
 ) -> Result<String, TinyMushError> {
     let input = input.trim();
-    
+
     // Normalize smart/curly quotes to straight quotes for trigger scripts
     // macOS and some terminals auto-convert quotes which breaks DSL parsing
     let input = input
-        .replace('\u{201C}', "\"")  // " LEFT DOUBLE QUOTATION MARK
-        .replace('\u{201D}', "\"")  // " RIGHT DOUBLE QUOTATION MARK
-        .replace('\u{2018}', "'")   // ' LEFT SINGLE QUOTATION MARK
-        .replace('\u{2019}', "'");  // ' RIGHT SINGLE QUOTATION MARK
+        .replace('\u{201C}', "\"") // " LEFT DOUBLE QUOTATION MARK
+        .replace('\u{201D}', "\"") // " RIGHT DOUBLE QUOTATION MARK
+        .replace('\u{2018}', "'") // ' LEFT SINGLE QUOTATION MARK
+        .replace('\u{2019}', "'"); // ' RIGHT SINGLE QUOTATION MARK
 
     // Clone the current state to avoid borrow checker issues
     let current_state = session.state.clone();
