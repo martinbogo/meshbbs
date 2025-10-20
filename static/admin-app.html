@@ -1077,6 +1077,94 @@
             font-size: 0.75rem;
         }
 
+        /* Item Cards */
+        .tinymush-items {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: var(--space-lg);
+            width: 100%;
+        }
+
+        .tinymush-item-card {
+            background: var(--color-bg-surface);
+            border: 1px solid rgba(82, 121, 111, 0.15);
+            border-radius: var(--radius-lg);
+            padding: var(--space-lg);
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-sm);
+            transition: all var(--transition-swift);
+            cursor: pointer;
+        }
+
+        .tinymush-item-card:hover {
+            border-color: rgba(82, 121, 111, 0.35);
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+
+        .tinymush-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: var(--space-md);
+        }
+
+        .tinymush-item-title {
+            font-weight: 600;
+            font-size: 1rem;
+            color: var(--color-text-primary);
+            flex: 1;
+            word-break: break-word;
+        }
+
+        .tinymush-item-id {
+            font-size: 0.75rem;
+            color: var(--color-text-muted);
+            font-family: var(--font-mono);
+            padding: calc(var(--space-xs) / 2) var(--space-xs);
+            background: rgba(82, 121, 111, 0.08);
+            border-radius: var(--radius-sm);
+            flex-shrink: 0;
+        }
+
+        .tinymush-item-body {
+            font-size: 0.85rem;
+            color: var(--color-text-secondary);
+            line-height: 1.5;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .tinymush-item-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-xs);
+            margin-top: var(--space-xs);
+        }
+
+        .tinymush-item-tags .tag {
+            display: inline-flex;
+            align-items: center;
+            padding: calc(var(--space-xs) / 1.5) var(--space-sm);
+            background: rgba(82, 121, 111, 0.12);
+            color: var(--color-forest);
+            border-radius: var(--radius-sm);
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .tinymush-empty {
+            padding: var(--space-xl);
+            text-align: center;
+            color: var(--color-text-secondary);
+            background: rgba(82, 121, 111, 0.06);
+            border-radius: var(--radius-md);
+            font-size: 0.95rem;
+        }
+
         @media (max-width: 1280px) {
             .tinymush-panel-grid {
                 gap: var(--space-lg);
@@ -1085,6 +1173,10 @@
             .tinymush-items-panel,
             .tinymush-detail-panel {
                 padding: var(--space-lg);
+            }
+
+            .tinymush-items {
+                grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
             }
         }
 
