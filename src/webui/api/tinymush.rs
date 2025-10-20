@@ -1195,7 +1195,7 @@ fn apply_recipe_payload(
     };
 
     let mut record = match existing {
-        Some(mut existing_record) => {
+        Some(existing_record) => {
             if existing_record.id != id {
                 return Err(TinymushApiError::Validation(format!(
                     "Cannot change recipe id from '{}' to '{}'",
@@ -1543,16 +1543,6 @@ pub async fn delete_collection_item(
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(err) => err.into_response(),
     }
-}
-
-fn method_not_allowed(message: &str) -> Response {
-    (
-        StatusCode::METHOD_NOT_ALLOWED,
-        Json(ErrorResponse {
-            error: message.to_string(),
-        }),
-    )
-        .into_response()
 }
 
 async fn load_collection(
