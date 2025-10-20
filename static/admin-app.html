@@ -4395,9 +4395,12 @@
                 const card = renderTinymushItemCard(collectionKey, item, config);
                 card.style.cursor = 'pointer';
                 card.addEventListener('click', () => {
+                    console.log('[DEBUG] Item card clicked:', { collectionKey, itemId: item?.id, item });
                     const itemId = item?.id;
                     if (itemId) {
                         openTinymushEditor('edit', collectionKey, itemId, item);
+                    } else {
+                        console.error('[DEBUG] Item has no ID, cannot open editor');
                     }
                 });
                 container.appendChild(card);
@@ -4642,6 +4645,8 @@
         }
 
         function openTinymushEditor(mode, collectionKey, itemId = null, itemData = null) {
+            console.log('[DEBUG] openTinymushEditor called:', { mode, collectionKey, itemId, itemData });
+            
             if (!collectionKey) {
                 console.error('openTinymushEditor requires collectionKey');
                 return;
@@ -4653,6 +4658,15 @@
             const errorEl = document.getElementById('tinymushEditorError');
             const saveBtn = document.getElementById('tinymushEditorSave');
             const deleteBtn = document.getElementById('tinymushEditorDelete');
+
+            console.log('[DEBUG] Modal elements:', { 
+                modal: !!modal, 
+                textarea: !!textarea, 
+                titleEl: !!titleEl,
+                errorEl: !!errorEl,
+                saveBtn: !!saveBtn,
+                deleteBtn: !!deleteBtn
+            });
 
             if (!modal || !textarea || !titleEl) {
                 console.error('TinyMUSH editor DOM elements not found');
@@ -4699,8 +4713,11 @@
                 errorEl.textContent = '';
             }
 
+            console.log('[DEBUG] About to render guided form and show modal');
             renderTinymushGuidedForm(collectionKey);
+            console.log('[DEBUG] Guided form rendered, adding show class to modal');
             modal.classList.add('show');
+            console.log('[DEBUG] Modal should now be visible, classes:', modal.className);
         }
 
         function buildTinymushTemplate(collectionKey) {
