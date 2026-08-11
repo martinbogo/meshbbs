@@ -1,0 +1,29 @@
+{
+  "recipes": [
+    {
+      "id": "signal_booster",
+      "name": "Signal Booster",
+      "result_item_id": "signal_booster",
+      "owner": "world",
+      "description": "A powerful signal booster for extended mesh range.",
+      "materials": {
+        "copper_wire": 2,
+        "circuit_board": 1,
+        "antenna_rod": 1
+      },
+      "crafting_station": "crafting_bench"
+    },
+    {
+      "id": "basic_antenna",
+      "name": "Basic Antenna",
+      "result_item_id": "basic_antenna",
+      "owner": "world",
+      "description": "A simple antenna for basic mesh connectivity.",
+      "materials": {
+        "copper_wire": 2,
+        "antenna_rod": 1
+      },
+      "crafting_station": "crafting_bench"
+    }
+  ]
+}

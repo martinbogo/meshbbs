@@ -1,0 +1,65 @@
+[
+  {
+    "id": "mayor_thompson",
+    "name": "Mayor Thompson",
+    "title": "Mayor of Old Towne Mesh",
+    "description": "A distinguished figure in formal attire. Mayor Thompson greets visitors with a warm smile and firm handshake. Years of network administration show in the confident way he discusses mesh topology.",
+    "location": "mayor_office",
+    "dialogues": {
+      "greeting": "Welcome to Old Towne Mesh! I'm Mayor Thompson. I oversee the network operations here. How can I help you today?",
+      "tutorial_complete": "Excellent work completing the tutorial! You've learned the basics of navigating our world. Here's a small reward to get you started on your adventures. Welcome to Old Towne Mesh, citizen!",
+      "quest_welcome": "Looking for something to do? I have some tasks that could use a capable adventurer like yourself. Check back when you're ready for a challenge!"
+    },
+    "flags": []
+  },
+  {
+    "id": "city_clerk",
+    "name": "City Clerk",
+    "title": "Administrative Clerk",
+    "description": "A busy clerk with wire-rimmed glasses shuffles through papers. She looks up with a professional smile, ready to assist with administrative matters.",
+    "location": "city_hall_lobby",
+    "dialogues": {
+      "greeting": "Welcome to City Hall! I handle administrative matters. If you need help understanding how things work around here, just ask!",
+      "help": "Old Towne Mesh operates on a mesh network. You can explore the town, complete quests, trade with others, and even claim housing! Type HELP for commands."
+    },
+    "flags": ["TutorialNpc"]
+  },
+  {
+    "id": "gate_guard",
+    "name": "Gate Guard",
+    "title": "North Gate Guard",
+    "description": "A weathered guard in practical gear stands watch. Years of patrol have given her a keen eye for travelers. She nods in acknowledgment as you approach.",
+    "location": "north_gate",
+    "dialogues": {
+      "greeting": "Greetings, traveler. I keep watch over the northern approach. Beyond lies the wilderness - beautiful but dangerous for the unprepared.",
+      "warning": "If you venture beyond the gate, be sure you're properly equipped. The mesh signal weakens past the ridge, and you'll be on your own out there."
+    },
+    "flags": ["Guard"]
+  },
+  {
+    "id": "market_vendor",
+    "name": "Mira the Vendor",
+    "title": "South Market Trader",
+    "description": "A cheerful vendor behind a stall piled with mesh hardware and local goods. Mira has a reputation for fair prices and interesting stories about the items she sells.",
+    "location": "south_market",
+    "dialogues": {
+      "greeting": "Welcome to my stall! I've got the finest mesh components and supplies in Old Towne. Looking for anything particular?",
+      "wares": "I stock everything from basic antennas to rare modules salvaged from old nodes. Right now I'm running low on inventory, but check back soon - I restock regularly!",
+      "story": "This stall has been in my family for three generations. My grandmother was one of the original mesh pioneers. These goods carry that legacy!"
+    },
+    "flags": ["Vendor"]
+  },
+  {
+    "id": "museum_curator",
+    "name": "Dr. Reeves",
+    "title": "Museum Curator",
+    "description": "An elderly scholar with kind eyes and countless stories. Dr. Reeves has dedicated decades to preserving the history of the mesh network.",
+    "location": "mesh_museum",
+    "dialogues": {
+      "greeting": "Ah, welcome to the Mesh Museum! I'm Dr. Reeves, curator and historian. Every artifact here tells a story of our network's resilience.",
+      "history": "This museum chronicles the early days of the mesh - the pioneers who kept packets flowing through blizzards and power outages. Each node had a story, each relay a hero behind it.",
+      "exhibit": "That display there? That's the original relay from Winter Storm '19. It ran for 72 hours on backup power, keeping the southern district connected. Legendary piece of equipment."
+    },
+    "flags": ["TutorialNpc"]
+  }
+]

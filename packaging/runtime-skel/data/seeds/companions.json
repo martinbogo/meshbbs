@@ -1,0 +1,23 @@
+[
+  {
+    "id": "gentle_mare",
+    "name": "Gentle Mare",
+    "companion_type": "Horse",
+    "location": "south_market",
+    "description": "A gentle brown mare with kind eyes. She seems eager for a rider."
+  },
+  {
+    "id": "loyal_hound",
+    "name": "Loyal Hound",
+    "companion_type": "Dog",
+    "location": "towne_square",
+    "description": "A friendly dog with alert eyes. He wags his tail hopefully."
+  },
+  {
+    "id": "shadow_cat",
+    "name": "Shadow Cat",
+    "companion_type": "Cat",
+    "location": "mesh_museum",
+    "description": "A sleek black cat with piercing green eyes. She watches you intently."
+  }
+]

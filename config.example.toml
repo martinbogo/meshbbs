@@ -257,16 +257,17 @@ timeout_seconds = 5
 # Enable TinyHack roguelike dungeon game
 # Classic roguelike with dungeons, monsters, items, and permadeath
 # Access: G command from main menu → select TinyHack
-# Default: true
-enabled = true
+# Default: false. Enabling any game adds a [G]ames entry to the main menu, which
+# pushes the registration reply past the 200-byte mesh message limit.
+enabled = false
 
 # --- TinyMUSH Game ---
 [apps.tinymush]
 # Enable TinyMUSH multi-user text adventure
 # Persistent world with rooms, NPCs, quests, crafting, and companions
 # Access: G command from main menu → select TinyMUSH
-# Default: true
-enabled = true
+# Default: false, for the same reason as [apps.tinyhack] above.
+enabled = false
 
 # TinyMUSH database path (optional)
 # Override default location for game data

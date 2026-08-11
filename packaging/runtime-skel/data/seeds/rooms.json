@@ -1,0 +1,281 @@
+[
+  {
+    "id": "landing_gazebo",
+    "name": "Landing Gazebo",
+    "short_description": "A welcoming gazebo where new arrivals first materialize.",
+    "description": "You stand in an octagonal gazebo with polished wooden railings. Soft mesh lanterns cast a warm glow, and a carved wooden sign reads 'Welcome to Old Towne Mesh!' Through the northern archway, you can see the bustling Town Square. This is a safe place to learn the basics - try typing LOOK to examine your surroundings, INVENTORY to check what you're carrying, or HELP to see available commands. When ready, head NORTH to begin your adventure!",
+    "exits": {
+      "North": "towne_square"
+    },
+    "capacity": 10,
+    "flags": ["Safe", "Indoor"]
+  },
+  {
+    "id": "towne_square",
+    "name": "Old Towne Square",
+    "short_description": "A tidy plaza centered around the Mesh beacon.",
+    "description": "Stone paths radiate from the beacon in the square's center. Mesh terminals hum quietly while townsfolk trade stories about far-off packet relays.",
+    "exits": {
+      "North": "city_hall_lobby",
+      "East": "mesh_museum",
+      "West": "west_residential",
+      "South": "south_market",
+      "Down": "maintenance_tunnels"
+    },
+    "capacity": 25,
+    "flags": ["Safe", "Indoor"]
+  },
+  {
+    "id": "city_hall_lobby",
+    "name": "City Hall Lobby",
+    "short_description": "Sunlight filters through tall windows onto polished floors.",
+    "description": "Clerks shuffle reports about network outages while a patient queue waits to register new callsigns. A portrait of the mayor watches over the proceedings.",
+    "exits": {
+      "South": "towne_square",
+      "North": "mayor_office",
+      "East": "mesh_museum"
+    },
+    "capacity": 10,
+    "flags": ["Indoor", "Moderated"]
+  },
+  {
+    "id": "mayor_office",
+    "name": "Mayor's Office",
+    "short_description": "A well-appointed office with oak desk and mesh maps on walls.",
+    "description": "Mayor Thompson sits behind a sturdy oak desk, reviewing network topology maps. Framed certificates line the walls alongside charts tracking mesh uptime metrics. A window overlooks the town square.",
+    "exits": {
+      "South": "city_hall_lobby"
+    },
+    "capacity": 10,
+    "flags": ["Safe", "Indoor", "QuestLocation"]
+  },
+  {
+    "id": "mesh_museum",
+    "name": "Mesh Museum",
+    "short_description": "Glass cases showcase legendary mesh hardware.",
+    "description": "Plaques describe pioneering nodes that kept the network alive during winter storms. Interactive exhibits let visitors replay famous packet traces.",
+    "exits": {
+      "West": "towne_square",
+      "North": "forest_path",
+      "South": "north_gate"
+    },
+    "capacity": 10,
+    "flags": ["Indoor", "QuestLocation"]
+  },
+  {
+    "id": "north_gate",
+    "name": "North Gate",
+    "short_description": "A sturdy archway opens toward pine forests and repeater towers.",
+    "description": "Guards wave as traders arrive with crates of modules bound for the workshop. Beyond the path a narrow trail promises adventure past the ridge.",
+    "exits": {
+      "North": "pine_ridge_trail",
+      "West": "relay_tavern",
+      "South": "towne_square",
+      "East": "mesh_museum"
+    },
+    "capacity": 10,
+    "flags": ["QuestLocation"]
+  },
+  {
+    "id": "south_market",
+    "name": "South Market",
+    "short_description": "Stalls overflow with gadgets, produce, and hand-built antennas.",
+    "description": "Vendors haggle over packet quotas while musicians keep the tempo upbeat. The scent of fresh bread mingles with solder flux drifting from a repair booth.",
+    "exits": {
+      "North": "towne_square",
+      "South": "workshop_district"
+    },
+    "capacity": 18,
+    "flags": ["Shop", "Indoor"]
+  },
+  {
+    "id": "pine_ridge_trail",
+    "name": "Pine Ridge Trail",
+    "short_description": "A winding forest trail lined with towering pines.",
+    "description": "The packed earth trail winds upward through ancient pines. Sunlight filters through the canopy, dappling the ground with moving shadows. To the north, you can see a tall repeater tower rising above the treeline. The sounds of town fade behind you to the south.",
+    "exits": {
+      "South": "north_gate",
+      "North": "repeater_tower",
+      "East": "forest_path"
+    },
+    "capacity": 10,
+    "flags": ["Safe"]
+  },
+  {
+    "id": "repeater_tower",
+    "name": "Repeater Tower",
+    "short_description": "A tall communications tower bristling with antennas and cables.",
+    "description": "The mesh repeater tower stands three stories tall, its steel frame humming with radio activity. Solar panels angle toward the sun while wind turbines spin lazily overhead. A ladder leads UP to the maintenance platform above. Diagnostic panels blink with network status indicators. This relay node connects Old Towne to distant mesh communities.",
+    "exits": {
+      "South": "pine_ridge_trail",
+      "Up": "repeater_upper"
+    },
+    "capacity": 5,
+    "flags": ["QuestLocation"]
+  },
+  {
+    "id": "repeater_upper",
+    "name": "Repeater Tower - Upper Platform",
+    "short_description": "The maintenance platform high above the tower base.",
+    "description": "You stand on a metal grating platform twenty feet above the ground. The wind is stronger up here, and you can see for miles across Old Towne and beyond. Three massive directional antennas dominate the platform - the NORTHERN ARRAY points toward Pine Ridge, the eastern array faces the forest, and the western one covers the residential areas. Control boxes and cable junctions are mounted on the central mast. A ladder leads DOWN to the ground level. The view is breathtaking but the height is dizzying.",
+    "exits": {
+      "Down": "repeater_tower"
+    },
+    "capacity": 3,
+    "flags": ["QuestLocation", "Indoor"]
+  },
+  {
+    "id": "relay_tavern",
+    "name": "The Relay Tavern",
+    "short_description": "A cozy tavern where mesh operators swap stories over drinks.",
+    "description": "Warm firelight flickers across wooden tables where locals gather to share news from distant nodes. The bar is carved from a single massive log, its surface worn smooth by countless elbows. Network topology maps cover one wall, marked with routes and relay points. The air smells of fresh bread and pine resin. This is where you hear the latest gossip and rumors.",
+    "exits": {
+      "East": "north_gate",
+      "South": "west_residential"
+    },
+    "capacity": 20,
+    "flags": ["Safe", "Indoor"]
+  },
+  {
+    "id": "west_residential",
+    "name": "West Residential Lane",
+    "short_description": "A quiet lane lined with modest homes and small gardens.",
+    "description": "Comfortable homes line this peaceful street, their gardens bursting with vegetables and wildflowers. Solar panels on every roof feed power back to the mesh. Children's laughter echoes from a nearby yard. Mesh antennas sprout from rooftops like mechanical flowers. Residents nod friendly greetings as they tend their gardens or repair equipment.",
+    "exits": {
+      "North": "relay_tavern",
+      "East": "towne_square"
+    },
+    "capacity": 15,
+    "flags": ["Safe"]
+  },
+  {
+    "id": "forest_path",
+    "name": "Forest Path",
+    "short_description": "A narrow path meanders through dense woods.",
+    "description": "The forest path twists between massive oaks and maples. Birdsong fills the air, and deer tracks mark the soft earth. Sunlight breaks through the canopy in golden shafts. This peaceful place seems untouched by technology - nature holds dominion here. You might encounter wildlife: a loyal hound, a gentle horse, or perhaps a shadow cat.",
+    "exits": {
+      "West": "pine_ridge_trail",
+      "East": "ancient_grove",
+      "South": "mesh_museum"
+    },
+    "capacity": 8,
+    "flags": ["Safe"]
+  },
+  {
+    "id": "ancient_grove",
+    "name": "Ancient Grove",
+    "short_description": "A mystical grove of towering ancient trees.",
+    "description": "Enormous trees form a natural cathedral here, their trunks wider than houses. Moss carpets the ground, and the air shimmers with an almost magical quality. This grove has stood for centuries, predating the mesh network by generations. Strange symbols are carved into some tree trunks - remnants of old rituals? The peaceful energy here seems to strengthen and restore those who visit.",
+    "exits": {
+      "West": "forest_path"
+    },
+    "capacity": 6,
+    "flags": ["Safe", "QuestLocation"]
+  },
+  {
+    "id": "maintenance_tunnels",
+    "name": "Maintenance Tunnels",
+    "short_description": "Dimly lit tunnels beneath the town streets.",
+    "description": "The underground maintenance tunnels carry mesh cables and power conduits beneath Old Towne. Emergency lights provide minimal illumination, casting eerie shadows. Water drips somewhere in the darkness. These tunnels connect to various parts of town - useful for quick travel if you don't mind the claustrophobic atmosphere and occasional strange echoes. Something scurries in the shadows...",
+    "exits": {
+      "North": "towne_square",
+      "Down": "maintenance_tunnels",
+      "East": "workshop_district"
+    },
+    "capacity": 5,
+    "flags": ["Dark", "Indoor"]
+  },
+  {
+    "id": "workshop_district",
+    "name": "Workshop District",
+    "short_description": "A maze of workshops and tool sheds filled with industrious activity.",
+    "description": "The workshop district buzzes with activity. Craftspeople bend over workbenches, soldering components and assembling modules. The air smells of hot metal and machine oil. Shelves overflow with parts: resistors, capacitors, antennas, cables. A bulletin board advertises custom builds and repair services. This is where mesh hardware is born, modified, and resurrected.",
+    "exits": {
+      "West": "maintenance_tunnels",
+      "North": "south_market"
+    },
+    "capacity": 12,
+    "flags": ["Shop", "Indoor"]
+  },
+  {
+    "id": "cipher_chamber",
+    "name": "Cipher Chamber",
+    "short_description": "An ancient stone chamber with four seasonal glyphs.",
+    "description": "This circular chamber appears to be a place of learning from ages past. Four stone tablets stand at the cardinal directions, each carved with distinct seasonal symbols. The floor shows a faded mosaic of interconnected circles - perhaps an ancient visualization of communication networks. The air here feels heavy with knowledge, as if the stones themselves remember important secrets.",
+    "exits": {
+      "South": "ancient_grove"
+    },
+    "capacity": 4,
+    "flags": ["QuestLocation", "Safe", "Indoor"]
+  },
+  {
+    "id": "deep_caverns_entrance",
+    "name": "Deep Caverns Entrance",
+    "short_description": "The entrance to pitch-black caverns beneath Old Towne.",
+    "description": "The tunnel mouth yawns before you, descending into absolute darkness. Without a light source, you can see nothing beyond the first few feet. Cold air flows up from below, carrying the scent of damp stone and ancient earth. Rough-hewn steps lead downward into the unknown. This place has been sealed for decades - few know it even exists.",
+    "exits": {
+      "Up": "maintenance_tunnels",
+      "Down": "sunken_chamber"
+    },
+    "capacity": 3,
+    "flags": ["Dark", "QuestLocation", "Indoor"]
+  },
+  {
+    "id": "sunken_chamber",
+    "name": "Sunken Chamber",
+    "short_description": "A flooded chamber deep underground, utterly dark without light.",
+    "description": "Your light reflects off standing water covering the floor. The chamber is partially flooded, with water reaching mid-calf. Stalactites hang from the ceiling like ancient teeth. The walls show tool marks - this was carved by hand, long ago. A strange echo makes it hard to judge the chamber's true size. To the east, a narrow passage continues deeper.",
+    "exits": {
+      "Up": "deep_caverns_entrance",
+      "East": "hidden_vault"
+    },
+    "capacity": 3,
+    "flags": ["Dark", "QuestLocation", "Indoor"]
+  },
+  {
+    "id": "hidden_vault",
+    "name": "Hidden Vault",
+    "short_description": "A secret vault hidden in the deepest darkness, containing ancient artifacts.",
+    "description": "Your light reveals a treasure trove of pre-mesh artifacts. Metal shelves line the walls, holding ancient communication equipment: vacuum tubes, crystal sets, relay switches, and things you can't even identify. Everything is preserved in the constant temperature and dry air. A workbench holds tools and schematics. Someone used this as a workshop, then sealed it away. Why?",
+    "exits": {
+      "West": "sunken_chamber"
+    },
+    "capacity": 2,
+    "flags": ["Dark", "QuestLocation", "Safe", "Indoor"]
+  },
+  {
+    "id": "forgotten_ruins_entrance",
+    "name": "Forgotten Ruins Entrance",
+    "short_description": "Ancient ruins hidden in the wilderness beyond Old Towne.",
+    "description": "Crumbling stone walls emerge from thick vegetation. This place predates the mesh by centuries, possibly millennia. The entrance is flanked by four stone pillars, each bearing a distinct glyph. Vines have overtaken much of the structure, but the stonework beneath is solid. A sense of anticipation hangs in the air - this place has been waiting to be rediscovered.",
+    "exits": {
+      "South": "forest_path",
+      "East": "ruins_dark_passage"
+    },
+    "capacity": 4,
+    "flags": ["QuestLocation"]
+  },
+  {
+    "id": "ruins_dark_passage",
+    "name": "Dark Passage",
+    "short_description": "A pitch-black passage through the ancient ruins.",
+    "description": "Without light, you'd be completely lost here. The passage twists through solid rock, showing precision engineering that surpasses modern techniques. The walls are smooth as glass in places, rough-hewn in others. Symbols are carved at intervals - way markers? Warnings? Instructions? The passage opens into a larger chamber ahead.",
+    "exits": {
+      "West": "forgotten_ruins_entrance",
+      "North": "artifact_chamber"
+    },
+    "capacity": 3,
+    "flags": ["Dark", "QuestLocation", "Indoor"]
+  },
+  {
+    "id": "artifact_chamber",
+    "name": "Artifact Chamber",
+    "short_description": "The inner sanctum containing the legendary lost artifact.",
+    "description": "The chamber's centerpiece is a raised platform holding a sophisticated device under a crystal dome. Even centuries later, indicator lights still glow faintly. This is the legendary communication artifact - a masterwork combining technology and artistry. Inscriptions cover the walls in multiple languages, all saying the same thing: 'To connect is to understand. To understand is to unite.'",
+    "exits": {
+      "South": "ruins_dark_passage"
+    },
+    "capacity": 2,
+    "flags": ["QuestLocation", "Safe", "Indoor"]
+  }
+]

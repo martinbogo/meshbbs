@@ -1,0 +1,197 @@
+[
+  {
+    "id": "first_blood",
+    "name": "First Blood",
+    "description": "Defeat your first enemy",
+    "category": "Combat",
+    "trigger": {
+      "KillCount": {
+        "required": 1
+      }
+    },
+    "title": "the Brave",
+    "hidden": false
+  },
+  {
+    "id": "veteran",
+    "name": "Veteran",
+    "description": "Defeat 100 enemies",
+    "category": "Combat",
+    "trigger": {
+      "KillCount": {
+        "required": 100
+      }
+    },
+    "title": null,
+    "hidden": false
+  },
+  {
+    "id": "legendary",
+    "name": "Legendary Warrior",
+    "description": "Defeat 1000 enemies",
+    "category": "Combat",
+    "trigger": {
+      "KillCount": {
+        "required": 1000
+      }
+    },
+    "title": "the Legendary",
+    "hidden": true
+  },
+  {
+    "id": "wanderer",
+    "name": "Wanderer",
+    "description": "Visit 10 unique rooms",
+    "category": "Exploration",
+    "trigger": {
+      "RoomVisits": {
+        "required": 10
+      }
+    },
+    "title": "the Wanderer",
+    "hidden": false
+  },
+  {
+    "id": "explorer",
+    "name": "Explorer",
+    "description": "Visit 50 unique rooms",
+    "category": "Exploration",
+    "trigger": {
+      "RoomVisits": {
+        "required": 50
+      }
+    },
+    "title": null,
+    "hidden": false
+  },
+  {
+    "id": "cartographer",
+    "name": "Cartographer",
+    "description": "Visit all rooms in Old Towne",
+    "category": "Exploration",
+    "trigger": {
+      "RoomVisits": {
+        "required": 100
+      }
+    },
+    "title": "the Cartographer",
+    "hidden": false
+  },
+  {
+    "id": "friendly",
+    "name": "Friendly",
+    "description": "Make 5 friends",
+    "category": "Social",
+    "trigger": {
+      "FriendCount": {
+        "required": 5
+      }
+    },
+    "title": null,
+    "hidden": false
+  },
+  {
+    "id": "popular",
+    "name": "Popular",
+    "description": "Make 20 friends",
+    "category": "Social",
+    "trigger": {
+      "FriendCount": {
+        "required": 20
+      }
+    },
+    "title": "the Popular",
+    "hidden": false
+  },
+  {
+    "id": "chatterbox",
+    "name": "Chatterbox",
+    "description": "Send 1000 messages",
+    "category": "Social",
+    "trigger": {
+      "MessagesSent": {
+        "required": 1000
+      }
+    },
+    "title": null,
+    "hidden": false
+  },
+  {
+    "id": "merchant",
+    "name": "Merchant",
+    "description": "Complete 50 trades",
+    "category": "Economic",
+    "trigger": {
+      "TradeCount": {
+        "required": 50
+      }
+    },
+    "title": "the Merchant",
+    "hidden": false
+  },
+  {
+    "id": "wealthy",
+    "name": "Wealthy",
+    "description": "Earn 100000 currency",
+    "category": "Economic",
+    "trigger": {
+      "CurrencyEarned": {
+        "amount": 100000
+      }
+    },
+    "title": null,
+    "hidden": false
+  },
+  {
+    "id": "quest_beginner",
+    "name": "Quest Beginner",
+    "description": "Complete your first quest",
+    "category": "Quest",
+    "trigger": {
+      "QuestCompletion": {
+        "required": 1
+      }
+    },
+    "title": "the Questor",
+    "hidden": false
+  },
+  {
+    "id": "quest_veteran",
+    "name": "Quest Veteran",
+    "description": "Complete 25 quests",
+    "category": "Quest",
+    "trigger": {
+      "QuestCompletion": {
+        "required": 25
+      }
+    },
+    "title": null,
+    "hidden": false
+  },
+  {
+    "id": "town_founder",
+    "name": "Town Founder",
+    "description": "Discover the founder's secret",
+    "category": "Special",
+    "trigger": {
+      "VisitLocation": {
+        "room_id": "mayor_office"
+      }
+    },
+    "title": "Town Founder",
+    "hidden": true
+  },
+  {
+    "id": "network_pioneer",
+    "name": "Network Pioneer",
+    "description": "Complete the Network Explorer quest",
+    "category": "Special",
+    "trigger": {
+      "CompleteQuest": {
+        "quest_id": "network_explorer"
+      }
+    },
+    "title": "Network Pioneer",
+    "hidden": false
+  }
+]

@@ -158,14 +158,17 @@ assets = [
 	["packaging/runtime-skel/data/users/.keep", "opt/meshbbs/data/users/.keep", "644"],
 	["packaging/runtime-skel/data/slotmachine/.keep", "opt/meshbbs/data/slotmachine/.keep", "644"],
 	["packaging/runtime-skel/data/topics.json", "opt/meshbbs/data/topics.json", "644"],
+	["packaging/runtime-skel/data/fortunes.json", "opt/meshbbs/data/fortunes.json", "644"],
+	["packaging/runtime-skel/data/8ball_responses.json", "opt/meshbbs/data/8ball_responses.json", "644"],
 
-	# Seed data files
-	["data/seeds/npcs.json", "opt/meshbbs/data/seeds/npcs.json", "644"],
-	["data/seeds/companions.json", "opt/meshbbs/data/seeds/companions.json", "644"],
-	["data/seeds/rooms.json", "opt/meshbbs/data/seeds/rooms.json", "644"],
-	["data/seeds/achievements.json", "opt/meshbbs/data/seeds/achievements.json", "644"],
-	["data/seeds/quests.json", "opt/meshbbs/data/seeds/quests.json", "644"],
-	["data/seeds/recipes.json", "opt/meshbbs/data/seeds/recipes.json", "644"],
+	# Seed data files. These live under packaging/runtime-skel because /data/ is
+	# gitignored: sourcing them from data/ made `cargo deb` fail on a clean checkout.
+	["packaging/runtime-skel/data/seeds/npcs.json", "opt/meshbbs/data/seeds/npcs.json", "644"],
+	["packaging/runtime-skel/data/seeds/companions.json", "opt/meshbbs/data/seeds/companions.json", "644"],
+	["packaging/runtime-skel/data/seeds/rooms.json", "opt/meshbbs/data/seeds/rooms.json", "644"],
+	["packaging/runtime-skel/data/seeds/achievements.json", "opt/meshbbs/data/seeds/achievements.json", "644"],
+	["packaging/runtime-skel/data/seeds/quests.json", "opt/meshbbs/data/seeds/quests.json", "644"],
+	["packaging/runtime-skel/data/seeds/recipes.json", "opt/meshbbs/data/seeds/recipes.json", "644"],
 
 	# Docs
 	["README.md", "opt/meshbbs/README.md", "644"],

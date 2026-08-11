@@ -566,7 +566,8 @@ impl BbsServer {
 
         // Initialize 8-ball feature
         if server.config.apps.eightball.enabled {
-            match crate::bbs::eightball::initialize() {
+            let data_dir = std::path::Path::new(&server.config.storage.data_dir);
+            match crate::bbs::eightball::initialize(data_dir) {
                 crate::bbs::eightball::EightballStatus::Available(count) => {
                     info!("[apps] 8-Ball feature initialized with {} responses", count);
                 }

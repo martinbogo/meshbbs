@@ -19,6 +19,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and `SYSLOG` message bodies were also transmitted in all caps. Command keywords are
   still matched case-insensitively, but arguments now come from the raw line. Present
   since v1.0.x and shipped in v1.1.4.
+- **The 8-ball read and wrote a working-directory-relative path.** `initialize()` took
+  no data directory and both it and `save_responses()` hardcoded
+  `data/8ball_responses.json`, so under systemd (where the working directory is not
+  the repository) the feature read the wrong location, and saving from the admin UI
+  wrote there too. The same relative path meant `cargo test` overwrote the
+  repository's own response file. Both functions now resolve against `data_dir`.
+- **Default data files were not shipped.** `fortunes.json`, `8ball_responses.json` and
+  the six TinyMUSH `seeds/*.json` lived only under the gitignored `data/`, so a fresh
+  clone or install had fortune and 8-ball permanently disabled despite both defaulting
+  to enabled. The `.deb` asset list also referenced those gitignored seed paths plus a
+  `slotmachine/.keep` that did not exist, so `cargo deb` could not succeed from a clean
+  checkout; `install.sh` had the same problem, silenced by `2>/dev/null || true`. All
+  default data now ships from the tracked `packaging/runtime-skel/data/`.
+- `config.example.toml` enabled TinyHack and TinyMUSH and documented them as enabled by
+  default, contradicting the code and pushing the registration reply past the 200-byte
+  mesh message limit on every install. Both now default to disabled.
 
 **All app configurations have been unified under `[apps.*]` sections for consistency and better WebUI management.**
 

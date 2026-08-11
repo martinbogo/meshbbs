@@ -91,7 +91,7 @@ pub async fn get_eightball_responses(State(_state): State<Arc<AppState>>) -> Res
 
 /// PUT /api/apps/eightball/responses - Update 8-ball responses
 pub async fn update_eightball_responses(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     Json(payload): Json<UpdateEightballRequest>,
 ) -> Response {
     // Validation
@@ -134,7 +134,7 @@ pub async fn update_eightball_responses(
     }
 
     // Save to disk
-    match save_responses(payload.responses.clone()) {
+    match save_responses(&state.data_dir, payload.responses.clone()) {
         Ok(_) => {
             info!(
                 "[api] 8-Ball responses updated: {} responses saved",

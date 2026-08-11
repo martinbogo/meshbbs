@@ -1,0 +1,109 @@
+{
+  "quests": [
+    {
+      "id": "welcome_towne",
+      "name": "Welcome to Old Towne",
+      "description": "Explore the basics of Old Towne Mesh and meet important NPCs.",
+      "quest_giver": "mayor_thompson",
+      "difficulty": 1,
+      "objectives": [
+        {
+          "description": "Visit the Town Square",
+          "objective_type": {
+            "VisitLocation": {
+              "room_id": "town_square"
+            }
+          },
+          "required_count": 1
+        },
+        {
+          "description": "Visit the Mesh Museum",
+          "objective_type": {
+            "VisitLocation": {
+              "room_id": "mesh_museum"
+            }
+          },
+          "required_count": 1
+        },
+        {
+          "description": "Talk to Mayor Thompson",
+          "objective_type": {
+            "TalkToNpc": {
+              "npc_id": "mayor_thompson"
+            }
+          },
+          "required_count": 1
+        }
+      ],
+      "prerequisites": [],
+      "reward_currency": {
+        "Decimal": {
+          "minor_units": 1000
+        }
+      },
+      "reward_experience": 50,
+      "reward_items": ["town_badge"]
+    },
+    {
+      "id": "market_exploration",
+      "name": "Market Exploration",
+      "description": "Visit the South Market and learn about trading.",
+      "quest_giver": "mayor_thompson",
+      "difficulty": 2,
+      "objectives": [
+        {
+          "description": "Visit South Market",
+          "objective_type": {
+            "VisitLocation": {
+              "room_id": "south_market"
+            }
+          },
+          "required_count": 1
+        },
+        {
+          "description": "Return to Town Square",
+          "objective_type": {
+            "VisitLocation": {
+              "room_id": "town_square"
+            }
+          },
+          "required_count": 1
+        }
+      ],
+      "prerequisites": ["welcome_towne"],
+      "reward_currency": {
+        "Decimal": {
+          "minor_units": 1500
+        }
+      },
+      "reward_experience": 75,
+      "reward_items": []
+    },
+    {
+      "id": "network_explorer",
+      "name": "Network Explorer",
+      "description": "Chart the full extent of Old Towne Mesh.",
+      "quest_giver": "mayor_thompson",
+      "difficulty": 3,
+      "objectives": [
+        {
+          "description": "Visit all 7 locations",
+          "objective_type": {
+            "VisitLocation": {
+              "room_id": "north_gate"
+            }
+          },
+          "required_count": 1
+        }
+      ],
+      "prerequisites": ["market_exploration"],
+      "reward_currency": {
+        "Decimal": {
+          "minor_units": 2500
+        }
+      },
+      "reward_experience": 150,
+      "reward_items": ["explorer_compass"]
+    }
+  ]
+}

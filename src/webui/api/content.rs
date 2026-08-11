@@ -122,9 +122,15 @@ mod tests {
     use super::{build_seed_summary, build_world_overview, SeedSummary};
     use std::path::PathBuf;
 
+    /// Reads the shipped seed skeleton, not `./data`: the latter is gitignored, so
+    /// pointing at it made this test pass only on machines with local runtime data.
+    fn shipped_data_dir() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("packaging/runtime-skel/data")
+    }
+
     #[tokio::test]
     async fn world_overview_reads_all_seed_files() {
-        let overview = build_world_overview(PathBuf::from("./data").as_path())
+        let overview = build_world_overview(shipped_data_dir().as_path())
             .await
             .expect("world overview should load");
 

@@ -1,0 +1,28 @@
+{
+  "responses": [
+    {
+      "text": "✅ It is certain.",
+      "category": "positive"
+    },
+    {
+      "text": "✅ It is decidedly so.",
+      "category": "positive"
+    },
+    {
+      "text": "🔮 Reply hazy, try again.",
+      "category": "neutral"
+    },
+    {
+      "text": "⏳ Ask again later.",
+      "category": "neutral"
+    },
+    {
+      "text": "❌ Don't count on it.",
+      "category": "negative"
+    },
+    {
+      "text": "❌ My reply is no.",
+      "category": "negative"
+    }
+  ]
+}

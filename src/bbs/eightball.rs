@@ -8,7 +8,17 @@
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
+
+/// Location of the response file inside a BBS data directory.
+///
+/// Always resolve against `data_dir` rather than the process working directory:
+/// the service runs under systemd with an unrelated CWD, and a relative path also
+/// makes the test suite overwrite the repository's own data file.
+fn responses_path(data_dir: &Path) -> PathBuf {
+    data_dir.join("8ball_responses.json")
+}
 
 /// Represents a single 8-ball response with category metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,10 +70,11 @@ fn load_responses_from_file(path: &str) -> Result<Vec<EightballResponse>, String
 ///
 /// This should be called once at BBS startup. Returns status indicating
 /// success or specific failure reason.
-pub fn initialize() -> EightballStatus {
-    let path = "data/8ball_responses.json";
+pub fn initialize(data_dir: &Path) -> EightballStatus {
+    let path_buf = responses_path(data_dir);
+    let path = path_buf.to_string_lossy().to_string();
 
-    match load_responses_from_file(path) {
+    match load_responses_from_file(&path) {
         Ok(responses) => {
             let count = responses.len();
             if EIGHTBALL_RESPONSES.set(responses).is_err() {
@@ -72,7 +83,7 @@ pub fn initialize() -> EightballStatus {
                 EightballStatus::Available(count)
             }
         }
-        Err(e) if e.contains("No such file") => EightballStatus::FileNotFound(path.to_string()),
+        Err(e) if e.contains("No such file") => EightballStatus::FileNotFound(path.clone()),
         Err(e) if e.contains("parse") => EightballStatus::ParseError(e),
         Err(e) => EightballStatus::ValidationError(e),
     }
@@ -116,7 +127,7 @@ pub fn get_by_category(category: &str) -> Vec<&'static EightballResponse> {
 }
 
 /// Save 8-ball responses to disk (for admin UI updates)
-pub fn save_responses(responses: Vec<EightballResponse>) -> Result<(), String> {
+pub fn save_responses(data_dir: &Path, responses: Vec<EightballResponse>) -> Result<(), String> {
     if responses.is_empty() {
         return Err("Cannot save empty response list".to_string());
     }
@@ -132,13 +143,14 @@ pub fn save_responses(responses: Vec<EightballResponse>) -> Result<(), String> {
         }
     }
 
-    let path = "data/8ball_responses.json";
+    let path = responses_path(data_dir);
     let data = EightballData { responses };
 
     let json = serde_json::to_string_pretty(&data)
         .map_err(|e| format!("Failed to serialize responses: {}", e))?;
 
-    std::fs::write(path, json).map_err(|e| format!("Failed to write {}: {}", path, e))?;
+    std::fs::write(&path, json)
+        .map_err(|e| format!("Failed to write {}: {}", path.display(), e))?;
 
     Ok(())
 }

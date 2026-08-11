@@ -78,10 +78,13 @@ echo -e "${YELLOW}Installing binary${NC}"
 cp target/release/meshbbs "$INSTALL_PATH/bin/meshbbs"
 chmod 755 "$INSTALL_PATH/bin/meshbbs"
 
-# Copy seed data files
+# Copy seed data files. Sourced from packaging/runtime-skel rather than data/,
+# which is gitignored and therefore absent from a fresh clone.
 echo -e "${YELLOW}Installing seed data files${NC}"
-if [ -d "data/seeds" ]; then
-    cp -r data/seeds/*.json "$INSTALL_PATH/data/seeds/" 2>/dev/null || true
+if [ -d "packaging/runtime-skel/data/seeds" ]; then
+    cp packaging/runtime-skel/data/seeds/*.json "$INSTALL_PATH/data/seeds/"
+else
+    echo -e "${YELLOW}Warning: seed data not found; TinyMUSH will use built-in defaults${NC}"
 fi
 
 # Copy daemon helper script
@@ -310,6 +313,27 @@ if [ ! -f "$INSTALL_PATH/data/topics.json" ]; then
     if [ -f "topics.example.json" ]; then
         echo -e "${YELLOW}Installing topics.json${NC}"
         cp topics.example.json "$INSTALL_PATH/data/topics.json"
+    fi
+fi
+
+# The fortune app loads exclusively from data/fortunes.json and has no built-in
+# fallback, so without this file the feature stays disabled at every startup.
+if [ ! -f "$INSTALL_PATH/data/fortunes.json" ]; then
+    if [ -f "packaging/runtime-skel/data/fortunes.json" ]; then
+        echo -e "${YELLOW}Installing fortunes.json${NC}"
+        cp packaging/runtime-skel/data/fortunes.json "$INSTALL_PATH/data/fortunes.json"
+    else
+        echo -e "${YELLOW}Warning: fortunes.json not found; fortune feature will be disabled${NC}"
+    fi
+fi
+
+# Same story for the 8-ball: no data file means the feature stays unavailable.
+if [ ! -f "$INSTALL_PATH/data/8ball_responses.json" ]; then
+    if [ -f "packaging/runtime-skel/data/8ball_responses.json" ]; then
+        echo -e "${YELLOW}Installing 8ball_responses.json${NC}"
+        cp packaging/runtime-skel/data/8ball_responses.json "$INSTALL_PATH/data/8ball_responses.json"
+    else
+        echo -e "${YELLOW}Warning: 8ball_responses.json not found; 8-ball will be unavailable${NC}"
     fi
 fi
 
