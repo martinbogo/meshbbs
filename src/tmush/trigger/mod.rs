@@ -115,6 +115,18 @@ impl TriggerContext {
         }
     }
 
+    /// (Re)start the execution budget.
+    ///
+    /// `started_at` is set at construction, but a caller may build a context and
+    /// then do unrelated work - loading records, or assembling fixtures in tests -
+    /// before evaluating anything. `MAX_EXECUTION_TIME` is meant to bound script
+    /// execution, so the clock restarts when evaluation actually begins. In the
+    /// production path the context is built immediately before evaluation, so this
+    /// is a no-op there.
+    pub fn start_execution(&mut self) {
+        self.started_at = Instant::now();
+    }
+
     /// Check if execution has timed out
     pub fn is_timed_out(&self) -> bool {
         self.started_at.elapsed() > MAX_EXECUTION_TIME
@@ -309,6 +321,32 @@ mod tests {
         };
 
         TriggerContext::new(&player, &object, &room)
+    }
+
+    #[test]
+    fn start_execution_resets_the_budget_but_timeout_still_fires() {
+        let mut ctx = create_test_context();
+
+        // Work done between constructing a context and evaluating it must not
+        // consume the script budget.
+        ctx.started_at = std::time::Instant::now()
+            .checked_sub(MAX_EXECUTION_TIME * 2)
+            .expect("instant in range");
+        assert!(ctx.is_timed_out(), "precondition: budget already exceeded");
+        ctx.start_execution();
+        assert!(
+            !ctx.is_timed_out(),
+            "start_execution should reset the clock"
+        );
+
+        // The limit itself must still be enforced once evaluation is under way.
+        ctx.started_at = std::time::Instant::now()
+            .checked_sub(MAX_EXECUTION_TIME + Duration::from_millis(1))
+            .expect("instant in range");
+        assert!(
+            ctx.is_timed_out(),
+            "exceeding MAX_EXECUTION_TIME must still time out"
+        );
     }
 
     #[test]

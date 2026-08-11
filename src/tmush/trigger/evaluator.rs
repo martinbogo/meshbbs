@@ -46,6 +46,8 @@ pub struct Evaluator<'a> {
 
 impl<'a> Evaluator<'a> {
     pub fn new(context: &'a mut TriggerContext, store: &'a TinyMushStore) -> Self {
+        // Evaluation starts here, so the execution budget starts here too.
+        context.start_execution();
         Self {
             context,
             store,

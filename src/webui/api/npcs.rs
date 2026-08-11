@@ -160,7 +160,8 @@ mod tests {
 
         // Use the shipped seed skeleton; `./data` is gitignored and absent on a
         // fresh clone, which made this test environment-dependent.
-        let data_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("packaging/runtime-skel/data");
+        let data_dir =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("packaging/runtime-skel/data");
         let response: ListNpcsResponse = load_npc_summaries(&data_dir)
             .await
             .expect("Should load default NPC seeds");

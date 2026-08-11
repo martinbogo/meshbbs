@@ -73,13 +73,13 @@ pub(crate) use sec_log;
 /// async fn main() -> anyhow::Result<()> {
 ///     // Load configuration
 ///     let config = Config::load("config.toml").await?;
-///     
+///
 ///     // Create and initialize server
 ///     let mut server = BbsServer::new(config).await?;
-///     
+///
 ///     // Run the server (blocks until shutdown)
 ///     server.run().await?;
-///     
+///
 ///     Ok(())
 /// }
 /// ```
@@ -1018,7 +1018,7 @@ impl BbsServer {
                     self.scheduler_queue_high_warnings += 1;
                     warn!(
                         "Scheduler queue high: {}/{} messages ({:.1}%) - drops={} escalations={} (warning #{})",
-                        stats.queued, max_queue, queue_pct, stats.dropped_total, 
+                        stats.queued, max_queue, queue_pct, stats.dropped_total,
                         stats.escalations, self.scheduler_queue_high_warnings
                     );
                 }
@@ -1065,10 +1065,10 @@ impl BbsServer {
     /// async fn main() -> anyhow::Result<()> {
     ///     let config = Config::load("config.toml").await?;
     ///     let mut server = BbsServer::new(config).await?;
-    ///     
+    ///
     ///     // This will run until the server is shut down
     ///     server.run().await?;
-    ///     
+    ///
     ///     Ok(())
     /// }
     /// ```

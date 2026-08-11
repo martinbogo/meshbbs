@@ -3638,7 +3638,7 @@ Not fancy, but it gets the job done.",
         Ok(response)
     }
 
-    /// Handle WHISPER command - private message to another player  
+    /// Handle WHISPER command - private message to another player
     async fn handle_whisper(
         &mut self,
         session: &Session,
@@ -3731,7 +3731,7 @@ Not fancy, but it gets the job done.",
         Ok(response)
     }
 
-    /// Handle POSE command - strike a pose  
+    /// Handle POSE command - strike a pose
     async fn handle_pose(
         &mut self,
         session: &Session,
@@ -7478,7 +7478,7 @@ Not fancy, but it gets the job done.",
                         }
 
                         let prereq_id = args[2].to_lowercase();
-                        
+
                         // Verify prerequisite quest exists
                         if !store.quest_exists(&prereq_id)? {
                             return Ok(format!("Prerequisite quest '{}' does not exist.", prereq_id));
@@ -8052,7 +8052,7 @@ Not fancy, but it gets the job done.",
                             "IMMORTAL" => NpcFlag::Immortal,
                             _ => return Ok(format!("Invalid flag: {}\nValid flags: VENDOR, GUARD, TUTORIALNPC, QUESTGIVER, IMMORTAL", value_args[0])),
                         };
-                        
+
                         if !npc.flags.contains(&flag) {
                             npc.flags.push(flag.clone());
                             store.put_npc(npc)?;
@@ -8614,7 +8614,7 @@ Not fancy, but it gets the job done.",
                             return Ok("Usage: @ROOM EDIT <id> VISIBILITY <public|private|hidden>\nExample: @ROOM EDIT study VISIBILITY PRIVATE".to_string());
                         }
                         let visibility_str = args[2].to_uppercase();
-                        
+
                         use crate::tmush::types::RoomVisibility;
                         let visibility = match visibility_str.as_str() {
                             "PUBLIC" => RoomVisibility::Public,
@@ -8622,7 +8622,7 @@ Not fancy, but it gets the job done.",
                             "HIDDEN" => RoomVisibility::Hidden,
                             _ => return Ok("Visibility must be PUBLIC, PRIVATE, or HIDDEN".to_string()),
                         };
-                        
+
                         room.visibility = visibility;
                         store.put_room(room)?;
                         Ok(format!("Set room '{}' visibility to {}", room_id, visibility_str))
@@ -8651,7 +8651,7 @@ Not fancy, but it gets the job done.",
                             return Ok("Usage: @ROOM EDIT <id> OWNER <player|world>\nExample: @ROOM EDIT player_house OWNER alice\nExample: @ROOM EDIT tavern OWNER world".to_string());
                         }
                         let owner_str = args[2].to_lowercase();
-                        
+
                         use crate::tmush::types::RoomOwner;
                         if owner_str == "world" {
                             room.owner = RoomOwner::World;
@@ -8672,7 +8672,7 @@ Not fancy, but it gets the job done.",
                             return Ok("Usage: @ROOM EDIT <id> HOUSING_TAGS <tag1,tag2,...>\nExample: @ROOM EDIT housing_office HOUSING_TAGS cozy,small,affordable\nUse empty value to clear: @ROOM EDIT housing_office HOUSING_TAGS \"\"".to_string());
                         }
                         let tags_str = args[2..].join(" ");
-                        
+
                         if tags_str.is_empty() || tags_str == "\"\"" {
                             room.housing_filter_tags.clear();
                             store.put_room(room)?;
@@ -8683,11 +8683,11 @@ Not fancy, but it gets the job done.",
                                 .map(|s| s.trim().to_lowercase())
                                 .filter(|s| !s.is_empty())
                                 .collect();
-                            
+
                             if tags.is_empty() {
                                 return Ok("No valid tags provided".to_string());
                             }
-                            
+
                             room.housing_filter_tags = tags.clone();
                             store.put_room(room)?;
                             Ok(format!("Set housing filter tags for room '{}': {}", room_id, tags.join(", ")))
@@ -8934,7 +8934,7 @@ Not fancy, but it gets the job done.",
 
                 // Check if this object is heavily used and warn admin
                 let mut warnings = Vec::new();
-                
+
                 // Check if it's a prototype that has been cloned
                 if object.clone_depth == 0 && object.clone_count > 0 {
                     warnings.push(format!("⚠️  This is a PROTOTYPE that has been cloned {} times.", object.clone_count));
@@ -8977,8 +8977,8 @@ Not fancy, but it gets the job done.",
 
                 // Warn if object is in multiple locations
                 if instance_count > 0 {
-                    warnings.push(format!("⚠️  This object appears in {} locations: {}", 
-                        instance_count, 
+                    warnings.push(format!("⚠️  This object appears in {} locations: {}",
+                        instance_count,
                         location_summary.join(", ")
                     ));
                     warnings.push(format!("   Changes will affect ALL instances of '{}' in these locations.", object_id));
@@ -9054,7 +9054,7 @@ Not fancy, but it gets the job done.",
                             "LIGHTSOURCE" => ObjectFlag::LightSource,
                             _ => return Ok(format!("Unknown flag '{}'. Valid flags: QUESTITEM, CONSUMABLE, EQUIPMENT, KEYITEM, CONTAINER, MAGICAL, COMPANION, CLONABLE, UNIQUE, NOVALUE, NOCLONECHILDREN, LIGHTSOURCE", flag_str)),
                         };
-                        
+
                         if !object.flags.contains(&flag) {
                             object.flags.push(flag);
                             store.put_object(object)?;
@@ -9124,9 +9124,9 @@ Not fancy, but it gets the job done.",
                         if args.len() < 3 {
                             return Ok("Usage: @OBJECT EDIT <id> TRIGGER <type> <script>\n       @OBJECT EDIT <id> TRIGGER <type> REMOVE\n\nTrigger Types: ONENTER, ONLOOK, ONTAKE, ONDROP, ONUSE, ONPOKE, ONFOLLOW, ONIDLE, ONCOMBAT, ONHEAL\n\nExamples:\n  @OBJECT EDIT mushroom TRIGGER ONENTER message(\"🍄 The mushroom chimes!\")\n  @OBJECT EDIT potion TRIGGER ONUSE heal(50) && consume()\n  @OBJECT EDIT box TRIGGER ONPOKE random_chance(50) && message(\"Click!\")\n  @OBJECT EDIT mushroom TRIGGER ONENTER REMOVE".to_string());
                         }
-                        
+
                         let trigger_type_str = args[2].to_uppercase();
-                        
+
                         // Parse trigger type
                         let trigger_type = match trigger_type_str.as_str() {
                             "ONENTER" => ObjectTrigger::OnEnter,
@@ -9141,7 +9141,7 @@ Not fancy, but it gets the job done.",
                             "ONHEAL" => ObjectTrigger::OnHeal,
                             _ => return Ok(format!("Unknown trigger type '{}'. Valid types: ONENTER, ONLOOK, ONTAKE, ONDROP, ONUSE, ONPOKE, ONFOLLOW, ONIDLE, ONCOMBAT, ONHEAL", trigger_type_str)),
                         };
-                        
+
                         // Check if this is a REMOVE command
                         if args.len() > 3 && args[3].to_uppercase() == "REMOVE" {
                             // Remove the trigger
@@ -9156,9 +9156,9 @@ Not fancy, but it gets the job done.",
                             if args.len() < 4 {
                                 return Ok("Usage: @OBJECT EDIT <id> TRIGGER <type> <script>\nExample: @OBJECT EDIT mushroom TRIGGER ONENTER message(\"Hello!\")".to_string());
                             }
-                            
+
                             let script = args[3..].join(" ");
-                            
+
                             // Normalize smart/curly quotes to straight quotes
                             // macOS and some terminals auto-convert quotes which breaks DSL parsing
                             let script = script
@@ -9166,17 +9166,17 @@ Not fancy, but it gets the job done.",
                                 .replace('\u{201D}', "\"")  // " RIGHT DOUBLE QUOTATION MARK
                                 .replace('\u{2018}', "'")   // ' LEFT SINGLE QUOTATION MARK
                                 .replace('\u{2019}', "'");  // ' RIGHT SINGLE QUOTATION MARK
-                            
+
                             // Validate script is not empty
                             if script.trim().is_empty() {
                                 return Ok("Trigger script cannot be empty. Use 'REMOVE' to delete a trigger.".to_string());
                             }
-                            
+
                             // Set the trigger
                             let was_update = object.actions.contains_key(&trigger_type);
                             object.actions.insert(trigger_type, script.clone());
                             store.put_object(object)?;
-                            
+
                             if was_update {
                                 Ok(format!("{}Updated {} trigger:\n  {}", warning_message, trigger_type_str, script))
                             } else {
@@ -9189,7 +9189,7 @@ Not fancy, but it gets the job done.",
                             return Ok("Usage: @OBJECT EDIT <id> OWNER <player|world>\nExample: @OBJECT EDIT magic_sword OWNER alice\nExample: @OBJECT EDIT torch OWNER world".to_string());
                         }
                         let owner_str = args[2].to_lowercase();
-                        
+
                         use crate::tmush::types::ObjectOwner;
                         if owner_str == "world" {
                             object.owner = ObjectOwner::World;
@@ -9226,7 +9226,7 @@ Not fancy, but it gets the job done.",
             }
             "LIST" => {
                 let object_ids = store.list_object_ids()?;
-                
+
                 if object_ids.is_empty() {
                     return Ok("No world objects found. Use @OBJECT CREATE to create objects.".to_string());
                 }
@@ -9293,37 +9293,37 @@ Not fancy, but it gets the job done.",
 
                 let pattern = args.join(" ").to_lowercase();
                 let object_ids = store.list_object_ids()?;
-                
+
                 if object_ids.is_empty() {
                     return Ok("No world objects found. Use @OBJECT CREATE to create objects.".to_string());
                 }
 
                 // Fuzzy search with scoring
                 let mut matches: Vec<(i32, crate::tmush::types::ObjectRecord)> = Vec::new();
-                
+
                 for id in object_ids {
                     if let Ok(object) = store.get_object(&id) {
                         let mut score = 0;
-                        
+
                         // Exact ID match (highest priority)
                         if object.id.to_lowercase() == pattern {
                             score += 100;
                         } else if object.id.to_lowercase().contains(&pattern) {
                             score += 50;
                         }
-                        
+
                         // Name matching (high priority)
                         if object.name.to_lowercase() == pattern {
                             score += 80;
                         } else if object.name.to_lowercase().contains(&pattern) {
                             score += 40;
                         }
-                        
+
                         // Description matching (lower priority)
                         if object.description.to_lowercase().contains(&pattern) {
                             score += 20;
                         }
-                        
+
                         // Add bonus for word boundary matches
                         let words: Vec<&str> = pattern.split_whitespace().collect();
                         for word in words {
@@ -9331,7 +9331,7 @@ Not fancy, but it gets the job done.",
                                 score += 10;
                             }
                         }
-                        
+
                         if score > 0 {
                             matches.push((score, object));
                         }
@@ -9346,7 +9346,7 @@ Not fancy, but it gets the job done.",
                 matches.sort_by(|a, b| b.0.cmp(&a.0));
 
                 let mut output = format!("Search results for '{}' ({} matches):\n\n", pattern, matches.len());
-                
+
                 for (score, object) in matches.iter().take(20) {  // Limit to top 20 results
                     let flags_str = if object.flags.is_empty() {
                         "none".to_string()
@@ -9356,7 +9356,7 @@ Not fancy, but it gets the job done.",
                             .collect::<Vec<_>>()
                             .join(", ")
                     };
-                    
+
                     output.push_str(&format!(
                         "  [Score: {}] {} - {}\n",
                         score, object.id, object.name
@@ -9399,7 +9399,7 @@ Not fancy, but it gets the job done.",
                 // Check all rooms for this object
                 let room_ids = store.list_room_ids()?;
                 let mut rooms_with_object = Vec::new();
-                
+
                 for room_id in room_ids {
                     if let Ok(room) = store.get_room(&room_id) {
                         if room.items.contains(&object_id) {
@@ -9420,7 +9420,7 @@ Not fancy, but it gets the job done.",
                 // Check all player inventories
                 let player_ids = store.list_player_ids()?;
                 let mut players_with_object = Vec::new();
-                
+
                 for player_id in player_ids {
                     if let Ok(player) = store.get_player(&player_id) {
                         if Self::player_has_item(&player, &object_id) {
@@ -9468,18 +9468,18 @@ Not fancy, but it gets the job done.",
                     // Try fuzzy matching by name across all objects
                     let all_objects = store.list_object_ids()?;
                     let matches = self.find_objects_by_partial_name(&search_term, &all_objects);
-                    
+
                     if matches.is_empty() {
                         return Ok(format!("Object '{}' not found. Use exact ID or object name.", search_term));
                     } else if matches.len() > 1 {
                         let names: Vec<String> = matches.iter()
                             .map(|o| format!("{} ({})", o.name, o.id))
                             .collect();
-                        return Ok(format!("Multiple objects match '{}'. Please be more specific:\n{}", 
-                            search_term, 
+                        return Ok(format!("Multiple objects match '{}'. Please be more specific:\n{}",
+                            search_term,
                             names.join("\n")));
                     }
-                    
+
                     matches.into_iter().next().unwrap()
                 };
 
@@ -9506,7 +9506,7 @@ Not fancy, but it gets the job done.",
                 output.push_str(&format!("Usable: {}\n", if object.usable { "yes" } else { "no" }));
                 output.push_str(&format!("Locked: {}\n", if object.locked { "yes" } else { "no" }));
                 output.push_str(&format!("Flags: {}\n", flags_str));
-                
+
                 // Display triggers
                 if object.actions.is_empty() {
                     output.push_str("Triggers: none\n");
@@ -9519,10 +9519,10 @@ Not fancy, but it gets the job done.",
                         output.push_str(&format!("  {:?}: {}\n", trigger, script));
                     }
                 }
-                
+
                 output.push_str(&format!("Created: {}\n", object.created_at.format("%Y-%m-%d %H:%M:%S UTC")));
                 output.push_str(&format!("Created by: {}\n", object.created_by));
-                
+
                 if let Some(ref source) = object.clone_source_id {
                     output.push_str(&format!("Clone source: {} (depth: {})\n", source, object.clone_depth));
                 }
@@ -12991,7 +12991,7 @@ Obvious exits: (too dark to see clearly)"
             + "L - look around"
     }
 
-    /// Social commands help  
+    /// Social commands help
     pub fn help_social(&self) -> String {
         "=SOCIAL=\n".to_string()
             + "SAY <txt> - speak aloud\n"

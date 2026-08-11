@@ -35,8 +35,9 @@ source "$HOME/.cargo/env"
 ### 2. Clone and Build MeshBBS
 
 ```bash
-# Clone the repository
-git clone https://github.com/martinbogo/meshbbs.git
+# Clone the repository. --recurse-submodules is required: the Meshtastic protobuf
+# definitions live in a submodule, and without them the build fails to compile.
+git clone --recurse-submodules https://github.com/martinbogo/meshbbs.git
 cd meshbbs
 
 # Build the release version (this will take 10-20 minutes on Pi)

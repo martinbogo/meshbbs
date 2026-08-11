@@ -35,6 +35,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `config.example.toml` enabled TinyHack and TinyMUSH and documented them as enabled by
   default, contradicting the code and pushing the registration reply past the 200-byte
   mesh message limit on every install. Both now default to disabled.
+- `cargo fmt` exited non-zero with 61 "left behind trailing whitespace" internal errors
+  in `src/tmush/commands.rs`, `src/tmush/state.rs` and `src/bbs/server.rs`, which would
+  fail any CI step gated on formatting. The trailing whitespace is removed and both
+  `cargo fmt` and `cargo fmt -- --check` now exit 0.
+- Trigger execution could spuriously report "Execution timeout". The 100 ms budget
+  started when `TriggerContext` was constructed rather than when evaluation began, so
+  any work between the two - notably test fixture setup - consumed it. The clock now
+  starts with the `Evaluator`, and the limit itself is covered by a test.
+- `INSTALL.md` and `docs/getting-started/RASPBERRY_PI_SETUP.md` told users to clone
+  without `--recurse-submodules`. The Meshtastic protobufs live in a submodule, so
+  following either guide produced a checkout that failed to compile with 78 errors.
+  `README.md` and `docs/getting-started/installation.md` were already correct.
 
 **All app configurations have been unified under `[apps.*]` sections for consistency and better WebUI management.**
 

@@ -17,8 +17,9 @@ source "$HOME/.cargo/env"
 ### Installation
 
 ```bash
-# 1. Clone repository
-git clone https://github.com/martinbogo/meshbbs.git
+# 1. Clone repository (submodules carry the Meshtastic protobufs; without them
+#    the build fails to compile)
+git clone --recurse-submodules https://github.com/martinbogo/meshbbs.git
 cd meshbbs
 
 # 2. Build release binary
@@ -58,8 +59,8 @@ sudo MESHBBS_USER=myuser ./install.sh /home/myuser/meshbbs
 # 1. Install Homebrew (if not installed)
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-# 2. Clone and build
-git clone https://github.com/martinbogo/meshbbs.git
+# 2. Clone and build (--recurse-submodules is required for the protobufs)
+git clone --recurse-submodules https://github.com/martinbogo/meshbbs.git
 cd meshbbs
 cargo build --release
 

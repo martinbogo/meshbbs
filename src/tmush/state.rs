@@ -1428,9 +1428,9 @@ pub fn seed_npc_dialogues_if_needed(
                     That's 15 credits. Pleasure doing business with you!"
                 )
                 .with_action(DialogAction::TakeCurrency { amount: 15 })
-                .with_action(DialogAction::GiveItem { 
-                    item_id: "vendor_basic_knife".to_string(), 
-                    quantity: 1 
+                .with_action(DialogAction::GiveItem {
+                    item_id: "vendor_basic_knife".to_string(),
+                    quantity: 1
                 })
                 .with_choice(DialogChoice::new("Thanks!").exit())
                 .with_choice(DialogChoice::new("What else do you have?").goto("prices")));
@@ -1441,9 +1441,9 @@ pub fn seed_npc_dialogues_if_needed(
                     Safe travels, friend!"
                 )
                 .with_action(DialogAction::TakeCurrency { amount: 50 })
-                .with_action(DialogAction::GiveItem { 
-                    item_id: "vendor_signal_booster".to_string(), 
-                    quantity: 1 
+                .with_action(DialogAction::GiveItem {
+                    item_id: "vendor_signal_booster".to_string(),
+                    quantity: 1
                 })
                 .with_choice(DialogChoice::new("Thanks!").exit())
                 .with_choice(DialogChoice::new("What else?").goto("prices")));
@@ -1585,15 +1585,15 @@ pub fn seed_npc_dialogues_if_needed(
                 )
                 .with_choice(DialogChoice::new("I'd be honored!")
                     .goto("receive_kit")
-                    .with_condition(DialogCondition::HasFlag { 
-                        flag: "received_research_kit".to_string(), 
-                        value: false 
+                    .with_condition(DialogCondition::HasFlag {
+                        flag: "received_research_kit".to_string(),
+                        value: false
                     }))
                 .with_choice(DialogChoice::new("I already received one")
                     .goto("already_received")
-                    .with_condition(DialogCondition::HasFlag { 
-                        flag: "received_research_kit".to_string(), 
-                        value: true 
+                    .with_condition(DialogCondition::HasFlag {
+                        flag: "received_research_kit".to_string(),
+                        value: true
                     }))
                 .with_choice(DialogChoice::new("What's in the kit?").goto("kit_details"))
                 .with_choice(DialogChoice::new("No thank you, maybe another time").exit()));
@@ -1636,33 +1636,33 @@ pub fn seed_npc_dialogues_if_needed(
                     these artifacts represent important chapters in our network's history. Use them \
                     wisely and report back if you discover anything interesting!"
                 )
-                .with_action(DialogAction::GiveItem { 
-                    item_id: "example_healing_potion".to_string(), 
-                    quantity: 1 
+                .with_action(DialogAction::GiveItem {
+                    item_id: "example_healing_potion".to_string(),
+                    quantity: 1
                 })
-                .with_action(DialogAction::GiveItem { 
-                    item_id: "example_ancient_key".to_string(), 
-                    quantity: 1 
+                .with_action(DialogAction::GiveItem {
+                    item_id: "example_ancient_key".to_string(),
+                    quantity: 1
                 })
-                .with_action(DialogAction::GiveItem { 
-                    item_id: "example_mystery_box".to_string(), 
-                    quantity: 1 
+                .with_action(DialogAction::GiveItem {
+                    item_id: "example_mystery_box".to_string(),
+                    quantity: 1
                 })
-                .with_action(DialogAction::GiveItem { 
-                    item_id: "example_quest_clue".to_string(), 
-                    quantity: 1 
+                .with_action(DialogAction::GiveItem {
+                    item_id: "example_quest_clue".to_string(),
+                    quantity: 1
                 })
-                .with_action(DialogAction::GiveItem { 
-                    item_id: "example_teleport_stone".to_string(), 
-                    quantity: 1 
+                .with_action(DialogAction::GiveItem {
+                    item_id: "example_teleport_stone".to_string(),
+                    quantity: 1
                 })
-                .with_action(DialogAction::GiveItem { 
-                    item_id: "example_singing_mushroom".to_string(), 
-                    quantity: 1 
+                .with_action(DialogAction::GiveItem {
+                    item_id: "example_singing_mushroom".to_string(),
+                    quantity: 1
                 })
-                .with_action(DialogAction::SetFlag { 
-                    flag: "received_research_kit".to_string(), 
-                    value: true 
+                .with_action(DialogAction::SetFlag {
+                    flag: "received_research_kit".to_string(),
+                    value: true
                 })
                 .with_choice(DialogChoice::new("Thank you, Dr. Reeves!").exit())
                 .with_choice(DialogChoice::new("I'll take good care of these").exit()));
