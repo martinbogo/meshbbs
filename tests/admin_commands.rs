@@ -186,7 +186,13 @@ async fn broadcast_and_kick_commands() {
         .unwrap();
     let response = server.test_messages().last().unwrap().1.clone();
     assert!(response.contains("Broadcast sent:"));
-    assert!(response.contains("SYSTEM MAINTENANCE IN 5 MINUTES"));
+    // Arguments keep the case the sysop typed; only the command keyword is matched
+    // case-insensitively.
+    assert!(
+        response.contains("System maintenance in 5 minutes"),
+        "broadcast body should not be uppercased: {}",
+        response
+    );
 
     // Test KICK command
     server
@@ -194,5 +200,9 @@ async fn broadcast_and_kick_commands() {
         .await
         .unwrap();
     let response = server.test_messages().last().unwrap().1.clone();
-    assert!(response.contains("TROUBLEMAKER has been kicked"));
+    assert!(
+        response.contains("troublemaker has been kicked"),
+        "kicked username should keep its case: {}",
+        response
+    );
 }

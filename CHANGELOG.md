@@ -7,7 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### 🔴 BREAKING CHANGES - Configuration Restructure (v1.2.0)
+### Fixed
+
+- **Admin commands failed on Linux for any normally-registered user.** Commands were
+  matched against an uppercased copy of the input line, and the handlers also read
+  their *arguments* from that copy, so `USERINFO bob` looked up `users/BOB.json` while
+  registration had written `users/bob.json`. On a case-insensitive filesystem (macOS
+  APFS) the two resolved to the same file and everything appeared to work; on a
+  case-sensitive one (ext4, i.e. every Raspberry Pi deployment) the lookup failed with
+  "User not found". Affected `G`/`GRANT`, `USERINFO`, `KICK` and `LOGIN`; `BROADCAST`
+  and `SYSLOG` message bodies were also transmitted in all caps. Command keywords are
+  still matched case-insensitively, but arguments now come from the raw line. Present
+  since v1.0.x and shipped in v1.1.4.
 
 **All app configurations have been unified under `[apps.*]` sections for consistency and better WebUI management.**
 

@@ -105,6 +105,36 @@ fn self_topic_can_post(user_level: u8, topic: &str, storage: &Storage) -> bool {
     }
 }
 
+/// Return everything after the leading command word, with the original case intact.
+///
+/// Command keywords are matched against an uppercased copy of the line, but
+/// arguments must be read back off the raw line. Usernames become filenames via
+/// `safe_filename`, which preserves case, so an uppercased argument looks up a
+/// path that never exists on a case-sensitive filesystem.
+fn command_args(raw: &str) -> &str {
+    raw.trim()
+        .split_once(char::is_whitespace)
+        .map(|(_, rest)| rest.trim())
+        .unwrap_or("")
+}
+
+/// Parse `G @user=LEVEL` / `GRANT @user=LEVEL`, preserving the username's case.
+///
+/// Returns `(username, level_token)`; the level token is still raw so the caller
+/// can accept either a number or a role name.
+fn parse_grant(raw: &str) -> Option<(&str, &str)> {
+    let rest = raw
+        .trim()
+        .trim_start_matches(|c: char| c.is_ascii_alphabetic())
+        .trim();
+    let (lhs, rhs) = rest.split_once('=')?;
+    let (lhs, rhs) = (lhs.trim(), rhs.trim());
+    if !lhs.starts_with('@') || rhs.is_empty() {
+        return None;
+    }
+    Some((lhs.trim_start_matches('@'), rhs))
+}
+
 /// Processes BBS commands from users
 pub struct CommandProcessor;
 
@@ -265,11 +295,11 @@ impl CommandProcessor {
                     .await
             }
             SessionState::LoggingIn => {
-                self.handle_login(session, &cmd_upper, storage, config)
+                self.handle_login(session, raw, &cmd_upper, storage, config)
                     .await
             }
             SessionState::MainMenu => {
-                self.handle_main_menu(session, &cmd_upper, storage, config, game_registry)
+                self.handle_main_menu(session, raw, &cmd_upper, storage, config, game_registry)
                     .await
             }
             SessionState::TinyHack => {
@@ -436,12 +466,13 @@ impl CommandProcessor {
     async fn handle_login(
         &self,
         session: &mut Session,
+        raw: &str,
         cmd: &str,
         storage: &mut Storage,
         _config: &Config,
     ) -> Result<String> {
         if cmd.starts_with("LOGIN ") {
-            let raw_username = cmd.strip_prefix("LOGIN ").unwrap_or("").trim();
+            let raw_username = command_args(raw);
 
             // Validate username before proceeding
             let username = match validate_user_name(raw_username) {
@@ -480,6 +511,7 @@ impl CommandProcessor {
     async fn handle_main_menu(
         &self,
         session: &mut Session,
+        raw: &str,
         cmd: &str,
         storage: &mut Storage,
         config: &Config,
@@ -612,7 +644,8 @@ impl CommandProcessor {
                 if session.user_level < 10 {
                     return Ok("Permission denied.\n".to_string());
                 }
-                let rest = cmd.strip_prefix("SYSLOG").unwrap_or("").trim();
+                // Read args off `raw` so the logged message keeps its original case
+                let rest = command_args(raw);
                 if rest.is_empty() {
                     return Ok("Usage: SYSLOG <INFO|WARN|ERROR> <message>\n".to_string());
                 }
@@ -682,20 +715,11 @@ impl CommandProcessor {
                 if session.user_level < 10 {
                     return Ok("Permission denied.\n".to_string());
                 }
-                let rest = cmd
-                    .trim_start_matches(|c: char| c.is_ascii_alphabetic())
-                    .trim();
-                if rest.is_empty() {
-                    return Ok("Usage: G @user=LEVEL|ROLE\n".into());
-                }
-                // Expect @username=VALUE
-                let mut parts = rest.splitn(2, '=');
-                let lhs = parts.next().unwrap_or("").trim();
-                let rhs = parts.next().unwrap_or("").trim();
-                if !lhs.starts_with('@') || rhs.is_empty() {
-                    return Ok("Usage: G @user=LEVEL|ROLE\n".into());
-                }
-                let raw_user = lhs.trim_start_matches('@');
+                // Parse from `raw`: the username becomes a filename and must keep its case
+                let (raw_user, rhs) = match parse_grant(raw) {
+                    Some(parsed) => parsed,
+                    None => return Ok("Usage: G @user=LEVEL|ROLE\n".into()),
+                };
                 // Validate username
                 let username = match validate_user_name(raw_user) {
                     Ok(u) => u,
@@ -748,12 +772,11 @@ impl CommandProcessor {
                 if session.user_level < 5 {
                     return Ok("Permission denied.\n".to_string());
                 }
-                let parts: Vec<&str> = cmd.split_whitespace().collect();
-                if parts.len() < 2 {
+                // Read the username off `raw` so its case survives
+                let raw_username = command_args(raw).split_whitespace().next().unwrap_or("");
+                if raw_username.is_empty() {
                     return Ok("Usage: USERINFO <username>\n".to_string());
                 }
-
-                let raw_username = parts[1];
 
                 // Validate the username to look up
                 let username = match validate_user_name(raw_username) {
@@ -793,13 +816,11 @@ impl CommandProcessor {
                 if session.user_level < 5 {
                     return Ok("Permission denied.\n".to_string());
                 }
-                let parts: Vec<&str> = cmd.split_whitespace().collect();
-                if parts.len() < 2 {
+                // Read the username off `raw` so its case survives
+                let target_username = command_args(raw).split_whitespace().next().unwrap_or("");
+                if target_username.is_empty() {
                     return Ok("Usage: KICK <username>\n".to_string());
                 }
-
-                // Validate the username to kick
-                let target_username = parts[1];
                 match validate_user_name(target_username) {
                     Ok(_) => Ok(format!(
                         "{} has been kicked (action deferred)\n",
@@ -812,10 +833,8 @@ impl CommandProcessor {
                 if session.user_level < 5 {
                     return Ok("Permission denied.\n".to_string());
                 }
-                let message = cmd
-                    .strip_prefix("BROADCAST")
-                    .map(|s| s.trim())
-                    .unwrap_or("");
+                // Read the body off `raw` so the broadcast isn't sent in all caps
+                let message = command_args(raw);
                 if message.is_empty() {
                     return Ok("Usage: BROADCAST <message>\n".to_string());
                 }
@@ -2004,5 +2023,47 @@ impl CommandProcessor {
 impl Default for CommandProcessor {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{command_args, parse_grant};
+
+    // Command keywords are matched against an uppercased copy of the line, so these
+    // guard the arguments being read back off the raw line. Usernames become
+    // filenames via `safe_filename`, which preserves case: an uppercased argument
+    // builds a path that never exists on a case-sensitive filesystem (ext4), while
+    // still resolving on a case-insensitive one (APFS). That difference made this
+    // class of bug invisible on macOS and fatal on Linux.
+
+    #[test]
+    fn command_args_preserves_argument_case() {
+        assert_eq!(command_args("USERINFO bob"), "bob");
+        assert_eq!(command_args("userinfo BoB"), "BoB");
+        assert_eq!(command_args("LOGIN Alice"), "Alice");
+        assert_eq!(command_args("BROADCAST Hello There"), "Hello There");
+    }
+
+    #[test]
+    fn command_args_handles_missing_and_padded_arguments() {
+        assert_eq!(command_args("USERINFO"), "");
+        assert_eq!(command_args(""), "");
+        assert_eq!(command_args("  USERINFO   bob  "), "bob");
+    }
+
+    #[test]
+    fn parse_grant_preserves_username_case() {
+        assert_eq!(parse_grant("G @bob=5"), Some(("bob", "5")));
+        assert_eq!(parse_grant("GRANT @BoB=MOD"), Some(("BoB", "MOD")));
+        assert_eq!(parse_grant("g @alice = 10 "), Some(("alice", "10")));
+    }
+
+    #[test]
+    fn parse_grant_rejects_malformed_input() {
+        assert_eq!(parse_grant("G bob=5"), None, "missing @ sigil");
+        assert_eq!(parse_grant("G @bob="), None, "missing level");
+        assert_eq!(parse_grant("G @bob"), None, "missing =");
+        assert_eq!(parse_grant("G"), None, "no arguments");
     }
 }
