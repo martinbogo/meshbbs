@@ -1,10 +1,10 @@
 //! Integration tests for the weather service
 use meshbbs::bbs::weather::WeatherService;
-use meshbbs::config::WeatherConfig;
+use meshbbs::config::WeatherAppConfig;
 
 #[tokio::test]
 async fn test_weather_service_disabled() {
-    let config = WeatherConfig {
+    let config = WeatherAppConfig {
         api_key: "".to_string(),
         default_location: "Los Angeles".to_string(),
         location_type: "city".to_string(),
@@ -22,7 +22,7 @@ async fn test_weather_service_disabled() {
 
 #[tokio::test]
 async fn test_weather_service_no_api_key() {
-    let config = WeatherConfig {
+    let config = WeatherAppConfig {
         api_key: "".to_string(),
         default_location: "Los Angeles".to_string(),
         location_type: "city".to_string(),
@@ -40,7 +40,7 @@ async fn test_weather_service_no_api_key() {
 
 #[tokio::test]
 async fn test_weather_service_invalid_api_key() {
-    let config = WeatherConfig {
+    let config = WeatherAppConfig {
         api_key: "invalid_key".to_string(),
         default_location: "Los Angeles".to_string(),
         location_type: "city".to_string(),
@@ -65,7 +65,7 @@ async fn test_weather_service_invalid_api_key() {
 
 #[test]
 fn test_weather_config_default() {
-    let config = WeatherConfig::default();
+    let config = WeatherAppConfig::default();
     assert_eq!(config.default_location, "Los Angeles");
     assert_eq!(config.location_type, "city");
     assert_eq!(config.cache_ttl_minutes, 10);
@@ -76,7 +76,7 @@ fn test_weather_config_default() {
 
 #[test]
 fn test_weather_service_initialization() {
-    let config = WeatherConfig::default();
+    let config = WeatherAppConfig::default();
     let service = WeatherService::new(config);
     assert!(!service.is_configured()); // Should not be configured without API key
 }

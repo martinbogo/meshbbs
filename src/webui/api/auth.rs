@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use crate::config::{AdminDashboardConfig, GamesConfig};
+use crate::config::{AdminDashboardConfig, AppsConfig};
 use crate::storage::Storage;
 use crate::tmush::storage::TinyMushStore;
 use crate::webui::audit::{AuditAction, AuditEntry, AuditLogger};
@@ -32,7 +32,7 @@ pub struct AppState {
     pub schema_registry: Arc<SchemaRegistry>,
     pub data_dir: PathBuf,
     pub config_path: Option<PathBuf>,
-    pub games: Arc<RwLock<GamesConfig>>,
+    pub games: Arc<RwLock<AppsConfig>>,
     pub tinymush_store: Option<Arc<TinyMushStore>>,
     pub tinymush_store_error: Option<String>,
     pub tinymush_db_path: PathBuf,

@@ -113,21 +113,6 @@ post_dm_broadcast_gap_ms = 1200
 dm_to_dm_gap_ms = 600
 
 # ============================================================================
-# [ident_beacon] - Station Identification Beacon
-# ============================================================================
-[ident_beacon]
-# Enable periodic identification beacon
-# Broadcasts station info to help users discover and identify your BBS
-# Default: true
-enabled = true
-
-# Beacon transmission frequency
-# Valid options: "5min", "15min", "30min", "1hour", "2hours", "4hours"
-# Recommended: "1hour" (balances discoverability with airtime usage)
-# Default: "1hour"
-frequency = "1hour"
-
-# ============================================================================
 # [storage] - Data Storage Configuration
 # ============================================================================
 [storage]
@@ -197,52 +182,57 @@ level = "info"
 # security_file = "meshbbs-security.log"
 
 # ============================================================================
-# [games] - Interactive Games Configuration
+# [apps] - Application & Feature Configuration
 # ============================================================================
-[games]
-# Enable TinyHack roguelike dungeon game
-# Classic roguelike with dungeons, monsters, items, and permadeath
-# Access: G command from main menu, select TinyHack
+# All BBS apps use the unified [apps.*] configuration structure
+# Each app can be independently enabled/disabled via the admin dashboard
+
+# --- Fortune Teller ---
+[apps.fortune]
+# Enable fortune cookie messages on public channel
+# Classic Unix fortune database with witty quotes
+# Command: ^FORTUNE on public channel
 # Default: true
-tinyhack_enabled = true
+enabled = true
 
-# Enable TinyMUSH multi-user text adventure
-# Persistent world with rooms, NPCs, quests, crafting, and companions
-# Access: G command from main menu, select TinyMUSH
+# --- Magic 8-Ball ---
+[apps.eightball]
+# Enable Magic 8-Ball fortune telling
+# Ask a yes/no question and receive mystical guidance
+# Command: ^8BALL <question> on public channel
 # Default: true
-tinymush_enabled = true
+enabled = true
 
-# TinyMUSH database path (optional)
-# Override default location for game data
-# Default: <data_dir>/tinymush
-# Uncomment to customize:
-# tinymush_db_path = "./data/tinymush"
+# --- Slot Machine ---
+[apps.slotmachine]
+# Enable slot machine game
+# Fun luck-based mini-game with emoji symbols
+# Command: ^SLOT on public channel
+# Default: true
+enabled = true
 
-# ============================================================================
-# [weather] - Weather Service Integration (Optional)
-# ============================================================================
-[weather]
+# --- Weather Service ---
+[apps.weather]
 # OpenWeatherMap API key
 # Get a free API key at: https://openweathermap.org/api
 # REQUIRED: Replace this placeholder with your actual API key
-# IMPORTANT: Weather feature will not work without a valid key
 api_key = "REPLACE_WITH_YOUR_API_KEY"
 
 # Enable weather functionality
 # Requires valid API key above
-# Users can query weather via WEATHER command or ^WEATHER on public channel
+# Command: ^WEATHER or WEATHER in DM
 # Default: false
 enabled = false
 
 # Default location for weather queries
-# Examples: "Los Angeles", "New York", "London"
-default_location = "Los Angeles"
+# Examples: "Los Angeles", "New York", "London", "90210"
+location = "Los Angeles"
 
 # Location type
 # Options: "city", "zipcode", "city_id"
-# city: Use city name (default_location = "Los Angeles")
-# zipcode: Use postal code (default_location = "90210", requires country_code)
-# city_id: Use OpenWeatherMap city ID (default_location = "5368361")
+# city: Use city name (location = "Los Angeles")
+# zipcode: Use postal code (location = "90210", requires country_code)
+# city_id: Use OpenWeatherMap city ID (location = "5368361")
 # Default: "city"
 location_type = "city"
 
@@ -262,10 +252,44 @@ cache_ttl_minutes = 10
 # Default: 5
 timeout_seconds = 5
 
-# ============================================================================
-# [welcome] - Automatic Welcome System (Optional)
-# ============================================================================
-[welcome]
+# --- TinyHack Game ---
+[apps.tinyhack]
+# Enable TinyHack roguelike dungeon game
+# Classic roguelike with dungeons, monsters, items, and permadeath
+# Access: G command from main menu → select TinyHack
+# Default: true
+enabled = true
+
+# --- TinyMUSH Game ---
+[apps.tinymush]
+# Enable TinyMUSH multi-user text adventure
+# Persistent world with rooms, NPCs, quests, crafting, and companions
+# Access: G command from main menu → select TinyMUSH
+# Default: true
+enabled = true
+
+# TinyMUSH database path (optional)
+# Override default location for game data
+# Default: <data_dir>/tinymush
+# Uncomment to customize:
+# db_path = "./data/tinymush"
+
+# --- Ident Beacon ---
+[apps.ident_beacon]
+# Enable periodic identification beacon
+# Broadcasts BBS presence on the mesh at regular intervals
+# Helps users discover your BBS
+# Default: true
+enabled = true
+
+# Beacon frequency
+# Options: "5min", "15min", "30min", "1hr", "2hr", "4hr"
+# Shorter intervals increase discoverability but use more airtime
+# Default: "15min"
+frequency = "15min"
+
+# --- Welcome System ---
+[apps.welcome]
 # Enable automatic welcome for new nodes
 # Greets new Meshtastic nodes detected on the mesh network
 # Helps users discover your BBS and provides helpful information

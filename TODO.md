@@ -61,6 +61,16 @@
 - [ ] Boss encounters
 - [ ] World events and dynamic content
 
+### Housing System Data-Driven Migration
+- [ ] **MISSED REFACTOR**: Housing templates still hard-coded in `src/tmush/storage.rs`
+  - Current state: 3 templates (studio_apartment, basic_apartment, luxury_flat) hard-coded in `initialize_default_housing_templates()` function (lines ~2960-3200)
+  - Need to: Create `data/seeds/housing_templates.json` with same structure as HousingTemplate/HousingTemplateRoom
+  - Need to: Add loader function similar to room/npc/quest loaders
+  - Need to: Add WebUI API endpoints for housing template CRUD (GET/POST/PUT/DELETE)
+  - Need to: Add admin panel editor for housing templates
+  - Benefit: Allow admins to create/modify housing options without code changes
+  - Related: Housing instances (player-owned) already work correctly via runtime cloning
+
 ### Technical Enhancements
 - [~] Web-based admin dashboard (Phase 2 in progress on branch `tinymush_admin_webui`)
   - [x] Phase 1: Foundation (auth, audit, TLS, basic UI)

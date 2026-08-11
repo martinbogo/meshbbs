@@ -89,7 +89,9 @@ async fn mutate_collection_item(
     let collection = TinyMushCollection::from(raw_collection.as_str())
         .ok_or_else(|| TinymushApiError::UnknownCollection(raw_collection.clone()))?;
 
-    ensure_enabled(&state).await?;
+    // Allow editing TinyMUSH content even when disabled - admins can prepare content
+    // before enabling the feature or maintain it while temporarily offline
+    // ensure_enabled(&state).await?;
     let (store_arc, db_path) = require_store(&state)?;
     let username = state.sysop_username.clone();
 
@@ -124,7 +126,8 @@ async fn delete_collection_entry(
     let collection = TinyMushCollection::from(raw_collection.as_str())
         .ok_or_else(|| TinymushApiError::UnknownCollection(raw_collection.clone()))?;
 
-    ensure_enabled(&state).await?;
+    // Allow deleting TinyMUSH content even when disabled
+    // ensure_enabled(&state).await?;
     let (store_arc, db_path) = require_store(&state)?;
 
     task::spawn_blocking(move || {
@@ -1418,7 +1421,7 @@ fn parse_recipe_material_quantity(value: Value) -> Result<u32, TinymushApiError>
 }
 
 pub async fn get_tinymush_status(State(state): State<Arc<AppState>>) -> Response {
-    let enabled = state.games.read().await.tinymush_enabled;
+    let enabled = state.games.read().await.tinymush.enabled;
     let db_path = state.tinymush_db_path.to_string_lossy().into_owned();
     let updated_at = last_modified(&state.tinymush_db_path).ok();
 
@@ -1552,7 +1555,8 @@ async fn load_collection(
     let collection = TinyMushCollection::from(raw_collection.as_str())
         .ok_or_else(|| TinymushApiError::UnknownCollection(raw_collection.clone()))?;
 
-    ensure_enabled(state).await?;
+    // Allow reading TinyMUSH content even when disabled
+    // ensure_enabled(state).await?;
     let (store_arc, db_path) = require_store(state)?;
 
     let result = task::spawn_blocking(move || {
@@ -1572,7 +1576,8 @@ async fn load_collection_item(
     let collection = TinyMushCollection::from(raw_collection.as_str())
         .ok_or_else(|| TinymushApiError::UnknownCollection(raw_collection.clone()))?;
 
-    ensure_enabled(state).await?;
+    // Allow reading individual TinyMUSH items even when disabled
+    // ensure_enabled(state).await?;
     let (store_arc, db_path) = require_store(state)?;
 
     let result = task::spawn_blocking(move || {
@@ -1727,7 +1732,7 @@ fn collect_status_counts(store: TinyMushStore) -> Result<TinyMushStatusCounts, T
 }
 
 async fn ensure_enabled(state: &AppState) -> Result<(), TinymushApiError> {
-    if state.games.read().await.tinymush_enabled {
+    if state.games.read().await.tinymush.enabled {
         Ok(())
     } else {
         Err(TinymushApiError::Disabled)

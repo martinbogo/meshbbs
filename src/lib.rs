@@ -81,6 +81,7 @@ pub mod logutil;
 pub mod meshtastic;
 pub mod metrics; // new metrics module (Phase 3 scaffold)
 pub mod protobuf; // always declare; internal stubs handle feature gating
+pub mod restart; // server restart functionality for remote admin
 pub mod storage;
 pub mod tmush;
 pub mod validation;

@@ -17,8 +17,8 @@ async fn test_config() -> Config {
     let temp_path = temp_dir.path().to_string_lossy().to_string();
     cfg.storage.data_dir = temp_path.clone();
     cfg.bbs.max_users = 20;
-    cfg.games.tinymush_enabled = true;
-    cfg.games.tinymush_db_path = Some(format!("{}/tinymush", temp_path));
+    cfg.apps.tinymush.enabled = true;
+    cfg.apps.tinymush.db_path = Some(format!("{}/tinymush", temp_path));
     // Keep temp_dir alive by leaking it (tests are short-lived anyway)
     std::mem::forget(temp_dir);
     cfg

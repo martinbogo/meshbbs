@@ -2,7 +2,7 @@
 use chrono::{Timelike, Utc};
 use meshbbs::bbs::server::BbsServer;
 use meshbbs::config::{
-    AdminDashboardConfig, BbsConfig, Config, GamesConfig, IdentBeaconConfig, LoggingConfig,
+    AdminDashboardConfig, AppsConfig, BbsConfig, Config, IdentBeaconAppConfig, LoggingConfig,
     MeshtasticConfig, StorageConfig,
 };
 use std::collections::HashMap;
@@ -55,18 +55,12 @@ async fn test_config_with_beacon(enabled: bool, frequency: &str) -> Config {
             security_file: None,
         },
         security: Default::default(),
-        ident_beacon: IdentBeaconConfig {
-            enabled,
-            frequency: frequency.to_string(),
-        },
-        weather: Default::default(),
-        games: GamesConfig::default(),
-        welcome: meshbbs::bbs::welcome::WelcomeConfig {
-            enabled: false,
-            public_greeting: true,
-            private_guide: true,
-            cooldown_minutes: 5,
-            max_welcomes_per_node: 1,
+        apps: AppsConfig {
+            ident_beacon: IdentBeaconAppConfig {
+                enabled,
+                frequency: frequency.to_string(),
+            },
+            ..Default::default()
         },
         admin_dashboard: AdminDashboardConfig::default(),
     }
@@ -75,8 +69,8 @@ async fn test_config_with_beacon(enabled: bool, frequency: &str) -> Config {
 #[tokio::test]
 async fn test_ident_beacon_disabled() {
     let config = test_config_with_beacon(false, "15min").await;
-    assert_eq!(config.ident_beacon.enabled, false);
-    assert_eq!(config.ident_beacon.frequency, "15min");
+    assert_eq!(config.apps.ident_beacon.enabled, false);
+    assert_eq!(config.apps.ident_beacon.frequency, "15min");
 
     // The beacon should be disabled regardless of frequency
     let _server = BbsServer::new(config).await.unwrap();
@@ -91,8 +85,8 @@ async fn test_ident_beacon_enabled_different_frequencies() {
 
     for freq in frequencies {
         let config = test_config_with_beacon(true, freq).await;
-        assert_eq!(config.ident_beacon.enabled, true);
-        assert_eq!(config.ident_beacon.frequency, freq);
+        assert_eq!(config.apps.ident_beacon.enabled, true);
+        assert_eq!(config.apps.ident_beacon.frequency, freq);
 
         // Verify the frequency conversion works
         let expected_minutes = match freq {
@@ -105,7 +99,10 @@ async fn test_ident_beacon_enabled_different_frequencies() {
             _ => panic!("Unexpected frequency: {}", freq),
         };
 
-        assert_eq!(config.ident_beacon.frequency_minutes(), expected_minutes);
+        assert_eq!(
+            config.apps.ident_beacon.frequency_minutes(),
+            expected_minutes
+        );
 
         // Verify server can be created with this config
         let _server = BbsServer::new(config).await.unwrap();
@@ -115,11 +112,11 @@ async fn test_ident_beacon_enabled_different_frequencies() {
 #[tokio::test]
 async fn test_ident_beacon_invalid_frequency_fallback() {
     let config = test_config_with_beacon(true, "invalid_frequency").await;
-    assert_eq!(config.ident_beacon.enabled, true);
-    assert_eq!(config.ident_beacon.frequency, "invalid_frequency");
+    assert_eq!(config.apps.ident_beacon.enabled, true);
+    assert_eq!(config.apps.ident_beacon.frequency, "invalid_frequency");
 
     // Should fall back to 15 minutes for invalid frequency
-    assert_eq!(config.ident_beacon.frequency_minutes(), 15);
+    assert_eq!(config.apps.ident_beacon.frequency_minutes(), 15);
 
     // Server should still work with invalid frequency (using fallback)
     let _server = BbsServer::new(config).await.unwrap();
@@ -137,8 +134,8 @@ async fn test_ident_beacon_message_format_components() {
     assert_eq!(config.meshtastic.node_id, "0x123456");
 
     // Verify the ident beacon config is properly loaded
-    assert_eq!(config.ident_beacon.enabled, true);
-    assert_eq!(config.ident_beacon.frequency, "15min");
+    assert_eq!(config.apps.ident_beacon.enabled, true);
+    assert_eq!(config.apps.ident_beacon.frequency, "15min");
 }
 
 #[test]
@@ -176,15 +173,15 @@ async fn test_config_serialization_with_ident_beacon() {
 
     // Test that the config can be serialized/deserialized with ident_beacon
     let serialized = toml::to_string(&config).unwrap();
-    assert!(serialized.contains("[ident_beacon]"));
+    assert!(serialized.contains("[apps.ident_beacon]"));
     assert!(serialized.contains("enabled = true"));
     assert!(serialized.contains("frequency = \"2hours\""));
 
     // Test deserialization
     let deserialized: Config = toml::from_str(&serialized).unwrap();
-    assert_eq!(deserialized.ident_beacon.enabled, true);
-    assert_eq!(deserialized.ident_beacon.frequency, "2hours");
-    assert_eq!(deserialized.ident_beacon.frequency_minutes(), 120);
+    assert_eq!(deserialized.apps.ident_beacon.enabled, true);
+    assert_eq!(deserialized.apps.ident_beacon.frequency, "2hours");
+    assert_eq!(deserialized.apps.ident_beacon.frequency_minutes(), 120);
 }
 
 #[tokio::test]
@@ -192,9 +189,9 @@ async fn test_default_config_has_ident_beacon() {
     let config = Config::default();
 
     // Default config should have ident beacon enabled with 15min frequency
-    assert_eq!(config.ident_beacon.enabled, true);
-    assert_eq!(config.ident_beacon.frequency, "15min");
-    assert_eq!(config.ident_beacon.frequency_minutes(), 15);
+    assert_eq!(config.apps.ident_beacon.enabled, true);
+    assert_eq!(config.apps.ident_beacon.frequency, "15min");
+    assert_eq!(config.apps.ident_beacon.frequency_minutes(), 15);
 
     // Should be able to create server with default config
     let _server = BbsServer::new(config).await.unwrap();

@@ -14,18 +14,18 @@ async fn main() {
     }
 
     let config = config_result.unwrap();
-    if config.weather.api_key.is_empty() {
+    if config.apps.weather.api_key.is_empty() {
         println!("Error: No API key found in config.toml");
         println!("Please add your OpenWeatherMap API key to the [weather] section");
         return;
     }
 
-    let mut service = WeatherService::new(config.weather.clone());
+    let mut service = WeatherService::new(config.apps.weather.clone());
 
     println!("Service configured: {}", service.is_configured());
 
     // Test URL building
-    match service.build_api_url(&config.weather.default_location) {
+    match service.build_api_url(&config.apps.weather.default_location) {
         Ok(url) => println!("Built URL: {}", url),
         Err(e) => println!("URL build error: {:?}", e),
     }

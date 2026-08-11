@@ -2,7 +2,7 @@
 //! These tests require a valid OpenWeatherMap API key in config.toml
 
 use meshbbs::bbs::weather::WeatherService;
-use meshbbs::config::{Config, WeatherConfig};
+use meshbbs::config::{Config, WeatherAppConfig};
 
 /// Test weather service with real API (requires config.toml with valid API key)
 #[tokio::test]
@@ -16,12 +16,12 @@ async fn test_weather_service_real_api() {
     }
 
     let config = config_result.unwrap();
-    if config.weather.api_key.is_empty() {
+    if config.apps.weather.api_key.is_empty() {
         println!("Skipping integration test: no API key in config.toml");
         return;
     }
 
-    let mut service = WeatherService::new(config.weather.clone());
+    let mut service = WeatherService::new(config.apps.weather.clone());
 
     // Test fetching weather for default location
     match service.get_weather().await {
@@ -40,7 +40,7 @@ async fn test_weather_service_real_api() {
 /// Test weather service configuration validation
 #[test]
 fn test_weather_config_validation() {
-    let valid_config = WeatherConfig {
+    let valid_config = WeatherAppConfig {
         api_key: "test_key".to_string(),
         default_location: "Los Angeles".to_string(),
         location_type: "city".to_string(),
@@ -57,7 +57,7 @@ fn test_weather_config_validation() {
 /// Test weather service URL building
 #[test]
 fn test_weather_url_building() {
-    let config = WeatherConfig {
+    let config = WeatherAppConfig {
         api_key: "test_api_key".to_string(),
         default_location: "Los Angeles".to_string(),
         location_type: "city".to_string(),
@@ -79,7 +79,7 @@ fn test_weather_url_building() {
 /// Test zipcode URL building
 #[test]
 fn test_zipcode_url_building() {
-    let config = WeatherConfig {
+    let config = WeatherAppConfig {
         api_key: "test_key".to_string(),
         default_location: "90210".to_string(),
         location_type: "zipcode".to_string(),

@@ -15,17 +15,19 @@ use tokio::sync::{Mutex, RwLock};
 use tower_http::services::ServeDir;
 use tracing::{error, info};
 
-use crate::config::{Config, GamesConfig};
+use crate::config::{AppsConfig, Config};
 use crate::storage::Storage;
 use crate::tmush::errors::TinyMushError;
 use crate::tmush::storage::TinyMushStore;
 use crate::webui::api::{
     create_collection_item, delete_collection_item, delete_message, get_activity_feed,
     get_all_schemas, get_apps, get_audit_logs, get_collection, get_collection_item,
-    get_fortune_stats, get_roles, get_schema_by_type, get_system_stats, get_tinymush_status,
-    get_topic_stats, get_user, get_world_overview, list_messages, list_npcs, list_topics,
-    list_users, login, logout, toggle_app_config, toggle_pin_message, update_collection_item,
-    update_message_title, update_user_level, AppState,
+    get_eightball_responses, get_fortune_responses, get_fortune_stats, get_roles,
+    get_schema_by_type, get_status, get_system_stats, get_tinymush_status, get_topic_stats,
+    get_user, get_world_overview, list_messages, list_npcs, list_topics, list_users, login, logout,
+    restart_server, toggle_app_config, toggle_pin_message, update_collection_item,
+    update_eightball_responses, update_fortune_responses, update_message_title, update_user_level,
+    AppState,
 };
 use crate::webui::audit::AuditLogger;
 use crate::webui::auth::AuthManager;
@@ -59,17 +61,18 @@ pub async fn start_webui_server(
 
     let schema_registry = Arc::new(SchemaRegistry::new());
     let runtime_config_path = config.admin_dashboard.runtime_config_path.clone();
-    let games_config = config.games.clone();
-    let games_state = Arc::new(RwLock::new(games_config.clone()));
+    let apps_config = config.apps.clone();
+    let games_state = Arc::new(RwLock::new(apps_config.clone()));
     let data_dir = PathBuf::from(&config.storage.data_dir);
-    let tinymush_db_path = games_config
-        .tinymush_db_path
+    let tinymush_db_path = apps_config
+        .tinymush
+        .db_path
         .as_ref()
         .map(PathBuf::from)
         .unwrap_or_else(|| data_dir.join("tinymush"));
 
     let (tinymush_store, tinymush_store_error) =
-        resolve_tinymush_store(shared_tinymush_store, &games_config, &tinymush_db_path);
+        resolve_tinymush_store(shared_tinymush_store, &apps_config, &tinymush_db_path);
 
     let app_state = Arc::new(AppState {
         auth_manager,
@@ -94,6 +97,8 @@ pub async fn start_webui_server(
         .route("/api/schema/:type", get(get_schema_by_type))
         .route("/api/roles", get(get_roles))
         .route("/api/stats", get(get_system_stats))
+        .route("/api/system/restart", post(restart_server))
+        .route("/api/system/status", get(get_status))
         .route("/api/apps", get(get_apps))
         .route("/api/apps/config-toggle", post(toggle_app_config))
         .route("/api/users", get(list_users))
@@ -127,6 +132,14 @@ pub async fn start_webui_server(
                 .delete(delete_collection_item),
         )
         .route("/api/fortune/stats", get(get_fortune_stats))
+        .route(
+            "/api/apps/fortune/responses",
+            get(get_fortune_responses).put(update_fortune_responses),
+        )
+        .route(
+            "/api/apps/eightball/responses",
+            get(get_eightball_responses).put(update_eightball_responses),
+        )
         .nest_service("/", ServeDir::new("static"))
         .with_state(app_state.clone());
 
@@ -181,7 +194,7 @@ pub async fn start_webui_server(
 
 fn resolve_tinymush_store(
     shared: Option<TinyMushStore>,
-    games_config: &GamesConfig,
+    apps_config: &AppsConfig,
     tinymush_db_path: &PathBuf,
 ) -> (Option<Arc<TinyMushStore>>, Option<String>) {
     if let Some(store) = shared {
@@ -189,7 +202,7 @@ fn resolve_tinymush_store(
         return (Some(Arc::new(store)), None);
     }
 
-    if !games_config.tinymush_enabled {
+    if !apps_config.tinymush.enabled {
         return (
             None,
             Some("TinyMUSH is disabled in configuration".to_string()),

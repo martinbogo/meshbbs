@@ -10,8 +10,8 @@ async fn test_talk_with_topic_wares() {
     let mut cfg = Config::default();
     let _td = tempfile::tempdir().unwrap();
     cfg.storage.data_dir = _td.path().to_string_lossy().to_string();
-    cfg.games.tinymush_enabled = true;
-    cfg.games.tinymush_db_path = Some(format!("{}/tinymush", _td.path().to_string_lossy()));
+    cfg.apps.tinymush.enabled = true;
+    cfg.apps.tinymush.db_path = Some(format!("{}/tinymush", _td.path().to_string_lossy()));
 
     let mut server = BbsServer::new(cfg.clone()).await.unwrap();
 
@@ -72,8 +72,8 @@ async fn test_talk_list_topics() {
     let mut cfg = Config::default();
     let _td = tempfile::tempdir().unwrap();
     cfg.storage.data_dir = _td.path().to_string_lossy().to_string();
-    cfg.games.tinymush_enabled = true;
-    cfg.games.tinymush_db_path = Some(format!("{}/tinymush", _td.path().to_string_lossy()));
+    cfg.apps.tinymush.enabled = true;
+    cfg.apps.tinymush.db_path = Some(format!("{}/tinymush", _td.path().to_string_lossy()));
 
     let mut server = BbsServer::new(cfg.clone()).await.unwrap();
 
@@ -127,8 +127,8 @@ async fn test_talk_invalid_topic() {
     let mut cfg = Config::default();
     let _td = tempfile::tempdir().unwrap();
     cfg.storage.data_dir = _td.path().to_string_lossy().to_string();
-    cfg.games.tinymush_enabled = true;
-    cfg.games.tinymush_db_path = Some(format!("{}/tinymush", _td.path().to_string_lossy()));
+    cfg.apps.tinymush.enabled = true;
+    cfg.apps.tinymush.db_path = Some(format!("{}/tinymush", _td.path().to_string_lossy()));
 
     let mut server = BbsServer::new(cfg.clone()).await.unwrap();
 
@@ -180,8 +180,8 @@ async fn test_talk_guard_warning_topic() {
     let mut cfg = Config::default();
     let _td = tempfile::tempdir().unwrap();
     cfg.storage.data_dir = _td.path().to_string_lossy().to_string();
-    cfg.games.tinymush_enabled = true;
-    cfg.games.tinymush_db_path = Some(format!("{}/tinymush", _td.path().to_string_lossy()));
+    cfg.apps.tinymush.enabled = true;
+    cfg.apps.tinymush.db_path = Some(format!("{}/tinymush", _td.path().to_string_lossy()));
 
     let mut server = BbsServer::new(cfg.clone()).await.unwrap();
 

@@ -23,6 +23,8 @@ pub fn writable_fixture() -> tempfile::TempDir {
     std::fs::create_dir_all(root.join("messages/hello")).unwrap();
     std::fs::create_dir_all(root.join("users")).unwrap();
     std::fs::copy(src.join("topics.json"), root.join("topics.json")).unwrap();
+    // fortunes.json is required for the fortune feature to load at server startup
+    std::fs::copy(src.join("fortunes.json"), root.join("fortunes.json")).unwrap();
     for user in ["alice.json", "carol.json"] {
         let _ = std::fs::copy(src.join("users").join(user), root.join("users").join(user));
     }

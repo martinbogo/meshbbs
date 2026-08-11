@@ -116,7 +116,7 @@ impl CommandProcessor {
     /// Render the top-level main menu based on enabled modules
     fn render_main_menu(&self, _session: &Session, config: &Config) -> String {
         let mut line = String::from("Main Menu:\n[M]essages ");
-        if games::has_enabled_doors(&config.games) {
+        if games::has_enabled_doors(&config.apps) {
             line.push_str("[G]ames ");
         }
         line.push_str("[P]references [Q]uit\n");
@@ -494,7 +494,7 @@ impl CommandProcessor {
                 .to_string());
         }
 
-        let game_doors = games::enabled_doors(&config.games);
+        let game_doors = games::enabled_doors(&config.apps);
         if cmd == "G" || cmd == "GAMES" {
             if game_doors.is_empty() {
                 return Ok("No games are currently enabled.\n".to_string());

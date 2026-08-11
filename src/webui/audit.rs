@@ -39,6 +39,7 @@ pub enum AuditAction {
     Export,
     Import,
     ConfigChange,
+    SystemRestart,
 }
 
 impl AuditAction {
@@ -54,6 +55,7 @@ impl AuditAction {
             Self::Export => "EXPORT",
             Self::Import => "IMPORT",
             Self::ConfigChange => "CONFIG_CHANGE",
+            Self::SystemRestart => "SYSTEM_RESTART",
         }
     }
 }

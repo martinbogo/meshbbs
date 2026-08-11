@@ -3,7 +3,7 @@
 //! This module provides weather information using OpenWeatherMap API.
 //! It supports both city lookup by name and zipcode lookup.
 
-use crate::config::WeatherConfig;
+use crate::config::WeatherAppConfig;
 use anyhow::{anyhow, Result};
 use log::{debug, warn};
 use serde::Deserialize;
@@ -56,14 +56,14 @@ pub struct WeatherCacheEntry {
 
 /// Weather service for fetching current conditions
 pub struct WeatherService {
-    config: WeatherConfig,
+    config: WeatherAppConfig,
     cache: Option<WeatherCacheEntry>,
     client: reqwest::Client,
 }
 
 impl WeatherService {
     /// Create a new weather service with the given configuration
-    pub fn new(config: WeatherConfig) -> Self {
+    pub fn new(config: WeatherAppConfig) -> Self {
         Self {
             config,
             cache: None,
@@ -72,7 +72,7 @@ impl WeatherService {
     }
 
     /// Update the weather configuration
-    pub fn update_config(&mut self, config: WeatherConfig) {
+    pub fn update_config(&mut self, config: WeatherAppConfig) {
         self.config = config;
         // Clear cache when config changes
         self.cache = None;

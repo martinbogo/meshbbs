@@ -1,7 +1,7 @@
 use meshbbs::bbs::server::BbsServer;
 use meshbbs::config::{
-    AdminDashboardConfig, BbsConfig, Config, GamesConfig, IdentBeaconConfig, LoggingConfig,
-    MeshtasticConfig, StorageConfig,
+    AdminDashboardConfig, AppsConfig, BbsConfig, Config, LoggingConfig, MeshtasticConfig,
+    StorageConfig,
 };
 
 async fn base_config() -> Config {
@@ -52,16 +52,7 @@ async fn base_config() -> Config {
             security_file: None,
         },
         security: None,
-        ident_beacon: IdentBeaconConfig::default(),
-        weather: Default::default(),
-        games: GamesConfig::default(),
-        welcome: meshbbs::bbs::welcome::WelcomeConfig {
-            enabled: false,
-            public_greeting: true,
-            private_guide: true,
-            cooldown_minutes: 5,
-            max_welcomes_per_node: 1,
-        },
+        apps: AppsConfig::default(),
         admin_dashboard: AdminDashboardConfig::default(),
     }
 }

@@ -8,7 +8,7 @@ use axum::{
     http::StatusCode,
     Json,
 };
-use meshbbs::config::{AdminDashboardConfig, GamesConfig};
+use meshbbs::config::{AdminDashboardConfig, AppsConfig};
 use meshbbs::tmush::storage::{TinyMushStore, TinyMushStoreBuilder};
 use meshbbs::tmush::types::{
     CraftingRecipe, NpcRecord, RecipeMaterial, NPC_SCHEMA_VERSION, RECIPE_SCHEMA_VERSION,
@@ -53,9 +53,9 @@ impl TestContext {
             AuditLogger::new(&admin_config, data_dir.to_str().unwrap()).expect("audit logger");
         let auth_manager = AuthManager::new(admin_config.clone());
 
-        let mut games_config = GamesConfig::default();
-        games_config.tinymush_enabled = true;
-        games_config.tinymush_db_path = Some(store_path.to_string_lossy().to_string());
+        let mut apps_config = AppsConfig::default();
+        apps_config.tinymush.enabled = true;
+        apps_config.tinymush.db_path = Some(store_path.to_string_lossy().to_string());
 
         let password_hash = Argon2::default()
             .hash_password("password".as_bytes(), &SaltString::generate(&mut OsRng))
@@ -72,7 +72,7 @@ impl TestContext {
             schema_registry: Arc::new(SchemaRegistry::new()),
             data_dir: data_dir.clone(),
             config_path: None,
-            games: Arc::new(RwLock::new(games_config)),
+            games: Arc::new(RwLock::new(apps_config)),
             tinymush_store: Some(Arc::new(store.clone())),
             tinymush_store_error: None,
             tinymush_db_path: store_path,

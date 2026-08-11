@@ -67,8 +67,8 @@ async fn test_initialize_player_begins_in_gazebo() {
     let mut processor = TinyMushProcessor::new(store.clone());
 
     let mut config = Config::default();
-    config.games.tinymush_enabled = true;
-    config.games.tinymush_db_path = Some(tinymush_path.to_string_lossy().into_owned());
+    config.apps.tinymush.enabled = true;
+    config.apps.tinymush.db_path = Some(tinymush_path.to_string_lossy().into_owned());
     let storage_dir = temp_dir.path().join("storage");
     config.storage.data_dir = storage_dir.to_string_lossy().into_owned();
 
@@ -111,8 +111,8 @@ async fn test_initialize_player_relocates_step_one_players() {
     let mut processor = TinyMushProcessor::new(store.clone());
 
     let mut config = Config::default();
-    config.games.tinymush_enabled = true;
-    config.games.tinymush_db_path = Some(tinymush_path.to_string_lossy().into_owned());
+    config.apps.tinymush.enabled = true;
+    config.apps.tinymush.db_path = Some(tinymush_path.to_string_lossy().into_owned());
     let storage_dir = temp_dir.path().join("storage");
     config.storage.data_dir = storage_dir.to_string_lossy().into_owned();
 
@@ -162,8 +162,8 @@ async fn test_players_receive_unique_landing_instances() {
     let mut processor = TinyMushProcessor::new(store.clone());
 
     let mut config = Config::default();
-    config.games.tinymush_enabled = true;
-    config.games.tinymush_db_path = Some(tinymush_path.to_string_lossy().into_owned());
+    config.apps.tinymush.enabled = true;
+    config.apps.tinymush.db_path = Some(tinymush_path.to_string_lossy().into_owned());
     let storage_dir = temp_dir.path().join("storage");
     config.storage.data_dir = storage_dir.to_string_lossy().into_owned();
 
@@ -211,8 +211,8 @@ async fn test_mayor_dialog_available_after_tutorial_completion() {
     meshbbs::tmush::state::seed_npc_dialogues_if_needed(&store).unwrap();
 
     let mut config = Config::default();
-    config.games.tinymush_enabled = true;
-    config.games.tinymush_db_path = Some(tinymush_path.to_string_lossy().into_owned());
+    config.apps.tinymush.enabled = true;
+    config.apps.tinymush.db_path = Some(tinymush_path.to_string_lossy().into_owned());
     let storage_dir = temp_dir.path().join("storage");
     config.storage.data_dir = storage_dir.to_string_lossy().into_owned();
 
@@ -261,8 +261,8 @@ async fn test_tutorial_requires_talking_to_mayor() {
     meshbbs::tmush::state::seed_npc_dialogues_if_needed(&store).unwrap();
 
     let mut config = Config::default();
-    config.games.tinymush_enabled = true;
-    config.games.tinymush_db_path = Some(tinymush_path.to_string_lossy().into_owned());
+    config.apps.tinymush.enabled = true;
+    config.apps.tinymush.db_path = Some(tinymush_path.to_string_lossy().into_owned());
     let storage_dir = temp_dir.path().join("storage");
     config.storage.data_dir = storage_dir.to_string_lossy().into_owned();
 

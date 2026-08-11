@@ -7,6 +7,132 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🔴 BREAKING CHANGES - Configuration Restructure (v1.2.0)
+
+**All app configurations have been unified under `[apps.*]` sections for consistency and better WebUI management.**
+
+#### Migration Required
+
+**Old configuration structure:**
+```toml
+[games]
+tinyhack_enabled = true
+tinymush_enabled = true
+tinymush_db_path = "./data/tinymush"
+
+[weather]
+enabled = false
+api_key = "YOUR_KEY"
+default_location = "Los Angeles"
+
+[ident_beacon]
+enabled = true
+frequency = "15min"
+
+[welcome]
+enabled = false
+public_greeting = true
+```
+
+**New configuration structure:**
+```toml
+[apps.fortune]
+enabled = true
+
+[apps.eightball]
+enabled = true
+
+[apps.slotmachine]
+enabled = true
+
+[apps.weather]
+enabled = false
+api_key = "YOUR_KEY"
+location = "Los Angeles"  # Note: renamed from default_location
+
+[apps.tinyhack]
+enabled = true
+
+[apps.tinymush]
+enabled = true
+db_path = "./data/tinymush"  # Note: renamed from tinymush_db_path
+
+[apps.ident_beacon]
+enabled = true
+frequency = "15min"
+
+[apps.welcome]
+enabled = false
+public_greeting = true
+```
+
+#### Migration Steps
+
+1. **Backup your current config:**
+   ```bash
+   cp config.toml config.toml.backup
+   ```
+
+2. **Update config structure:**
+   - Replace `[games]` section with `[apps.tinyhack]` and `[apps.tinymush]`
+   - Replace `[weather]` with `[apps.weather]`
+   - Replace `[ident_beacon]` with `[apps.ident_beacon]`
+   - Replace `[welcome]` with `[apps.welcome]`
+   - Add new app sections: `[apps.fortune]`, `[apps.eightball]`, `[apps.slotmachine]`
+
+3. **Field name changes:**
+   - `weather.default_location` → `apps.weather.location`
+   - `games.tinymush_db_path` → `apps.tinymush.db_path`
+   - `games.tinyhack_enabled` → `apps.tinyhack.enabled`
+   - `games.tinymush_enabled` → `apps.tinymush.enabled`
+
+4. **Restart meshbbs:**
+   ```bash
+   systemctl restart meshbbs
+   # or if running manually:
+   ./meshbbs
+   ```
+
+#### Benefits of New Structure
+
+- **Unified Configuration**: All apps follow consistent `[apps.<name>]` pattern
+- **Better WebUI Integration**: Admin dashboard can easily toggle all apps
+- **Easier Extension**: Adding new apps is now straightforward
+- **Clearer Organization**: Each app's config is self-contained
+- **Future-Proof**: Scales better as more apps are added
+
+#### What's Changed in Code
+
+- New `AppsConfig` struct with 8 nested app configurations
+- Updated 13 source files with 50+ reference changes
+- All 680 tests passing (247 unit + 433 integration)
+- WebUI toggle endpoint now supports all 8 apps
+- `config.example.toml` fully updated with comprehensive documentation
+- `install.sh` generates new config format automatically
+
+### Added
+
+- Fortune cookie broadcaster app configuration (`[apps.fortune]`)
+- Magic 8-ball app configuration (`[apps.eightball]`)
+- Slot machine app configuration (`[apps.slotmachine]`)
+- Unified app management in admin WebUI
+
+### Changed
+
+- **BREAKING**: Configuration file structure requires migration (see above)
+- Admin dashboard now shows all 8 apps with consistent toggle controls
+- Config parsing now uses unified `AppsConfig` structure
+- `[apps.tinyhack]` and `[apps.tinymush]` remain **disabled by default**, matching
+  the old `[games]` behavior. Enabling them adds a `[G]ames` entry to the main menu,
+  which pushes the registration reply past the 200-byte mesh message limit.
+
+### Deprecated
+
+- Old config sections `[games]`, `[weather]`, `[ident_beacon]`, `[welcome]` (still parsed for compatibility but deprecated)
+- These will be removed in v2.0.0
+
+---
+
 ## [1.1.4] - 2025-10-17
 
 ### Added - Vending Machine System & Documentation

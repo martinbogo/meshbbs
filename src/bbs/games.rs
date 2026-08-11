@@ -1,4 +1,4 @@
-use crate::config::GamesConfig;
+use crate::config::AppsConfig;
 
 /// Represents a launchable (or preview) game door within the BBS.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -22,9 +22,9 @@ impl GameDoor {
     }
 }
 
-pub fn enabled_doors(config: &GamesConfig) -> Vec<GameDoor> {
+pub fn enabled_doors(config: &AppsConfig) -> Vec<GameDoor> {
     let mut doors = Vec::new();
-    if config.tinyhack_enabled {
+    if config.tinyhack.enabled {
         doors.push(GameDoor {
             kind: GameDoorKind::TinyHack,
             title: "TinyHack",
@@ -33,7 +33,7 @@ pub fn enabled_doors(config: &GamesConfig) -> Vec<GameDoor> {
             legacy_aliases: &["T", "TINYHACK"],
         });
     }
-    if config.tinymush_enabled {
+    if config.tinymush.enabled {
         doors.push(GameDoor {
             kind: GameDoorKind::TinyMush,
             title: "TinyMUSH",
@@ -45,8 +45,8 @@ pub fn enabled_doors(config: &GamesConfig) -> Vec<GameDoor> {
     doors
 }
 
-pub fn has_enabled_doors(config: &GamesConfig) -> bool {
-    config.tinyhack_enabled || config.tinymush_enabled
+pub fn has_enabled_doors(config: &AppsConfig) -> bool {
+    config.tinyhack.enabled || config.tinymush.enabled
 }
 
 pub fn format_games_menu(doors: &[GameDoor]) -> String {
@@ -116,10 +116,14 @@ pub fn resolve_games_command<'a>(cmd_upper: &str, doors: &'a [GameDoor]) -> Opti
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::AppsConfig;
 
     #[test]
     fn no_games_returns_empty_menu() {
-        let cfg = GamesConfig::default();
+        let mut cfg = AppsConfig::default();
+        // Disable all games
+        cfg.tinyhack.enabled = false;
+        cfg.tinymush.enabled = false;
         let doors = enabled_doors(&cfg);
         assert!(doors.is_empty());
         assert_eq!(
@@ -131,8 +135,10 @@ mod tests {
 
     #[test]
     fn tinyhack_menu_and_selection() {
-        let mut cfg = GamesConfig::default();
-        cfg.tinyhack_enabled = true;
+        let mut cfg = AppsConfig::default();
+        // Disable all first, then enable only tinyhack
+        cfg.tinyhack.enabled = true;
+        cfg.tinymush.enabled = false;
         let doors = enabled_doors(&cfg);
         assert_eq!(doors.len(), 1);
         assert!(format_games_menu(&doors).contains("1) TinyHack"));
@@ -146,9 +152,9 @@ mod tests {
 
     #[test]
     fn tinymush_preview_in_menu() {
-        let mut cfg = GamesConfig::default();
-        cfg.tinyhack_enabled = true;
-        cfg.tinymush_enabled = true;
+        let mut cfg = AppsConfig::default();
+        cfg.tinyhack.enabled = true;
+        cfg.tinymush.enabled = true;
         let doors = enabled_doors(&cfg);
         assert_eq!(doors.len(), 2);
         let menu = format_games_menu(&doors);

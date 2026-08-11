@@ -1,8 +1,8 @@
 use chrono::{Duration, Utc};
 use meshbbs::bbs::BbsServer;
 use meshbbs::config::{
-    AdminDashboardConfig, BbsConfig, Config, GamesConfig, IdentBeaconConfig, LoggingConfig,
-    MeshtasticConfig, MessageTopicConfig, StorageConfig, WeatherConfig,
+    AdminDashboardConfig, AppsConfig, BbsConfig, Config, LoggingConfig, MeshtasticConfig,
+    MessageTopicConfig, StorageConfig,
 };
 use std::collections::HashMap;
 
@@ -65,16 +65,7 @@ async fn unread_message_count_on_login() {
             security_file: None,
         },
         security: None,
-        ident_beacon: IdentBeaconConfig::default(),
-        weather: WeatherConfig::default(),
-        games: GamesConfig::default(),
-        welcome: meshbbs::bbs::welcome::WelcomeConfig {
-            enabled: false,
-            public_greeting: true,
-            private_guide: true,
-            cooldown_minutes: 5,
-            max_welcomes_per_node: 1,
-        },
+        apps: AppsConfig::default(),
         admin_dashboard: AdminDashboardConfig::default(),
     };
     let cfg_clone = cfg.clone();

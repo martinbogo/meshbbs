@@ -1,6 +1,7 @@
 use meshbbs::bbs::session::{Session, SessionState};
 use meshbbs::config::{
-    AdminDashboardConfig, BbsConfig, Config, LoggingConfig, MeshtasticConfig, StorageConfig,
+    AdminDashboardConfig, AppsConfig, BbsConfig, Config, LoggingConfig, MeshtasticConfig,
+    StorageConfig,
 };
 use meshbbs::tmush::commands::TinyMushProcessor;
 /// Integration tests for TinyMUSH admin command handlers
@@ -57,14 +58,13 @@ fn test_config(data_dir: String) -> Config {
             security_file: None,
         },
         security: None,
-        ident_beacon: Default::default(),
-        weather: Default::default(),
-        games: meshbbs::config::GamesConfig {
-            tinyhack_enabled: false,
-            tinymush_enabled: true,
-            tinymush_db_path: Some(tinymush_path_str),
+        apps: {
+            let mut apps = AppsConfig::default();
+            apps.tinyhack.enabled = false;
+            apps.tinymush.enabled = true;
+            apps.tinymush.db_path = Some(tinymush_path_str);
+            apps
         },
-        welcome: Default::default(),
         admin_dashboard: AdminDashboardConfig::default(),
     }
 }

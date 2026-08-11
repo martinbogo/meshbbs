@@ -128,16 +128,9 @@ pub struct Config {
     pub message_topics: HashMap<String, MessageTopicConfig>,
     pub logging: LoggingConfig,
     pub security: Option<SecurityConfig>,
+    /// Unified app/game/utility configuration under [apps.*] sections
     #[serde(default)]
-    pub ident_beacon: IdentBeaconConfig,
-    #[serde(default)]
-    pub weather: WeatherConfig,
-    /// Feature toggles for built-in mini-games and doors
-    #[serde(default)]
-    pub games: GamesConfig,
-    /// New user welcome system
-    #[serde(default)]
-    pub welcome: crate::bbs::welcome::WelcomeConfig,
+    pub apps: AppsConfig,
     /// Admin web dashboard configuration
     #[serde(default)]
     pub admin_dashboard: AdminDashboardConfig,
@@ -209,6 +202,278 @@ pub struct LoggingConfig {
     pub security_file: Option<String>,
 }
 
+// ============================================================================
+// Unified Apps Configuration - [apps.*] sections
+// ============================================================================
+
+/// Unified configuration for all BBS apps, games, and utilities.
+///
+/// Each app gets its own nested section under `[apps.<app_name>]` in config.toml.
+/// This provides a consistent structure and makes it easy to enable/disable features
+/// and manage app-specific settings from the admin WebUI.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct AppsConfig {
+    /// Fortune cookie broadcaster (always-on utility)
+    #[serde(default)]
+    pub fortune: FortuneAppConfig,
+
+    /// Magic 8-ball command handler
+    #[serde(default)]
+    pub eightball: EightballAppConfig,
+
+    /// Slot machine mini-game
+    #[serde(default)]
+    pub slotmachine: SlotmachineAppConfig,
+
+    /// Weather lookup via OpenWeatherMap
+    #[serde(default)]
+    pub weather: WeatherAppConfig,
+
+    /// TinyHack roguelike game
+    #[serde(default)]
+    pub tinyhack: TinyhackAppConfig,
+
+    /// TinyMUSH MUD/MUSH engine
+    #[serde(default)]
+    pub tinymush: TinymushAppConfig,
+
+    /// Station identification beacon
+    #[serde(default)]
+    pub ident_beacon: IdentBeaconAppConfig,
+
+    /// New user welcome system
+    #[serde(default)]
+    pub welcome: WelcomeAppConfig,
+}
+
+/// Fortune cookie broadcaster configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FortuneAppConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+}
+
+impl Default for FortuneAppConfig {
+    fn default() -> Self {
+        Self { enabled: true }
+    }
+}
+
+/// Magic 8-ball configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EightballAppConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+}
+
+impl Default for EightballAppConfig {
+    fn default() -> Self {
+        Self { enabled: true }
+    }
+}
+
+/// Slot machine configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SlotmachineAppConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+}
+
+impl Default for SlotmachineAppConfig {
+    fn default() -> Self {
+        Self { enabled: true }
+    }
+}
+
+/// Weather lookup configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WeatherAppConfig {
+    /// Enable/disable weather functionality
+    #[serde(default)]
+    pub enabled: bool,
+    /// OpenWeatherMap API key
+    #[serde(default)]
+    pub api_key: String,
+    /// Default location for weather queries (city name, zipcode, or city ID)
+    #[serde(default = "default_weather_location")]
+    pub default_location: String,
+    /// Location type: "city", "zipcode", or "city_id"
+    #[serde(default = "default_location_type")]
+    pub location_type: String,
+    /// Country code for zipcode lookups (e.g., "US", "GB")
+    #[serde(default)]
+    pub country_code: Option<String>,
+    /// Cache TTL in minutes
+    #[serde(default = "default_weather_cache_ttl")]
+    pub cache_ttl_minutes: u32,
+    /// Request timeout in seconds
+    #[serde(default = "default_weather_timeout")]
+    pub timeout_seconds: u32,
+}
+
+impl Default for WeatherAppConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            api_key: String::new(),
+            default_location: "Los Angeles".to_string(),
+            location_type: "city".to_string(),
+            country_code: Some("US".to_string()),
+            cache_ttl_minutes: 10,
+            timeout_seconds: 5,
+        }
+    }
+}
+
+/// TinyHack roguelike game configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TinyhackAppConfig {
+    /// Off by default: games add a [G]ames entry to the main menu, which pushes
+    /// the registration reply past the mesh message size limit.
+    #[serde(default)]
+    pub enabled: bool,
+}
+
+impl Default for TinyhackAppConfig {
+    fn default() -> Self {
+        Self { enabled: false }
+    }
+}
+
+/// TinyMUSH MUD/MUSH engine configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TinymushAppConfig {
+    /// Off by default, for the same reason as [`TinyhackAppConfig::enabled`].
+    #[serde(default)]
+    pub enabled: bool,
+    /// Optional override for TinyMUSH Sled database path; defaults to `<data_dir>/tinymush`.
+    #[serde(default)]
+    pub db_path: Option<String>,
+}
+
+impl Default for TinymushAppConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            db_path: None,
+        }
+    }
+}
+
+/// Station identification beacon configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IdentBeaconAppConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    /// Frequency: "5min", "15min" (default), "30min", "1hour", "2hours", "4hours"
+    #[serde(default = "default_beacon_frequency")]
+    pub frequency: String,
+}
+
+impl Default for IdentBeaconAppConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            frequency: "15min".to_string(),
+        }
+    }
+}
+
+impl IdentBeaconAppConfig {
+    /// Convert frequency string to minutes.
+    ///
+    /// Returns one of: 5, 15, 30, 60, 120, 240. Invalid values default to 15.
+    pub fn frequency_minutes(&self) -> u32 {
+        match self.frequency.as_str() {
+            "5min" => 5,
+            "15min" => 15,
+            "30min" => 30,
+            "1hour" => 60,
+            "2hours" => 120,
+            "4hours" => 240,
+            _ => {
+                eprintln!(
+                    "Invalid ident beacon frequency '{}', defaulting to 15min",
+                    self.frequency
+                );
+                15
+            }
+        }
+    }
+}
+
+/// New user welcome system configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WelcomeAppConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    /// Send public greeting via public channel
+    #[serde(default = "default_true")]
+    pub public_greeting: bool,
+    /// Send private guide via DM
+    #[serde(default = "default_true")]
+    pub private_guide: bool,
+    /// Minimum time between any welcomes (minutes) to prevent spam
+    #[serde(default = "default_welcome_cooldown")]
+    pub cooldown_minutes: u32,
+    /// Maximum number of times to welcome a single node
+    #[serde(default = "default_max_welcomes")]
+    pub max_welcomes_per_node: u32,
+}
+
+impl Default for WelcomeAppConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            public_greeting: true,
+            private_guide: true,
+            cooldown_minutes: 5,
+            max_welcomes_per_node: 1,
+        }
+    }
+}
+
+// Default value functions
+fn default_true() -> bool {
+    true
+}
+
+fn default_weather_location() -> String {
+    "Los Angeles".to_string()
+}
+
+fn default_location_type() -> String {
+    "city".to_string()
+}
+
+fn default_weather_cache_ttl() -> u32 {
+    10
+}
+
+fn default_weather_timeout() -> u32 {
+    5
+}
+
+fn default_beacon_frequency() -> String {
+    "15min".to_string()
+}
+
+fn default_welcome_cooldown() -> u32 {
+    5
+}
+
+fn default_max_welcomes() -> u32 {
+    1
+}
+
+// ============================================================================
+// Legacy Config Structures (Deprecated - will be removed in future version)
+// ============================================================================
+
+#[deprecated(
+    since = "1.2.0",
+    note = "Use AppsConfig with [apps.*] sections instead"
+)]
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct GamesConfig {
     /// Enable the TinyHack mini-game in the Games submenu.
@@ -240,14 +505,21 @@ pub struct SecurityConfig {
 
 /// Configuration for the periodic station identification beacon.
 ///
+/// DEPRECATED: Use AppsConfig::ident_beacon instead (config.apps.ident_beacon)
+///
 /// The ident beacon broadcasts a message to the public channel on a UTC schedule.
 /// Supported frequencies: "5min", "15min" (default), "30min", "1hour", "2hours", "4hours".
+#[deprecated(
+    since = "1.2.0",
+    note = "Use AppsConfig::ident_beacon with [apps.ident_beacon] section instead"
+)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IdentBeaconConfig {
     pub enabled: bool,
     pub frequency: String,
 }
 
+#[allow(deprecated)]
 impl Default for IdentBeaconConfig {
     fn default() -> Self {
         Self {
@@ -257,6 +529,7 @@ impl Default for IdentBeaconConfig {
     }
 }
 
+#[allow(deprecated)]
 impl IdentBeaconConfig {
     /// Convert frequency string to minutes.
     ///
@@ -280,6 +553,13 @@ impl IdentBeaconConfig {
     }
 }
 
+/// Weather configuration.
+///
+/// DEPRECATED: Use AppsConfig::weather instead (config.apps.weather)
+#[deprecated(
+    since = "1.2.0",
+    note = "Use AppsConfig::weather with [apps.weather] section instead"
+)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WeatherConfig {
     /// OpenWeatherMap API key
@@ -298,6 +578,7 @@ pub struct WeatherConfig {
     pub enabled: bool,
 }
 
+#[allow(deprecated)]
 impl Default for WeatherConfig {
     fn default() -> Self {
         Self {
@@ -726,16 +1007,7 @@ impl Default for Config {
                 security_file: Some("meshbbs-security.log".to_string()),
             },
             security: Some(SecurityConfig::default()),
-            ident_beacon: IdentBeaconConfig::default(),
-            weather: WeatherConfig::default(),
-            games: GamesConfig::default(),
-            welcome: crate::bbs::welcome::WelcomeConfig {
-                enabled: false,
-                public_greeting: true,
-                private_guide: true,
-                cooldown_minutes: 5,
-                max_welcomes_per_node: 1,
-            },
+            apps: AppsConfig::default(),
             admin_dashboard: AdminDashboardConfig::default(),
         }
     }
@@ -828,11 +1100,12 @@ mod tests {
     #[test]
     fn test_config_includes_ident_beacon() {
         let config = Config::default();
-        assert_eq!(config.ident_beacon.enabled, true);
-        assert_eq!(config.ident_beacon.frequency, "15min");
+        assert_eq!(config.apps.ident_beacon.enabled, true);
+        assert_eq!(config.apps.ident_beacon.frequency, "15min");
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_ident_beacon_config_clone() {
         let config = IdentBeaconConfig {
             enabled: false,

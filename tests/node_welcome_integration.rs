@@ -109,7 +109,7 @@ async fn test_queue_startup_welcomes_filters_correctly() {
 
     let mut cfg = Config::default();
     cfg.storage.data_dir = data_dir.to_string();
-    cfg.welcome = WelcomeConfig {
+    cfg.apps.welcome = WelcomeConfig {
         enabled: true,
         public_greeting: true,
         private_guide: true,
@@ -168,7 +168,7 @@ async fn test_startup_queue_processing_timing() {
 
     let mut cfg = Config::default();
     cfg.storage.data_dir = data_dir.to_string();
-    cfg.welcome = WelcomeConfig {
+    cfg.apps.welcome = WelcomeConfig {
         enabled: true,
         public_greeting: true,
         private_guide: true,
@@ -207,7 +207,7 @@ async fn test_rate_limiting_across_server_restarts() {
 
     let mut cfg = Config::default();
     cfg.storage.data_dir = data_dir.to_string();
-    cfg.welcome = WelcomeConfig {
+    cfg.apps.welcome = WelcomeConfig {
         enabled: true,
         public_greeting: true,
         private_guide: true,
@@ -309,7 +309,7 @@ async fn test_welcome_only_default_names() {
 
     let mut cfg = Config::default();
     cfg.storage.data_dir = data_dir.to_string();
-    cfg.welcome = WelcomeConfig {
+    cfg.apps.welcome = WelcomeConfig {
         enabled: true,
         public_greeting: true,
         private_guide: true,
@@ -341,7 +341,7 @@ async fn test_disabled_welcome_system() {
 
     let mut cfg = Config::default();
     cfg.storage.data_dir = data_dir.to_string();
-    cfg.welcome = WelcomeConfig {
+    cfg.apps.welcome = WelcomeConfig {
         enabled: false, // Disabled!
         public_greeting: true,
         private_guide: true,
@@ -367,7 +367,7 @@ async fn test_empty_cache_handling() {
 
     let mut cfg = Config::default();
     cfg.storage.data_dir = data_dir.to_string();
-    cfg.welcome = WelcomeConfig {
+    cfg.apps.welcome = WelcomeConfig {
         enabled: true,
         public_greeting: true,
         private_guide: true,
@@ -395,7 +395,7 @@ async fn test_missing_cache_file_handling() {
 
     let mut cfg = Config::default();
     cfg.storage.data_dir = data_dir.to_string();
-    cfg.welcome = WelcomeConfig {
+    cfg.apps.welcome = WelcomeConfig {
         enabled: true,
         public_greeting: true,
         private_guide: true,
@@ -432,7 +432,7 @@ async fn test_welcome_config_variations() {
     {
         let mut cfg = Config::default();
         cfg.storage.data_dir = data_dir.to_string();
-        cfg.welcome = WelcomeConfig {
+        cfg.apps.welcome = WelcomeConfig {
             enabled: true,
             public_greeting: true,
             private_guide: false, // No private message
@@ -450,7 +450,7 @@ async fn test_welcome_config_variations() {
     {
         let mut cfg = Config::default();
         cfg.storage.data_dir = data_dir.to_string();
-        cfg.welcome = WelcomeConfig {
+        cfg.apps.welcome = WelcomeConfig {
             enabled: true,
             public_greeting: false, // No public message
             private_guide: true,
@@ -468,7 +468,7 @@ async fn test_welcome_config_variations() {
     {
         let mut cfg = Config::default();
         cfg.storage.data_dir = data_dir.to_string();
-        cfg.welcome = WelcomeConfig {
+        cfg.apps.welcome = WelcomeConfig {
             enabled: true,
             public_greeting: false,
             private_guide: false,
@@ -509,7 +509,7 @@ async fn test_global_rate_limit() {
 
     let mut cfg = Config::default();
     cfg.storage.data_dir = data_dir.to_string();
-    cfg.welcome = WelcomeConfig {
+    cfg.apps.welcome = WelcomeConfig {
         enabled: true,
         public_greeting: true,
         private_guide: true,

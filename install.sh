@@ -201,12 +201,6 @@ baud_rate = 115200
 # Channel to monitor (0 = primary channel)
 channel = 0
 
-[ident_beacon]
-# Send identification beacon periodically
-enabled = true
-# Beacon frequency: "5min", "15min", "30min", "1hour", "2hours", "4hours"
-frequency = "1hour"
-
 [storage]
 # Data directory (absolute path)
 data_dir = "$INSTALL_PATH/data"
@@ -224,17 +218,25 @@ level = "info"
 # Optional: Log to file (recommended for production)
 file = "$INSTALL_PATH/meshbbs.log"
 
-[games]
-# Enable TinyHack roguelike game
-tinyhack_enabled = true
+# ============================================================================
+# [apps] - Application & Feature Configuration
+# ============================================================================
+# All BBS apps use the unified [apps.*] configuration structure
+# Each app can be independently enabled/disabled
 
-# Enable TinyMUSH multi-user game
-tinymush_enabled = true
+[apps.fortune]
+# Fortune cookie broadcaster
+enabled = true
 
-# Optional: Override TinyMUSH database path (defaults to <data_dir>/tinymush)
-# tinymush_db_path = "$INSTALL_PATH/data/tinymush"
+[apps.eightball]
+# Magic 8-ball fortune telling
+enabled = true
 
-[weather]
+[apps.slotmachine]
+# Slot machine mini-game
+enabled = true
+
+[apps.weather]
 # OpenWeatherMap API key - Get one at https://openweathermap.org/api
 # IMPORTANT: Replace this with your actual API key!
 api_key = "REPLACE_WITH_YOUR_API_KEY"
@@ -243,7 +245,7 @@ api_key = "REPLACE_WITH_YOUR_API_KEY"
 enabled = false
 
 # Default location for weather queries
-default_location = "Los Angeles"
+location = "Los Angeles"
 
 # Location type: "city", "zipcode", or "city_id"
 location_type = "city"
@@ -257,7 +259,25 @@ cache_ttl_minutes = 10
 # Request timeout in seconds
 timeout_seconds = 5
 
-[welcome]
+[apps.tinyhack]
+# TinyHack roguelike game
+enabled = true
+
+[apps.tinymush]
+# TinyMUSH multi-user game
+enabled = true
+
+# Optional: Override TinyMUSH database path (defaults to <data_dir>/tinymush)
+# db_path = "$INSTALL_PATH/data/tinymush"
+
+[apps.ident_beacon]
+# Station identification beacon
+enabled = true
+
+# Beacon frequency: "5min", "15min", "30min", "1hr", "2hr", "4hr"
+frequency = "15min"
+
+[apps.welcome]
 # Welcome message system (greets new nodes on the mesh)
 enabled = false
 

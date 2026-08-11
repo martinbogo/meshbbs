@@ -67,10 +67,15 @@ impl AuthManager {
     /// Create new authentication manager
     #[cfg(feature = "webui")]
     pub fn new(config: AdminDashboardConfig) -> Self {
-        // Generate random JWT secret (in production, this should be persisted)
+        // Generate random JWT secret on each startup for maximum security
+        // This means all tokens become invalid on server restart, requiring re-login
+        // This is a security feature: if the secret were persisted, anyone who could
+        // read it could forge valid tokens for any user
         use rand::Rng;
         let mut rng = rand::thread_rng();
         let jwt_secret: Vec<u8> = (0..64).map(|_| rng.gen::<u8>()).collect();
+
+        tracing::info!("Generated new JWT secret (tokens from previous session are now invalid)");
 
         Self {
             config,

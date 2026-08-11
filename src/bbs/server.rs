@@ -460,7 +460,7 @@ impl BbsServer {
                 Some(config.bbs.help_command.clone()),
             ),
             #[cfg(feature = "weather")]
-            weather_service: WeatherService::new(config.weather.clone()),
+            weather_service: WeatherService::new(config.apps.weather.clone()),
             #[cfg(feature = "weather")]
             weather_last_poll: Instant::now() - Duration::from_secs(301),
             // Initialize housing cleanup timers to run immediately on first tick
@@ -495,7 +495,7 @@ impl BbsServer {
             #[cfg(feature = "meshtastic-proto")]
             last_ident_boundary_minute: None,
             #[cfg(feature = "meshtastic-proto")]
-            welcome_state: if config.welcome.enabled {
+            welcome_state: if config.apps.welcome.enabled {
                 Some(crate::bbs::welcome::WelcomeState::new(
                     &config.storage.data_dir,
                 ))
@@ -523,11 +523,12 @@ impl BbsServer {
         }
 
         // Initialize door game resources in the registry
-        if server.config.games.tinymush_enabled {
+        if server.config.apps.tinymush.enabled {
             let db_path = server
                 .config
-                .games
-                .tinymush_db_path
+                .apps
+                .tinymush
+                .db_path
                 .as_deref()
                 .unwrap_or("data/tinymush");
 
@@ -548,14 +549,50 @@ impl BbsServer {
             }
         }
 
+        // Initialize fortune data from JSON file
+        if server.config.apps.fortune.enabled {
+            use std::path::Path;
+            let data_dir = Path::new(&server.config.storage.data_dir);
+            match crate::bbs::fortune::initialize(data_dir) {
+                crate::bbs::fortune::FortuneStatus::Ready(count) => {
+                    info!("[apps] Fortune feature initialized with {} fortunes", count);
+                }
+                crate::bbs::fortune::FortuneStatus::Disabled(reason) => {
+                    warn!("[apps] Fortune feature disabled: {}", reason);
+                    // Feature will be unavailable but BBS continues running
+                }
+            }
+        }
+
+        // Initialize 8-ball feature
+        if server.config.apps.eightball.enabled {
+            match crate::bbs::eightball::initialize() {
+                crate::bbs::eightball::EightballStatus::Available(count) => {
+                    info!("[apps] 8-Ball feature initialized with {} responses", count);
+                }
+                crate::bbs::eightball::EightballStatus::FileNotFound(path) => {
+                    warn!(
+                        "[apps] 8-Ball feature unavailable: data file not found at {}",
+                        path
+                    );
+                }
+                crate::bbs::eightball::EightballStatus::ParseError(e) => {
+                    warn!("[apps] 8-Ball feature unavailable: {}", e);
+                }
+                crate::bbs::eightball::EightballStatus::ValidationError(e) => {
+                    warn!("[apps] 8-Ball feature unavailable: {}", e);
+                }
+            }
+        }
+
         // Announce enabled games at startup
-        if server.config.games.tinyhack_enabled {
+        if server.config.apps.tinyhack.enabled {
             info!(
                 "[games] TinyHack enabled: DM games menu (G -> 1) active; saves at {}/tinyhack",
                 server.storage.base_dir()
             );
         }
-        if server.config.games.tinymush_enabled {
+        if server.config.apps.tinymush.enabled {
             info!("[games] TinyMUSH enabled: available in Games menu");
         }
 
@@ -692,7 +729,7 @@ impl BbsServer {
     #[cfg(feature = "meshtastic-proto")]
     pub async fn queue_startup_welcomes(&mut self) -> Result<()> {
         // Only proceed if welcome system is enabled
-        if !self.config.welcome.enabled || self.welcome_state.is_none() {
+        if !self.config.apps.welcome.enabled || self.welcome_state.is_none() {
             return Ok(());
         }
 
@@ -732,7 +769,12 @@ impl BbsServer {
             // Check if already welcomed (use true since we'll queue these for staggered sending)
             let should_welcome = {
                 let state = self.welcome_state.as_ref().unwrap();
-                state.should_welcome(*node_id, &cached_node.long_name, &self.config.welcome, true)
+                state.should_welcome(
+                    *node_id,
+                    &cached_node.long_name,
+                    &self.config.apps.welcome,
+                    true,
+                )
             };
 
             if should_welcome {
@@ -813,7 +855,7 @@ impl BbsServer {
     #[cfg(feature = "meshtastic-proto")]
     async fn check_and_send_ident(&mut self) -> Result<()> {
         // Check if ident beacon is enabled
-        if !self.config.ident_beacon.enabled {
+        if !self.config.apps.ident_beacon.enabled {
             return Ok(());
         }
 
@@ -841,7 +883,7 @@ impl BbsServer {
 
         let now = Utc::now();
         let minutes = now.minute();
-        let frequency_minutes = self.config.ident_beacon.frequency_minutes();
+        let frequency_minutes = self.config.apps.ident_beacon.frequency_minutes();
 
         // Check if we're at the right time boundary based on configured frequency
         let should_send = match frequency_minutes {
@@ -1498,9 +1540,9 @@ impl BbsServer {
         }
     }
 
-    fn format_main_menu(games_config: &crate::config::GamesConfig) -> String {
+    fn format_main_menu(apps_config: &crate::config::AppsConfig) -> String {
         let mut line = String::from("Main Menu:\n[M]essages ");
-        if games::has_enabled_doors(games_config) {
+        if games::has_enabled_doors(apps_config) {
             line.push_str("[G]ames ");
         }
         line.push_str("[P]references [Q]uit\n");
@@ -1508,14 +1550,14 @@ impl BbsServer {
     }
 
     fn format_hint_line(
-        games_config: &crate::config::GamesConfig,
+        apps_config: &crate::config::AppsConfig,
         include_topic_digits: bool,
     ) -> String {
         let mut hint = String::from("Hint: M=messages ");
         if include_topic_digits {
             hint.push_str("1-9=select ");
         }
-        if games::has_enabled_doors(games_config) {
+        if games::has_enabled_doors(apps_config) {
             hint.push_str("G=games ");
         }
         hint.push_str("H=help\n");
@@ -1980,7 +2022,7 @@ impl BbsServer {
         use crate::bbs::welcome;
 
         // Check if welcome system is enabled
-        if !self.config.welcome.enabled {
+        if !self.config.apps.welcome.enabled {
             return Ok(());
         }
         // Return early if welcome system not configured
@@ -1995,7 +2037,7 @@ impl BbsServer {
             state.should_welcome(
                 event.node_id,
                 &event.long_name,
-                &self.config.welcome,
+                &self.config.apps.welcome,
                 event.is_from_startup_queue,
             )
         };
@@ -2080,7 +2122,7 @@ impl BbsServer {
 
         // Node is reachable! Send welcome messages
         // Send private guide if enabled
-        if self.config.welcome.private_guide {
+        if self.config.apps.welcome.private_guide {
             let cmd_prefix = self.public_parser.primary_prefix_char();
             let help_cmd = self.public_parser.help_command();
             let guide = welcome::private_guide(
@@ -2118,7 +2160,7 @@ impl BbsServer {
 
         // Send public greeting if enabled
         // Delay it to allow private guide to complete first and avoid rate limiting
-        if self.config.welcome.public_greeting {
+        if self.config.apps.welcome.public_greeting {
             let greeting = welcome::public_greeting(&event.long_name);
             if let Some(scheduler) = &self.scheduler {
                 use crate::bbs::dispatch::{MessageCategory, MessageEnvelope, Priority};
@@ -2126,7 +2168,7 @@ impl BbsServer {
 
                 // If private_guide is enabled, delay public greeting to avoid rate limit conflicts
                 // With 2 chunks at 5-second spacing, wait 11 seconds (last chunk at 5s + 6s buffer)
-                let delay_secs = if self.config.welcome.private_guide {
+                let delay_secs = if self.config.apps.welcome.private_guide {
                     11
                 } else {
                     0
@@ -2212,11 +2254,11 @@ impl BbsServer {
                                 let _ = self.storage.record_user_login(&username).await; // update last_login
                                 let summary = Self::format_unread_line(unread);
                                 let hint = if unread == 0 {
-                                    Self::format_hint_line(&self.config.games, false)
+                                    Self::format_hint_line(&self.config.apps, false)
                                 } else {
                                     String::new()
                                 };
-                                let menu = Self::format_main_menu(&self.config.games);
+                                let menu = Self::format_main_menu(&self.config.apps);
                                 let _ = self
                                     .send_session_message(
                                         &node_key,
@@ -2239,8 +2281,8 @@ impl BbsServer {
                                 .create_or_update_user(&username, &node_key)
                                 .await?;
                             let summary = Self::format_unread_line(0);
-                            let hint = Self::format_hint_line(&self.config.games, false);
-                            let menu = Self::format_main_menu(&self.config.games);
+                            let hint = Self::format_hint_line(&self.config.apps, false);
+                            let menu = Self::format_main_menu(&self.config.apps);
                             let _ = self
                                 .send_session_message(
                                     &node_key,
@@ -2313,8 +2355,8 @@ impl BbsServer {
                                     session.unread_since = Some(Utc::now());
                                 }
                                 let summary = Self::format_unread_line(0);
-                                let hint = Self::format_hint_line(&self.config.games, true);
-                                let menu = Self::format_main_menu(&self.config.games);
+                                let hint = Self::format_hint_line(&self.config.apps, true);
+                                let menu = Self::format_main_menu(&self.config.apps);
                                 let full_welcome = format!(
                                     "Registered as {u}.\n{summary}{hint}{menu}",
                                     u = user,
@@ -2458,11 +2500,11 @@ impl BbsServer {
 
                                                 // Check if this is the first login after registration and show follow-up welcome
                                                 let hint = Self::format_hint_line(
-                                                    &self.config.games,
+                                                    &self.config.apps,
                                                     false,
                                                 );
                                                 let menu =
-                                                    Self::format_main_menu(&self.config.games);
+                                                    Self::format_main_menu(&self.config.apps);
                                                 let login_msg = format!("Password set. Welcome, {} you are now logged in.\n{}{}{}", updated.username, summary, hint, menu);
                                                 if updated.welcome_shown_on_registration
                                                     && !updated.welcome_shown_on_first_login
@@ -2523,15 +2565,12 @@ impl BbsServer {
 
                                                 // Check if this is the first login after registration and show follow-up welcome
                                                 let hint = if unread == 0 {
-                                                    Self::format_hint_line(
-                                                        &self.config.games,
-                                                        false,
-                                                    )
+                                                    Self::format_hint_line(&self.config.apps, false)
                                                 } else {
                                                     String::new()
                                                 };
                                                 let menu =
-                                                    Self::format_main_menu(&self.config.games);
+                                                    Self::format_main_menu(&self.config.apps);
                                                 let login_msg = format!(
                                                     "Welcome, {} you are now logged in.\n{}{}{}",
                                                     updated2.username, summary, hint, menu
@@ -3328,7 +3367,7 @@ impl BbsServer {
                         if welcome_state.should_welcome(
                             node_id,
                             &long_name,
-                            &self.config.welcome,
+                            &self.config.apps.welcome,
                             false,
                         ) {
                             debug!(
@@ -3644,13 +3683,19 @@ impl BbsServer {
                 PublicCommand::EightBall => {
                     // Lightweight per-node cooldown similar to <prefix>SLOT; broadcast-only.
                     if self.public_state.allow_8ball(&node_key) {
-                        let answer = crate::bbs::eightball::ask();
-                        let p = self.public_parser.primary_prefix_char();
-                        let msg = format!("{p}8BALL ⟶ {}", answer);
-                        #[cfg(feature = "meshtastic-proto")]
-                        {
-                            if let Err(e) = self.send_broadcast(&msg).await {
-                                warn!("8BALL broadcast failed (best-effort): {e:?}");
+                        match crate::bbs::eightball::ask() {
+                            Some(answer) => {
+                                let p = self.public_parser.primary_prefix_char();
+                                let msg = format!("{p}8BALL ⟶ {}", answer);
+                                #[cfg(feature = "meshtastic-proto")]
+                                {
+                                    if let Err(e) = self.send_broadcast(&msg).await {
+                                        warn!("8BALL broadcast failed (best-effort): {e:?}");
+                                    }
+                                }
+                            }
+                            None => {
+                                warn!("[apps] 8-Ball command received but responses not available");
                             }
                         }
                     }
@@ -3658,14 +3703,22 @@ impl BbsServer {
                 PublicCommand::Fortune => {
                     // Lightweight per-node cooldown; broadcast-only like other games.
                     if self.public_state.allow_fortune(&node_key) {
-                        let fortune = crate::bbs::fortune::get_fortune();
-                        let p = self.public_parser.primary_prefix_char();
-                        let msg = format!("{p}FORTUNE ⟶ {}", fortune);
-                        #[cfg(feature = "meshtastic-proto")]
-                        {
-                            if let Err(e) = self.send_broadcast(&msg).await {
-                                warn!("FORTUNE broadcast failed (best-effort): {e:?}");
+                        // Check if fortune data is available
+                        if let Some(fortune) = crate::bbs::fortune::random_fortune() {
+                            let p = self.public_parser.primary_prefix_char();
+                            let msg = format!("{p}FORTUNE ⟶ {}", fortune);
+                            #[cfg(feature = "meshtastic-proto")]
+                            {
+                                if let Err(e) = self.send_broadcast(&msg).await {
+                                    warn!("FORTUNE broadcast failed (best-effort): {e:?}");
+                                }
                             }
+                        } else {
+                            // Fortune data not loaded - silently skip
+                            warn!(
+                                "Fortune requested but data not loaded for node {}",
+                                node_key
+                            );
                         }
                     }
                 }
@@ -4087,8 +4140,8 @@ impl BbsServer {
                                 s2.unread_since = Some(prev);
                             }
                         }
-                        let hint = Self::format_hint_line(&self.config.games, false);
-                        let menu = Self::format_main_menu(&self.config.games);
+                        let hint = Self::format_hint_line(&self.config.apps, false);
+                        let menu = Self::format_main_menu(&self.config.apps);
                         deferred_reply = Some(format!(
                             "Welcome, {} you are now logged in.\n{}{}{}",
                             user,
@@ -4099,7 +4152,7 @@ impl BbsServer {
                     }
                 }
             } else {
-                let game_doors = games::enabled_doors(&self.config.games);
+                let game_doors = games::enabled_doors(&self.config.apps);
                 if upper == "G" || upper == "GAMES" {
                     let msg = games::format_games_menu(&game_doors);
                     deferred_reply = Some(msg);

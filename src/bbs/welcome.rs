@@ -16,53 +16,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::{Duration, Instant, SystemTime};
 
-/// Configuration for the welcome system
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WelcomeConfig {
-    /// Enable the welcome system
-    #[serde(default)]
-    pub enabled: bool,
-
-    /// Send public greeting to mesh
-    #[serde(default = "default_true")]
-    pub public_greeting: bool,
-
-    /// Send private guide via DM
-    #[serde(default = "default_true")]
-    pub private_guide: bool,
-
-    /// Minutes to wait between any welcomes (global rate limit)
-    #[serde(default = "default_cooldown")]
-    pub cooldown_minutes: u64,
-
-    /// Maximum times to welcome the same node
-    #[serde(default = "default_max_welcomes")]
-    pub max_welcomes_per_node: u32,
-}
-
-fn default_true() -> bool {
-    true
-}
-
-fn default_cooldown() -> u64 {
-    5 // 5 minutes
-}
-
-fn default_max_welcomes() -> u32 {
-    1
-}
-
-impl Default for WelcomeConfig {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            public_greeting: true,
-            private_guide: true,
-            cooldown_minutes: 5,
-            max_welcomes_per_node: 1,
-        }
-    }
-}
+// Re-export for compatibility
+pub use crate::config::WelcomeAppConfig as WelcomeConfig;
 
 /// Persistent record of a welcomed node
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -144,7 +99,7 @@ impl WelcomeState {
         if !skip_rate_limit {
             if let Some(last_time) = self.last_welcome_time {
                 let elapsed = last_time.elapsed();
-                let cooldown = Duration::from_secs(config.cooldown_minutes * 60);
+                let cooldown = Duration::from_secs(config.cooldown_minutes as u64 * 60);
                 if elapsed < cooldown {
                     let remaining = cooldown.saturating_sub(elapsed).as_secs();
                     debug!("Welcome rate limit active: {}s remaining", remaining);

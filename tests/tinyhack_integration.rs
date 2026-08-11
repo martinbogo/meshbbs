@@ -8,7 +8,7 @@ use std::path::Path;
 async fn tinyhack_enter_play_persist() {
     // Setup config with TinyHack enabled and use a temp data dir
     let mut cfg = Config::default();
-    cfg.games.tinyhack_enabled = true;
+    cfg.apps.tinyhack.enabled = true;
     // Use a temp data dir and keep it alive for the duration of the test
     let _td = tempfile::tempdir().unwrap();
     cfg.storage.data_dir = _td.path().to_string_lossy().to_string();

@@ -13858,8 +13858,9 @@ pub async fn handle_tinymush_command(
     // For direct routing, open a temporary store
     // In production, this function should receive the shared store from the server
     let db_path = config
-        .games
-        .tinymush_db_path
+        .apps
+        .tinymush
+        .db_path
         .as_deref()
         .unwrap_or("data/tinymush");
     let store = TinyMushStore::open(db_path)

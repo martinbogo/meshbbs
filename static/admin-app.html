@@ -231,7 +231,8 @@
             letter-spacing: 0.02em;
         }
 
-        .btn-logout {
+        .btn-logout,
+        .btn-restart {
             border: none;
             border-radius: var(--radius-full);
             padding: var(--space-xs) var(--space-lg);
@@ -244,9 +245,84 @@
             appearance: none;
         }
 
+        .btn-restart {
+            background: rgba(255, 182, 77, 0.2);
+            box-shadow: inset 0 0 0 1px rgba(255, 182, 77, 0.4);
+        }
+
         .btn-logout:hover,
         .btn-logout:focus-visible {
             background: rgba(255, 255, 255, 0.28);
+        }
+
+        .btn-restart:hover,
+        .btn-restart:focus-visible {
+            background: rgba(255, 182, 77, 0.35);
+        }
+
+        .btn-restart:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .admin-actions {
+            display: flex;
+            gap: var(--space-sm);
+            align-items: center;
+        }
+
+        /* Restart Countdown Modal */
+        .restart-countdown-modal {
+            text-align: center;
+        }
+
+        .restart-countdown-circle {
+            width: 200px;
+            height: 200px;
+            margin: var(--space-2xl) auto;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .countdown-number {
+            font-size: 5rem;
+            font-weight: 700;
+            color: var(--color-forest-deep);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .countdown-ring {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 8px solid var(--color-stone-light);
+        }
+
+        .countdown-ring-progress {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 8px solid var(--color-forest-deep);
+            border-right-color: transparent;
+            border-bottom-color: transparent;
+            transform: rotate(-90deg);
+            animation: countdown-spin 1s linear infinite;
+        }
+
+        @keyframes countdown-spin {
+            to {
+                transform: rotate(270deg);
+            }
+        }
+
+        .restart-message {
+            font-size: 1.1rem;
+            color: var(--color-text-secondary);
+            margin-bottom: var(--space-lg);
         }
 
         .admin-container {
@@ -307,6 +383,16 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
+        @keyframes slideInRight {
+            from { opacity: 0; transform: translateX(100px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes slideOutRight {
+            from { opacity: 1; transform: translateX(0); }
+            to { opacity: 0; transform: translateX(100px); }
+        }
+
         .content-header {
             margin-bottom: var(--space-xl);
         }
@@ -364,6 +450,8 @@
             display: flex;
             flex-direction: column;
             gap: var(--space-xl);
+            max-width: 100%;
+            overflow-x: hidden;
         }
 
         .apps-ribbon-container {
@@ -455,6 +543,8 @@
             flex-direction: column;
             gap: var(--space-xl);
             min-height: 420px;
+            max-width: 100%;
+            box-sizing: border-box;
         }
 
         .apps-detail-header {
@@ -559,6 +649,8 @@
         .apps-detail-body {
             display: grid;
             gap: var(--space-xl);
+            max-width: 100%;
+            overflow-x: hidden;
         }
 
         .config-toggle {
@@ -610,6 +702,8 @@
             display: flex;
             flex-direction: column;
             gap: var(--space-xl);
+            max-width: 100%;
+            overflow: hidden;
         }
 
         .tinymush-status-card {
@@ -620,6 +714,9 @@
             display: flex;
             flex-direction: column;
             gap: var(--space-md);
+            max-width: 100%;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .tinymush-status-header {
@@ -704,7 +801,8 @@
             background: rgba(82, 121, 111, 0.08);
             border-radius: var(--radius-md);
             padding: var(--space-md);
-            min-width: 110px;
+            min-width: 90px;
+            flex: 1 1 calc(16.666% - var(--space-md));
         }
 
         .tinymush-status-count-value {
@@ -724,12 +822,16 @@
             display: flex;
             flex-direction: column;
             gap: var(--space-xl);
+            max-width: 100%;
+            overflow-x: hidden;
         }
 
         .tinymush-shell {
             display: flex;
             flex-direction: column;
             gap: var(--space-xl);
+            max-width: 100%;
+            overflow-x: hidden;
         }
 
         .tinymush-collection-bar {
@@ -740,6 +842,8 @@
             display: flex;
             flex-direction: column;
             gap: var(--space-sm);
+            max-width: 100%;
+            box-sizing: border-box;
         }
 
         .tinymush-collection-bar-header {
@@ -865,6 +969,8 @@
             grid-template-columns: minmax(0, 1fr);
             gap: var(--space-xl);
             align-items: start;
+            max-width: 100%;
+            overflow-x: hidden;
         }
 
         .tinymush-items-panel,
@@ -877,6 +983,9 @@
             flex-direction: column;
             gap: var(--space-lg);
             min-height: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+            overflow-x: hidden;
         }
 
         .tinymush-panel-header {
@@ -1083,6 +1192,8 @@
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
             gap: var(--space-lg);
             width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
         }
 
         .tinymush-item-card {
@@ -1095,6 +1206,9 @@
             gap: var(--space-sm);
             transition: all var(--transition-swift);
             cursor: pointer;
+            max-width: 100%;
+            box-sizing: border-box;
+            overflow: hidden;
         }
 
         .tinymush-item-card:hover {
@@ -1305,6 +1419,8 @@
             display: flex;
             flex-direction: column;
             gap: var(--space-sm);
+            max-width: 100%;
+            overflow-x: hidden;
         }
 
         .apps-detail-list {
@@ -1327,6 +1443,8 @@
         .apps-detail-value {
             font-size: 0.95rem;
             color: var(--color-text-primary);
+            max-width: 100%;
+            overflow-x: auto;
         }
 
         .apps-muted {
@@ -1921,7 +2039,10 @@
                     <div class="user-name" id="userName"></div>
                     <div>Admin Level: <span id="userLevel"></span></div>
                 </div>
-                <button class="btn-logout" id="logoutBtn">Logout</button>
+                <div class="admin-actions">
+                    <button class="btn-restart" id="restartBtn" title="Restart MeshBBS Server">🔄 Restart</button>
+                    <button class="btn-logout" id="logoutBtn">Logout</button>
+                </div>
             </div>
         </header>
 
@@ -1979,7 +2100,7 @@
                             <label class="filter-label">Search Users</label>
                             <div class="search-box">
                                 <span class="search-icon">🔍</span>
-                                <input type="text" class="search-input" id="searchUsers" placeholder="Search by callsign...">
+                                <input type="text" class="search-input" id="searchUsers" placeholder="Search by username...">
                             </div>
                         </div>
                         <div class="filter-group">
@@ -2011,11 +2132,11 @@
                             <table class="admin-table" id="usersTable">
                                 <thead>
                                     <tr>
-                                        <th>Callsign</th>
+                                        <th>Username</th>
                                         <th>Level</th>
                                         <th>Messages</th>
                                         <th>Role</th>
-                                        <th>Last Login</th>
+                                        <th>Last Seen</th>
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
@@ -2152,7 +2273,7 @@
             <div class="modal-body">
                 <form id="userEditForm">
                     <div class="form-group">
-                        <label class="form-label">Callsign</label>
+                        <label class="form-label">Username</label>
                         <input type="text" class="form-input" id="editCallsign" readonly>
                     </div>
                     
@@ -2302,6 +2423,111 @@
                 location.reload();
             }
         });
+
+        document.getElementById('restartBtn').addEventListener('click', async () => {
+            const confirmed = confirm(
+                '🔄 Restart MeshBBS Server?\n\n' +
+                'This will:\n' +
+                '• Apply any configuration changes\n' +
+                '• Reload all data files\n' +
+                '• Briefly interrupt service (3-5 seconds)\n\n' +
+                'Continue with restart?'
+            );
+            
+            if (!confirmed) return;
+            
+            const restartBtn = document.getElementById('restartBtn');
+            restartBtn.disabled = true;
+            restartBtn.textContent = '🔄 Restarting...';
+            
+            try {
+                const response = await fetch('/api/system/restart', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json().catch(() => ({}));
+                    
+                    // Handle specific error cases with appropriate messages
+                    if (response.status === 401) {
+                        throw new Error('Authentication failed. Please log in again.');
+                    } else if (response.status === 403) {
+                        throw new Error('Sysop privileges required to restart server.');
+                    } else if (response.status === 429) {
+                        const remaining = error.remaining_seconds || 'some';
+                        throw new Error(`Rate limit: Please wait ${remaining} seconds before restarting again.`);
+                    } else if (response.status === 409) {
+                        throw new Error('A restart is already in progress.');
+                    } else {
+                        throw new Error(error.error || error.message || `Restart failed (${response.status})`);
+                    }
+                }
+                
+                const data = await response.json();
+                
+                // Show countdown modal
+                showRestartCountdown();
+                
+            } catch (error) {
+                console.error('Restart error:', error);
+                showNotification(`Restart failed: ${error.message}`, 'error');
+                restartBtn.disabled = false;
+                restartBtn.textContent = '🔄 Restart';
+            }
+        });
+
+        function showRestartCountdown() {
+            // Create countdown modal HTML
+            const modalHTML = `
+                <div id="restartCountdownModal" class="modal-overlay show">
+                    <div class="modal restart-countdown-modal">
+                        <div class="modal-header">
+                            <h2 class="modal-title">🔄 Server Restarting</h2>
+                        </div>
+                        <div class="modal-body">
+                            <p class="restart-message">
+                                The server is restarting. You will need to log in again for security.
+                            </p>
+                            <div class="restart-countdown-circle">
+                                <div class="countdown-ring"></div>
+                                <div class="countdown-ring-progress"></div>
+                                <div class="countdown-number" id="countdownNumber">10</div>
+                            </div>
+                            <p style="color: var(--color-text-secondary); font-size: 0.9rem;">
+                                Please wait while the server restarts...
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Add to page
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+            
+            // Start countdown
+            let secondsLeft = 10;
+            const countdownEl = document.getElementById('countdownNumber');
+            
+            const countdownInterval = setInterval(() => {
+                secondsLeft--;
+                countdownEl.textContent = secondsLeft;
+                
+                if (secondsLeft <= 0) {
+                    clearInterval(countdownInterval);
+                    // Clear auth token and redirect to login
+                    authToken = null;
+                    currentUser = null;
+                    localStorage.removeItem('authToken');
+                    location.reload();
+                }
+            }, 1000);
+        }
+
+
 
         // ============================================
         // TAB SWITCHING
@@ -3494,6 +3720,19 @@
                 renderTinymushOverviewSection(detail);
             }
 
+            // Content management sections for data-driven apps
+            if (app.id === 'fortune') {
+                renderFortuneContentSection(detail, app);
+            }
+            
+            if (app.id === 'eightball') {
+                renderEightballContentSection(detail, app);
+            }
+            
+            if (app.id === 'weather') {
+                renderWeatherConfigSection(detail, app);
+            }
+
             if (Array.isArray(app.commands) && app.commands.length > 0) {
                 detail.appendChild(createDetailSection('Access', (valueEl) => {
                     app.commands.forEach(cmd => valueEl.appendChild(renderCommandRow(cmd)));
@@ -3547,7 +3786,7 @@
             if (!actionsEl) return;
 
             const actionable = Array.isArray(app.actions)
-                ? app.actions.filter(action => action.kind !== 'config-toggle')
+                ? app.actions.filter(action => action.type !== 'config-toggle')
                 : [];
 
             if (actionable.length === 0) {
@@ -3588,18 +3827,51 @@
                     summary.textContent = app.summary;
                     valueEl.appendChild(summary);
                 }
+                
+                // Show data files if this is a data-driven app
+                if (Array.isArray(app.data_paths) && app.data_paths.length > 0) {
+                    const dataSection = document.createElement('div');
+                    dataSection.style.cssText = 'margin-top: var(--space-md); padding: var(--space-sm); background: rgba(139, 172, 143, 0.1); border-left: 3px solid var(--color-forest); border-radius: var(--radius-sm);';
+                    
+                    const dataLabel = document.createElement('div');
+                    dataLabel.style.cssText = 'font-size: 0.85rem; font-weight: 600; color: var(--color-text-secondary); margin-bottom: var(--space-xs);';
+                    dataLabel.textContent = '📁 Data Files';
+                    dataSection.appendChild(dataLabel);
+                    
+                    app.data_paths.forEach(path => {
+                        const pathItem = document.createElement('div');
+                        pathItem.style.cssText = 'font-family: var(--font-mono); font-size: 0.9rem; color: var(--color-forest); margin-top: var(--space-xs);';
+                        pathItem.textContent = path;
+                        dataSection.appendChild(pathItem);
+                    });
+                    
+                    valueEl.appendChild(dataSection);
+                }
             }));
         }
 
         function renderConfigSection(container, app) {
             const toggles = Array.isArray(app.actions)
-                ? app.actions.filter(action => action.kind === 'config-toggle' && action.target)
+                ? app.actions.filter(action => action.type === 'config-toggle' && action.target)
                 : [];
 
+            console.log(`[renderConfigSection] App: ${app.id}, Actions:`, app.actions);
+            if (app.actions && app.actions.length > 0) {
+                app.actions.forEach((action, idx) => {
+                    console.log(`  Action ${idx}:`, action);
+                    console.log(`    type: "${action.type}" (typeof: ${typeof action.type})`);
+                    console.log(`    target: "${action.target}"`);
+                    console.log(`    Matches 'config-toggle'? ${action.type === 'config-toggle'}`);
+                });
+            }
+            console.log(`  Filtered toggles:`, toggles);
+
             if (toggles.length === 0) {
+                console.log(`[renderConfigSection] No toggles found for ${app.id}`);
                 return;
             }
 
+            console.log(`[renderConfigSection] Creating Configuration section with ${toggles.length} toggles`);
             container.appendChild(createDetailSection('Configuration', (valueEl) => {
                 toggles.forEach(action => valueEl.appendChild(createConfigToggleControl(app, action)));
 
@@ -3611,6 +3883,8 @@
         }
 
         function createConfigToggleControl(app, action) {
+            console.log(`[createConfigToggleControl] Creating toggle for ${app.id}, enabled: ${app.enabled}, action:`, action);
+            
             const wrapper = document.createElement('div');
             wrapper.className = 'config-toggle';
 
@@ -3625,11 +3899,17 @@
             button.disabled = action.disabled ?? false;
 
             if (!button.disabled) {
-                button.addEventListener('click', () => performConfigToggle(app, action, button));
+                button.addEventListener('click', () => {
+                    console.log('[Toggle Click] Button clicked, calling performConfigToggle');
+                    performConfigToggle(app, action, button);
+                });
+            } else {
+                console.log('[createConfigToggleControl] Toggle button is disabled');
             }
 
             wrapper.appendChild(label);
             wrapper.appendChild(button);
+            console.log('[createConfigToggleControl] Toggle control created successfully');
             return wrapper;
         }
 
@@ -3659,6 +3939,7 @@
             }
 
             const desiredState = !app.enabled;
+            console.log(`[Config Toggle] App: ${app.id}, Current: ${app.enabled}, Target: ${desiredState}, Action: ${action.target}`);
             button.disabled = true;
             button.classList.add('pending');
             button.textContent = desiredState ? 'Enabling…' : 'Disabling…';
@@ -3677,12 +3958,15 @@
                     })
                 });
 
+                console.log(`[Config Toggle] Response status: ${response.status}`);
                 if (!response.ok) {
                     const errorPayload = await response.json().catch(() => ({}));
+                    console.error('[Config Toggle] Error payload:', errorPayload);
                     throw new Error(errorPayload.error || `Request failed (${response.status})`);
                 }
 
                 const payload = await response.json();
+                console.log('[Config Toggle] Success payload:', payload);
                 if (!payload?.app) {
                     throw new Error('Invalid response payload');
                 }
@@ -3690,7 +3974,10 @@
                 updateLocalAppState(payload.app);
                 currentAppId = payload.app.id;
                 showAppDetail(payload.app.id);
-                showNotification(`${payload.app.name} ${payload.app.enabled ? 'enabled' : 'disabled'}`, 'success');
+                showNotification(
+                    `${payload.app.name} ${payload.app.enabled ? 'enabled' : 'disabled'}. Restart MeshBBS for changes to take effect.`, 
+                    'warning'
+                );
             } catch (error) {
                 console.error('Failed to toggle config:', error);
                 showNotification(`Failed to update ${app.name}: ${error.message || error}`, 'error');
@@ -5038,6 +5325,514 @@
             }
         }
 
+        // ============================================
+        //  FORTUNE CONTENT MANAGEMENT
+        // ============================================
+        
+        async function renderFortuneContentSection(container, app) {
+            if (!app.enabled) return;
+            
+            const section = document.createElement('div');
+            section.className = 'apps-detail-section';
+            
+            const labelEl = document.createElement('div');
+            labelEl.className = 'apps-detail-label';
+            labelEl.textContent = 'Fortune Responses';
+            section.appendChild(labelEl);
+            
+            const valueEl = document.createElement('div');
+            valueEl.className = 'apps-detail-value';
+            
+            const loadingMsg = document.createElement('div');
+            loadingMsg.className = 'loading';
+            loadingMsg.textContent = 'Loading fortune responses...';
+            valueEl.appendChild(loadingMsg);
+            
+            section.appendChild(valueEl);
+            container.appendChild(section);
+            
+            // Fetch fortune responses
+            try {
+                const response = await fetch('/api/apps/fortune/responses', {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                
+                if (!response.ok) {
+                    valueEl.innerHTML = '<div style="color: var(--color-error);">Failed to load fortune responses</div>';
+                    return;
+                }
+                
+                const data = await response.json();
+                valueEl.innerHTML = '';
+                
+                // Summary
+                const summary = document.createElement('div');
+                summary.className = 'apps-activity';
+                summary.innerHTML = `<div><strong>${data.count}</strong> fortune responses loaded from <code>data/fortunes.json</code></div>`;
+                valueEl.appendChild(summary);
+                
+                // Fortune list
+                const fortuneList = document.createElement('div');
+                fortuneList.className = 'fortune-list';
+                fortuneList.style.cssText = 'max-height: 400px; overflow-y: auto; border: 1px solid var(--color-stone); border-radius: var(--radius-sm); padding: var(--space-md); margin-top: var(--space-md);';
+                
+                data.fortunes.forEach((fortune, idx) => {
+                    const item = document.createElement('div');
+                    item.style.cssText = 'padding: var(--space-sm); border-bottom: 1px solid var(--color-stone-light); display: flex; justify-content: space-between; align-items: start; gap: var(--space-md);';
+                    
+                    const text = document.createElement('div');
+                    text.style.cssText = 'flex: 1; white-space: pre-wrap;';
+                    text.textContent = fortune;
+                    
+                    const actions = document.createElement('div');
+                    actions.style.cssText = 'display: flex; gap: var(--space-xs);';
+                    
+                    const editBtn = document.createElement('button');
+                    editBtn.className = 'btn btn-secondary btn-sm';
+                    editBtn.textContent = 'Edit';
+                    editBtn.onclick = () => editFortune(idx, fortune, data.fortunes);
+                    
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'btn btn-danger btn-sm';
+                    deleteBtn.textContent = 'Delete';
+                    deleteBtn.onclick = () => deleteFortune(idx, data.fortunes);
+                    
+                    actions.appendChild(editBtn);
+                    actions.appendChild(deleteBtn);
+                    
+                    item.appendChild(text);
+                    item.appendChild(actions);
+                    fortuneList.appendChild(item);
+                });
+                
+                valueEl.appendChild(fortuneList);
+                
+                // Add new fortune button
+                const addBtn = document.createElement('button');
+                addBtn.className = 'btn btn-primary';
+                addBtn.style.marginTop = 'var(--space-md)';
+                addBtn.textContent = '+ Add New Fortune';
+                addBtn.onclick = () => addNewFortune(data.fortunes);
+                valueEl.appendChild(addBtn);
+                
+            } catch (error) {
+                console.error('Error loading fortune responses:', error);
+                valueEl.innerHTML = '<div style="color: var(--color-error);">Error loading fortune responses</div>';
+            }
+        }
+        
+        async function addNewFortune(currentFortunes) {
+            showTextInputDialog('Add New Fortune', '', async (text) => {
+                const updatedFortunes = [...currentFortunes, text];
+                await saveFortunes(updatedFortunes);
+            });
+        }
+        
+        async function editFortune(index, currentText, allFortunes) {
+            showTextInputDialog('Edit Fortune', currentText, async (text) => {
+                const updatedFortunes = [...allFortunes];
+                updatedFortunes[index] = text;
+                await saveFortunes(updatedFortunes);
+            });
+        }
+        
+        async function deleteFortune(index, allFortunes) {
+            if (!confirm('Delete this fortune?')) return;
+            
+            const updatedFortunes = allFortunes.filter((_, idx) => idx !== index);
+            if (updatedFortunes.length === 0) {
+                alert('Cannot delete last fortune. At least one fortune must remain.');
+                return;
+            }
+            
+            await saveFortunes(updatedFortunes);
+        }
+        
+        async function saveFortunes(fortunes) {
+            try {
+                const response = await fetch('/api/apps/fortune/responses', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ fortunes })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to save fortunes');
+                }
+                
+                const result = await response.json();
+                showNotification(result.message || 'Fortune responses saved', 'success');
+                
+                // Reload the apps panel to show updated content
+                const currentApp = document.querySelector('.app-card.active');
+                if (currentApp) {
+                    const appId = currentApp.dataset.appId;
+                    const app = globalApps.find(a => a.id === appId);
+                    if (app) {
+                        renderAppDetailBody(app);
+                    }
+                }
+            } catch (error) {
+                console.error('Error saving fortunes:', error);
+                showNotification(error.message || 'Failed to save fortunes', 'error');
+            }
+        }
+
+        // ============================================
+        //  8-BALL CONTENT MANAGEMENT
+        // ============================================
+        
+        async function renderEightballContentSection(container, app) {
+            if (!app.enabled) return;
+            
+            const section = document.createElement('div');
+            section.className = 'apps-detail-section';
+            
+            const labelEl = document.createElement('div');
+            labelEl.className = 'apps-detail-label';
+            labelEl.textContent = '8-Ball Responses';
+            section.appendChild(labelEl);
+            
+            const valueEl = document.createElement('div');
+            valueEl.className = 'apps-detail-value';
+            
+            const loadingMsg = document.createElement('div');
+            loadingMsg.className = 'loading';
+            loadingMsg.textContent = 'Loading 8-ball responses...';
+            valueEl.appendChild(loadingMsg);
+            
+            section.appendChild(valueEl);
+            container.appendChild(section);
+            
+            // Fetch 8-ball responses
+            try {
+                const response = await fetch('/api/apps/eightball/responses', {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                
+                if (!response.ok) {
+                    valueEl.innerHTML = '<div style="color: var(--color-error);">Failed to load 8-ball responses</div>';
+                    return;
+                }
+                
+                const data = await response.json();
+                valueEl.innerHTML = '';
+                
+                // Summary with category breakdown
+                const summary = document.createElement('div');
+                summary.className = 'apps-activity';
+                summary.innerHTML = `
+                    <div><strong>${data.count}</strong> responses loaded from <code>data/8ball_responses.json</code></div>
+                    <div style="margin-top: var(--space-sm); display: flex; gap: var(--space-md);">
+                        <span style="color: var(--color-success);">✅ ${data.categories.positive} positive</span>
+                        <span style="color: var(--color-text-secondary);">🔮 ${data.categories.neutral} neutral</span>
+                        <span style="color: var(--color-error);">❌ ${data.categories.negative} negative</span>
+                    </div>
+                `;
+                valueEl.appendChild(summary);
+                
+                // Response list grouped by category
+                const responseList = document.createElement('div');
+                responseList.style.cssText = 'max-height: 400px; overflow-y: auto; border: 1px solid var(--color-stone); border-radius: var(--radius-sm); padding: var(--space-md); margin-top: var(--space-md);';
+                
+                const categories = ['positive', 'neutral', 'negative'];
+                const categoryColors = {
+                    positive: 'var(--color-success)',
+                    neutral: 'var(--color-text-secondary)',
+                    negative: 'var(--color-error)'
+                };
+                
+                categories.forEach(category => {
+                    const categoryResponses = data.responses.filter(r => r.category === category);
+                    if (categoryResponses.length === 0) return;
+                    
+                    const categoryHeader = document.createElement('div');
+                    categoryHeader.style.cssText = `font-weight: 600; color: ${categoryColors[category]}; margin-top: var(--space-md); margin-bottom: var(--space-sm); text-transform: capitalize;`;
+                    categoryHeader.textContent = category;
+                    responseList.appendChild(categoryHeader);
+                    
+                    categoryResponses.forEach((response, globalIdx) => {
+                        const idx = data.responses.indexOf(response);
+                        const item = document.createElement('div');
+                        item.style.cssText = 'padding: var(--space-sm); border-bottom: 1px solid var(--color-stone-light); display: flex; justify-content: space-between; align-items: start; gap: var(--space-md);';
+                        
+                        const text = document.createElement('div');
+                        text.style.cssText = 'flex: 1; white-space: pre-wrap;';
+                        text.textContent = response.text;
+                        
+                        const actions = document.createElement('div');
+                        actions.style.cssText = 'display: flex; gap: var(--space-xs);';
+                        
+                        const editBtn = document.createElement('button');
+                        editBtn.className = 'btn btn-secondary btn-sm';
+                        editBtn.textContent = 'Edit';
+                        editBtn.onclick = () => editEightballResponse(idx, response, data.responses);
+                        
+                        const deleteBtn = document.createElement('button');
+                        deleteBtn.className = 'btn btn-danger btn-sm';
+                        deleteBtn.textContent = 'Delete';
+                        deleteBtn.onclick = () => deleteEightballResponse(idx, data.responses);
+                        
+                        actions.appendChild(editBtn);
+                        actions.appendChild(deleteBtn);
+                        
+                        item.appendChild(text);
+                        item.appendChild(actions);
+                        responseList.appendChild(item);
+                    });
+                });
+                
+                valueEl.appendChild(responseList);
+                
+                // Add new response button
+                const addBtn = document.createElement('button');
+                addBtn.className = 'btn btn-primary';
+                addBtn.style.marginTop = 'var(--space-md)';
+                addBtn.textContent = '+ Add New Response';
+                addBtn.onclick = () => addNewEightballResponse(data.responses);
+                valueEl.appendChild(addBtn);
+                
+            } catch (error) {
+                console.error('Error loading 8-ball responses:', error);
+                valueEl.innerHTML = '<div style="color: var(--color-error);">Error loading 8-ball responses</div>';
+            }
+        }
+        
+        async function addNewEightballResponse(currentResponses) {
+            showEightballDialog('Add New 8-Ball Response', '', 'positive', async (text, category) => {
+                const updatedResponses = [...currentResponses, { text, category }];
+                await saveEightballResponses(updatedResponses);
+            });
+        }
+        
+        async function editEightballResponse(index, currentResponse, allResponses) {
+            showEightballDialog('Edit 8-Ball Response', currentResponse.text, currentResponse.category, async (text, category) => {
+                const updatedResponses = [...allResponses];
+                updatedResponses[index] = { text, category };
+                await saveEightballResponses(updatedResponses);
+            });
+        }
+        
+        // ============================================
+        //  WEATHER CONFIGURATION
+        // ============================================
+        async function renderWeatherConfigSection(container, app) {
+            const section = document.createElement('div');
+            section.className = 'apps-detail-section';
+            
+            const labelEl = document.createElement('div');
+            labelEl.className = 'apps-detail-label';
+            labelEl.textContent = 'Configuration';
+            section.appendChild(labelEl);
+            
+            const valueEl = document.createElement('div');
+            valueEl.className = 'apps-detail-value';
+            
+            // Info message about config file editing
+            const infoBox = document.createElement('div');
+            infoBox.style.cssText = `
+                background: rgba(255, 182, 77, 0.1);
+                border: 1px solid rgba(255, 182, 77, 0.3);
+                border-radius: var(--radius-sm);
+                padding: var(--space-md);
+                margin-bottom: var(--space-md);
+            `;
+            
+            infoBox.innerHTML = `
+                <div style="display: flex; align-items: start; gap: var(--space-sm);">
+                    <span style="font-size: 1.2rem;">⚙️</span>
+                    <div>
+                        <strong style="color: var(--color-forest-deep);">Configuration Required</strong>
+                        <p style="margin: var(--space-xs) 0 0 0; color: var(--color-text-secondary);">
+                            Weather app settings are configured in <code style="background: rgba(0,0,0,0.1); padding: 2px 6px; border-radius: 3px;">config.toml</code> 
+                            under the <code style="background: rgba(0,0,0,0.1); padding: 2px 6px; border-radius: 3px;">[apps.weather]</code> section.
+                        </p>
+                        <p style="margin: var(--space-sm) 0 0 0; color: var(--color-text-secondary); font-size: 0.9rem;">
+                            To enable the Weather app, you need to:
+                        </p>
+                        <ol style="margin: var(--space-xs) 0 0 var(--space-lg); color: var(--color-text-secondary); font-size: 0.9rem;">
+                            <li>Obtain an API key from <a href="https://openweathermap.org/api" target="_blank" style="color: var(--color-forest-deep);">OpenWeatherMap</a></li>
+                            <li>Edit <code>config.toml</code> and set <code>api_key</code>, <code>default_location</code>, etc.</li>
+                            <li>Set <code>enabled = true</code></li>
+                            <li>Restart MeshBBS for changes to take effect</li>
+                        </ol>
+                    </div>
+                </div>
+            `;
+            
+            valueEl.appendChild(infoBox);
+            
+            // Show current configuration status (from app metadata)
+            const statusBox = document.createElement('div');
+            statusBox.className = 'apps-activity';
+            statusBox.style.cssText = 'margin-top: var(--space-md);';
+            
+            const configStatus = app.enabled ? 
+                '<span style="color: var(--color-success);">✅ Enabled</span>' : 
+                '<span style="color: var(--color-text-secondary);">⚠️ Disabled</span>';
+            
+            statusBox.innerHTML = `
+                <div><strong>Current Status:</strong> ${configStatus}</div>
+                <div style="margin-top: var(--space-xs); font-size: 0.9rem; color: var(--color-text-secondary);">
+                    Web-based configuration editor coming in a future update.
+                </div>
+            `;
+            
+            valueEl.appendChild(statusBox);
+            section.appendChild(valueEl);
+            container.appendChild(section);
+        }
+        
+        /**
+         * Show a modal dialog for editing 8-ball responses with text and category.
+         */
+        function showEightballDialog(title, initialText = '', initialCategory = 'positive', onSave) {
+            // Create modal overlay
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;';
+            
+            // Create modal dialog
+            const dialog = document.createElement('div');
+            dialog.style.cssText = 'background: var(--color-bg-surface); border-radius: 12px; padding: var(--space-lg); min-width: 500px; max-width: 700px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);';
+            
+            // Title
+            const titleEl = document.createElement('h3');
+            titleEl.textContent = title;
+            titleEl.style.cssText = 'margin: 0 0 var(--space-md) 0; color: var(--color-text-primary);';
+            
+            // Text label
+            const textLabel = document.createElement('label');
+            textLabel.textContent = 'Response Text:';
+            textLabel.style.cssText = 'display: block; margin-bottom: var(--space-xs); font-weight: 500; color: var(--color-text-primary);';
+            
+            // Textarea
+            const textarea = document.createElement('textarea');
+            textarea.value = initialText;
+            textarea.style.cssText = 'width: 100%; min-height: 100px; padding: var(--space-sm); border: 1px solid var(--color-stone-light); border-radius: 4px; font-family: inherit; font-size: 14px; resize: vertical; margin-bottom: var(--space-md);';
+            textarea.placeholder = 'Enter 8-ball response text...';
+            
+            // Category label
+            const categoryLabel = document.createElement('label');
+            categoryLabel.textContent = 'Category:';
+            categoryLabel.style.cssText = 'display: block; margin-bottom: var(--space-xs); font-weight: 500; color: var(--color-text-primary);';
+            
+            // Category select
+            const categorySelect = document.createElement('select');
+            categorySelect.style.cssText = 'width: 100%; padding: var(--space-sm); border: 1px solid var(--color-stone-light); border-radius: 4px; font-family: inherit; font-size: 14px; margin-bottom: var(--space-md);';
+            ['positive', 'neutral', 'negative'].forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat;
+                option.textContent = cat.charAt(0).toUpperCase() + cat.slice(1);
+                if (cat === initialCategory) option.selected = true;
+                categorySelect.appendChild(option);
+            });
+            
+            // Buttons
+            const buttonContainer = document.createElement('div');
+            buttonContainer.style.cssText = 'display: flex; gap: var(--space-sm); justify-content: flex-end;';
+            
+            const cancelBtn = document.createElement('button');
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.className = 'btn btn-secondary';
+            cancelBtn.onclick = () => document.body.removeChild(overlay);
+            
+            const saveBtn = document.createElement('button');
+            saveBtn.textContent = 'Save';
+            saveBtn.className = 'btn btn-primary';
+            saveBtn.onclick = () => {
+                const text = textarea.value.trim();
+                const category = categorySelect.value;
+                if (text) {
+                    onSave(text, category);
+                    document.body.removeChild(overlay);
+                } else {
+                    alert('Response text cannot be empty');
+                }
+            };
+            
+            buttonContainer.appendChild(cancelBtn);
+            buttonContainer.appendChild(saveBtn);
+            
+            dialog.appendChild(titleEl);
+            dialog.appendChild(textLabel);
+            dialog.appendChild(textarea);
+            dialog.appendChild(categoryLabel);
+            dialog.appendChild(categorySelect);
+            dialog.appendChild(buttonContainer);
+            overlay.appendChild(dialog);
+            document.body.appendChild(overlay);
+            
+            // Focus textarea
+            textarea.focus();
+            if (initialText) {
+                textarea.select();
+            }
+            
+            // Close on overlay click
+            overlay.onclick = (e) => {
+                if (e.target === overlay) {
+                    document.body.removeChild(overlay);
+                }
+            };
+            
+            // Save on Ctrl/Cmd + Enter
+            textarea.onkeydown = (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    saveBtn.click();
+                }
+            };
+        }
+        
+        async function deleteEightballResponse(index, allResponses) {
+            if (!confirm('Delete this response?')) return;
+            
+            const updatedResponses = allResponses.filter((_, idx) => idx !== index);
+            if (updatedResponses.length === 0) {
+                alert('Cannot delete last response. At least one response must remain.');
+                return;
+            }
+            
+            await saveEightballResponses(updatedResponses);
+        }
+        
+        async function saveEightballResponses(responses) {
+            try {
+                const response = await fetch('/api/apps/eightball/responses', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ responses })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to save responses');
+                }
+                
+                const result = await response.json();
+                showNotification(result.message || '8-Ball responses saved', 'success');
+                
+                // Reload the apps panel to show updated content
+                const currentApp = document.querySelector('.app-card.active');
+                if (currentApp) {
+                    const appId = currentApp.dataset.appId;
+                    const app = globalApps.find(a => a.id === appId);
+                    if (app) {
+                        renderAppDetailBody(app);
+                    }
+                }
+            } catch (error) {
+                console.error('Error saving 8-ball responses:', error);
+                showNotification(error.message || 'Failed to save responses', 'error');
+            }
+        }
+
         function createDetailSection(label, builder) {
             const section = document.createElement('div');
             section.className = 'apps-detail-section';
@@ -5108,17 +5903,27 @@
         // ============================================
         let currentEditUser = null;
 
-    async function editUser(callsign) {
+    async function editUser(username) {
             try {
                 // Fetch user details
-        const encodedId = encodeURIComponent(callsign);
+        const encodedId = encodeURIComponent(username);
         const response = await fetch(`/api/users/${encodedId}`);
+                
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        alert(`User "${username}" not found. The user list will be refreshed.`);
+                        await loadUsers(); // Refresh the list
+                        return;
+                    }
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
                 const user = await response.json();
                 
-                currentEditUser = callsign;
+                currentEditUser = username;
                 
                 // Populate modal
-                document.getElementById('editCallsign').value = user.callsign || callsign;
+                document.getElementById('editCallsign').value = user.username || username;
                 document.getElementById('editLevel').value = user.level || 1;
                 document.getElementById('editNodeId').value = user.node_id || 'N/A';
                 document.getElementById('editMessageCount').value = user.message_count || 0;
@@ -5127,7 +5932,7 @@
                 openModal('userEditModal');
             } catch (error) {
                 console.error('Failed to load user details:', error);
-                alert('Failed to load user details');
+                alert(`Failed to load user details: ${error.message}`);
             }
         }
 
@@ -5206,9 +6011,60 @@
         }
 
         function showNotification(message, type = 'info') {
-            // Simple alert for now - could be enhanced with toast notifications
             console.log(`[${type}] ${message}`);
-            // TODO: Implement toast notification UI
+            
+            // Create toast container if it doesn't exist
+            let container = document.getElementById('toastContainer');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'toastContainer';
+                container.style.cssText = 'position: fixed; top: 80px; right: var(--space-lg); z-index: 2000; display: flex; flex-direction: column; gap: var(--space-sm); max-width: 400px;';
+                document.body.appendChild(container);
+            }
+            
+            // Create toast
+            const toast = document.createElement('div');
+            toast.style.cssText = 'padding: var(--space-md); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); background: var(--color-bg-surface); border-left: 4px solid; animation: slideInRight 0.3s ease-out; display: flex; align-items: center; gap: var(--space-sm);';
+            
+            // Set color based on type
+            const colors = {
+                success: 'var(--color-success)',
+                error: 'var(--color-error)',
+                warning: 'var(--color-warning)',
+                info: 'var(--color-info)'
+            };
+            toast.style.borderLeftColor = colors[type] || colors.info;
+            
+            // Add icon
+            const icons = {
+                success: '✅',
+                error: '❌',
+                warning: '⚠️',
+                info: 'ℹ️'
+            };
+            const icon = document.createElement('span');
+            icon.textContent = icons[type] || icons.info;
+            icon.style.fontSize = '1.2rem';
+            
+            // Add message
+            const text = document.createElement('span');
+            text.textContent = message;
+            text.style.cssText = 'flex: 1; color: var(--color-text-primary);';
+            
+            toast.appendChild(icon);
+            toast.appendChild(text);
+            container.appendChild(toast);
+            
+            // Auto-remove after 4 seconds
+            setTimeout(() => {
+                toast.style.animation = 'slideOutRight 0.3s ease-in';
+                setTimeout(() => {
+                    container.removeChild(toast);
+                    if (container.children.length === 0) {
+                        document.body.removeChild(container);
+                    }
+                }, 300);
+            }, 4000);
         }
 
         function confirmAction(title, message, onConfirm) {
@@ -5222,6 +6078,84 @@
             };
             
             openModal('confirmModal');
+        }
+
+        /**
+         * Show a modal dialog with a textarea for multi-line text input.
+         * @param {string} title - Dialog title
+         * @param {string} initialValue - Initial textarea value (with actual newlines)
+         * @param {function} onSave - Callback function(text) when user saves
+         */
+        function showTextInputDialog(title, initialValue = '', onSave) {
+            // Create modal overlay
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;';
+            
+            // Create modal dialog
+            const dialog = document.createElement('div');
+            dialog.style.cssText = 'background: var(--color-bg-surface); border-radius: 12px; padding: var(--space-lg); min-width: 500px; max-width: 700px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);';
+            
+            // Title
+            const titleEl = document.createElement('h3');
+            titleEl.textContent = title;
+            titleEl.style.cssText = 'margin: 0 0 var(--space-md) 0; color: var(--color-text-primary);';
+            
+            // Textarea
+            const textarea = document.createElement('textarea');
+            textarea.value = initialValue;
+            textarea.style.cssText = 'width: 100%; min-height: 150px; padding: var(--space-sm); border: 1px solid var(--color-stone-light); border-radius: 4px; font-family: inherit; font-size: 14px; resize: vertical; margin-bottom: var(--space-md);';
+            textarea.placeholder = 'Enter text... (use Enter for new lines)';
+            
+            // Buttons
+            const buttonContainer = document.createElement('div');
+            buttonContainer.style.cssText = 'display: flex; gap: var(--space-sm); justify-content: flex-end;';
+            
+            const cancelBtn = document.createElement('button');
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.className = 'btn btn-secondary';
+            cancelBtn.onclick = () => document.body.removeChild(overlay);
+            
+            const saveBtn = document.createElement('button');
+            saveBtn.textContent = 'Save';
+            saveBtn.className = 'btn btn-primary';
+            saveBtn.onclick = () => {
+                const text = textarea.value.trim();
+                if (text) {
+                    onSave(text);
+                    document.body.removeChild(overlay);
+                } else {
+                    alert('Text cannot be empty');
+                }
+            };
+            
+            buttonContainer.appendChild(cancelBtn);
+            buttonContainer.appendChild(saveBtn);
+            
+            dialog.appendChild(titleEl);
+            dialog.appendChild(textarea);
+            dialog.appendChild(buttonContainer);
+            overlay.appendChild(dialog);
+            document.body.appendChild(overlay);
+            
+            // Focus textarea and select all if editing
+            textarea.focus();
+            if (initialValue) {
+                textarea.select();
+            }
+            
+            // Close on overlay click
+            overlay.onclick = (e) => {
+                if (e.target === overlay) {
+                    document.body.removeChild(overlay);
+                }
+            };
+            
+            // Save on Ctrl/Cmd + Enter
+            textarea.onkeydown = (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    saveBtn.click();
+                }
+            };
         }
 
         function getActivityIcon(type) {
@@ -5338,7 +6272,7 @@
             // Filter
             filteredUsers = allUsers.filter(user => {
                 const matchesSearch = !searchTerm || 
-                    (user.callsign || user.username || '').toLowerCase().includes(searchTerm);
+                    (user.username || '').toLowerCase().includes(searchTerm);
                 const matchesLevel = !minLevel || (user.level || 1) >= parseInt(minLevel);
                 return matchesSearch && matchesLevel;
             });
@@ -5347,7 +6281,7 @@
             filteredUsers.sort((a, b) => {
                 switch(sortBy) {
                     case 'username':
-                        return (a.callsign || a.username || '').localeCompare(b.callsign || b.username || '');
+                        return (a.username || '').localeCompare(b.username || '');
                     case 'level':
                         return (b.level || 1) - (a.level || 1);
                     case 'messages':
@@ -5364,13 +6298,13 @@
             if (filteredUsers.length > 0) {
                 tbody.innerHTML = filteredUsers.map(user => `
                     <tr>
-                        <td><strong>${user.callsign || user.username || 'Unknown'}</strong></td>
+                        <td><strong>${user.username || 'Unknown'}</strong></td>
                         <td>${user.level || 1}</td>
                         <td>${user.message_count || 0}</td>
                         <td>${getRoleBadge(user.level || 1)}</td>
-                        <td>${user.last_login || 'Never'}</td>
+                        <td>${user.last_seen || 'Never'}</td>
                         <td>
-                            <button class="btn btn-primary btn-sm" onclick="editUser('${user.callsign}')">Edit</button>
+                            <button class="btn btn-primary btn-sm" onclick="editUser('${user.username}')">Edit</button>
                         </td>
                     </tr>
                 `).join('');
