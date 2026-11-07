@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed - Meshtastic Protobufs
+- Bumped `third_party/meshtastic-protobufs` from `46b81e8` (Sept 2025) to the `v2.8.2` release tag
+- `MeshPacket.rx_time` is now an optional field upstream; outbound packets send `None`
+- Outbound `Data` messages initialize the new `xeddsa_signature` field (left empty)
+- Handle new `FromRadio` variants: `lockdown_status`, `region_presets`, `display_frame`, `display_palette`
+- Handle new `ModuleConfig` variants: `statusmessage`, `traffic_management`, `tak`, `mesh_beacon`
+- Summarize new telemetry variants: `traffic_management_stats`, `soil_water_metrics`
+
+### Added
+- Log radio lockdown state; a warning is emitted when the radio is locked, awaiting provisioning,
+  or rejected an unlock, since the BBS cannot operate until the device is unlocked
+
+### Fixed
+- `build.rs` now reruns when the protobufs submodule changes, so a submodule bump is not masked
+  by stale generated code
+
 ## [1.1.4] - 2025-10-17
 
 ### Added - Vending Machine System & Documentation

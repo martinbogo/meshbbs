@@ -653,6 +653,8 @@ cargo build --features "serial,weather"
 
 For rich packet handling, enable the `meshtastic-proto` feature. Upstream protobuf definitions are included as a git submodule.
 
+The submodule is currently pinned to the Meshtastic protobufs **v2.8.2** release tag.
+
 <details>
 <summary><strong>🔧 Protobuf Setup Instructions</strong></summary>
 

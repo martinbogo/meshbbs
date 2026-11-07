@@ -17,6 +17,8 @@ fn main() {
 
     println!("cargo:rerun-if-env-changed=MESHTASTIC_PROTO_DIR");
     println!("cargo:rerun-if-changed=protos");
+    // Also rebuild when the Meshtastic protobufs submodule is bumped to a new revision.
+    println!("cargo:rerun-if-changed=third_party/meshtastic-protobufs/meshtastic");
 
     let proto_dir = env::var("MESHTASTIC_PROTO_DIR").unwrap_or_else(|_| "protos".into());
     let proto_path = PathBuf::from(&proto_dir); // original requested path ("protos" by default)

@@ -310,6 +310,10 @@ fn summarize_known_port_payload(port: proto::PortNum, payload: &[u8]) -> Option<
                         TVar::AirQualityMetrics(_) => return Some("telemetry/air".to_string()),
                         TVar::HealthMetrics(_) => return Some("telemetry/health".to_string()),
                         TVar::HostMetrics(_) => return Some("telemetry/host".to_string()),
+                        TVar::TrafficManagementStats(_) => {
+                            return Some("telemetry/traffic".to_string())
+                        }
+                        TVar::SoilWaterMetrics(_) => return Some("telemetry/soil".to_string()),
                     }
                 }
                 return Some("telemetry".to_string());
@@ -1350,6 +1354,7 @@ impl MeshtasticDevice {
             reply_id: 0,
             emoji: 0,
             bitfield: None,
+            xeddsa_signature: Default::default(),
         };
         let from_node = self.our_node_id.ok_or_else(||
             anyhow!(
@@ -1376,7 +1381,7 @@ impl MeshtasticDevice {
             channel,
             payload_variant: Some(MPPayload::Decoded(data_msg)),
             id: packet_id,
-            rx_time: 0,
+            rx_time: None,
             rx_snr: 0.0,
             hop_limit: 3,                         // Default hop limit for mesh routing
             want_ack: is_dm, // Request ACK for DMs to trigger immediate transmission
@@ -2097,6 +2102,14 @@ impl MeshtasticReader {
                             "detection_sensor"
                         }
                         Some(proto::module_config::PayloadVariant::Paxcounter(_)) => "paxcounter",
+                        Some(proto::module_config::PayloadVariant::Statusmessage(_)) => {
+                            "status_message"
+                        }
+                        Some(proto::module_config::PayloadVariant::TrafficManagement(_)) => {
+                            "traffic_management"
+                        }
+                        Some(proto::module_config::PayloadVariant::Tak(_)) => "tak",
+                        Some(proto::module_config::PayloadVariant::MeshBeacon(_)) => "mesh_beacon",
                         None => "unknown",
                     };
                     debug!("Received moduleConfig: {}", module_type);
@@ -2153,6 +2166,40 @@ impl MeshtasticReader {
                 }
                 Some(FRPayload::DeviceuiConfig(_)) => {
                     debug!("Received deviceuiConfig");
+                }
+                Some(FRPayload::LockdownStatus(ls)) => {
+                    use proto::lockdown_status::State as LState;
+                    match LState::try_from(ls.state) {
+                        Ok(LState::Unlocked) => {
+                            info!(
+                                "Radio lockdown: unlocked (boots_remaining={}, valid_until={})",
+                                ls.boots_remaining, ls.valid_until_epoch
+                            );
+                        }
+                        Ok(LState::Disabled) | Ok(LState::Unspecified) => {
+                            debug!("Radio lockdown: not active");
+                        }
+                        Ok(state) => {
+                            // LOCKED / NEEDS_PROVISION / UNLOCK_FAILED: the radio will not
+                            // serve this client until it is unlocked with a passphrase.
+                            warn!(
+                                "Radio lockdown: {:?} (reason='{}', backoff={}s); unlock the device with a Meshtastic client before the BBS can operate",
+                                state, ls.lock_reason, ls.backoff_seconds
+                            );
+                        }
+                        Err(_) => {
+                            warn!("Radio lockdown: unknown state {}", ls.state);
+                        }
+                    }
+                }
+                Some(FRPayload::RegionPresets(_)) => {
+                    debug!("Received regionPresets");
+                }
+                Some(FRPayload::DisplayFrame(_)) => {
+                    debug!("Received displayFrame");
+                }
+                Some(FRPayload::DisplayPalette(_)) => {
+                    debug!("Received displayPalette");
                 }
                 None => {
                     debug!("FromRadio message with no payload");
@@ -2326,6 +2373,7 @@ impl MeshtasticWriter {
             reply_id: 0,
             emoji: 0,
             bitfield: None,
+            xeddsa_signature: Default::default(),
         };
 
         let from_node = self
@@ -2345,7 +2393,7 @@ impl MeshtasticWriter {
             channel,
             payload_variant: Some(MPPayload::Decoded(data_msg)),
             id: packet_id,
-            rx_time: 0,
+            rx_time: None,
             rx_snr: 0.0,
             hop_limit: 3,
             want_ack: true, // Critical: request routing ACK to confirm delivery
@@ -2675,6 +2723,7 @@ impl MeshtasticWriter {
             reply_id: 0,
             emoji: 0,
             bitfield: None,
+            xeddsa_signature: Default::default(),
         };
 
         let from_node = self
@@ -2735,7 +2784,7 @@ impl MeshtasticWriter {
             channel: msg.channel,
             payload_variant: Some(MPPayload::Decoded(data_msg)),
             id: packet_id,
-            rx_time: 0,
+            rx_time: None,
             rx_snr: 0.0,
             hop_limit: 3,
             want_ack: is_dm || wants_ack_broadcast,
@@ -2909,6 +2958,7 @@ impl MeshtasticWriter {
             reply_id: 0,
             emoji: 0,
             bitfield: None,
+            xeddsa_signature: Default::default(),
         };
         let pkt = MeshPacket {
             from: from_node,
@@ -2916,7 +2966,7 @@ impl MeshtasticWriter {
             channel,
             payload_variant: Some(MPPayload::Decoded(data_msg)),
             id: packet_id,
-            rx_time: 0,
+            rx_time: None,
             rx_snr: 0.0,
             hop_limit: 3,
             want_ack: true,
