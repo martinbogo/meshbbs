@@ -233,6 +233,18 @@ mod utf8_tests {
     }
 }
 
+/// Best-effort name of a prost oneof variant (e.g. `LockdownStatus`), derived from its Debug
+/// output. Used in fallback match arms so variants added by newer (or removed by older)
+/// protobuf revisions are still reported by name without the code having to know them.
+#[cfg(feature = "meshtastic-proto")]
+fn variant_name<T: std::fmt::Debug>(v: &T) -> String {
+    let dbg = format!("{:?}", v);
+    dbg.split(['(', '{', ' '])
+        .next()
+        .unwrap_or_default()
+        .to_string()
+}
+
 #[cfg(feature = "meshtastic-proto")]
 fn fmt_percent(val: f32) -> String {
     if val.is_finite() {
@@ -310,10 +322,15 @@ fn summarize_known_port_payload(port: proto::PortNum, payload: &[u8]) -> Option<
                         TVar::AirQualityMetrics(_) => return Some("telemetry/air".to_string()),
                         TVar::HealthMetrics(_) => return Some("telemetry/health".to_string()),
                         TVar::HostMetrics(_) => return Some("telemetry/host".to_string()),
-                        TVar::TrafficManagementStats(_) => {
-                            return Some("telemetry/traffic".to_string())
+                        // Variants from other protobuf revisions; unreachable when the
+                        // compiled schema has no telemetry variants beyond those above.
+                        #[allow(unreachable_patterns)]
+                        other => {
+                            return Some(format!(
+                                "telemetry/{}",
+                                variant_name(&other).to_ascii_lowercase()
+                            ))
                         }
-                        TVar::SoilWaterMetrics(_) => return Some("telemetry/soil".to_string()),
                     }
                 }
                 return Some("telemetry".to_string());
@@ -1347,14 +1364,8 @@ impl MeshtasticDevice {
         let data_msg = Data {
             portnum: PortNum::TextMessageApp as i32,
             payload: text.as_bytes().to_vec().into(),
-            want_response: false,
-            dest: 0, // filled by firmware
-            source: 0,
-            request_id: 0,
-            reply_id: 0,
-            emoji: 0,
-            bitfield: None,
-            xeddsa_signature: Default::default(),
+            // Remaining fields vary across protobuf revisions; defaults encode to nothing on the wire.
+            ..Default::default()
         };
         let from_node = self.our_node_id.ok_or_else(||
             anyhow!(
@@ -1381,8 +1392,6 @@ impl MeshtasticDevice {
             channel,
             payload_variant: Some(MPPayload::Decoded(data_msg)),
             id: packet_id,
-            rx_time: None,
-            rx_snr: 0.0,
             hop_limit: 3,                         // Default hop limit for mesh routing
             want_ack: is_dm, // Request ACK for DMs to trigger immediate transmission
             priority: if is_dm { 70 } else { 0 }, // Use RELIABLE priority (70) for DMs, DEFAULT (0) for broadcasts
@@ -2052,6 +2061,7 @@ impl MeshtasticReader {
                     }
                 }
                 Some(FRPayload::Config(config)) => {
+                    let other_name: String;
                     let config_type = match &config.payload_variant {
                         Some(proto::config::PayloadVariant::Device(_)) => "device",
                         Some(proto::config::PayloadVariant::Position(_)) => "position",
@@ -2063,6 +2073,12 @@ impl MeshtasticReader {
                         Some(proto::config::PayloadVariant::Security(_)) => "security",
                         Some(proto::config::PayloadVariant::Sessionkey(_)) => "sessionkey",
                         Some(proto::config::PayloadVariant::DeviceUi(_)) => "device_ui",
+                        // Config sections from other protobuf revisions
+                        #[allow(unreachable_patterns)]
+                        Some(other) => {
+                            other_name = variant_name(other);
+                            &other_name
+                        }
                         None => "unknown",
                     };
                     debug!("Received config: {}", config_type);
@@ -2074,6 +2090,7 @@ impl MeshtasticReader {
                     debug!("Received rebooted");
                 }
                 Some(FRPayload::ModuleConfig(module_config)) => {
+                    let other_name: String;
                     let module_type = match &module_config.payload_variant {
                         Some(proto::module_config::PayloadVariant::Mqtt(_)) => "mqtt",
                         Some(proto::module_config::PayloadVariant::Serial(_)) => "serial",
@@ -2102,14 +2119,12 @@ impl MeshtasticReader {
                             "detection_sensor"
                         }
                         Some(proto::module_config::PayloadVariant::Paxcounter(_)) => "paxcounter",
-                        Some(proto::module_config::PayloadVariant::Statusmessage(_)) => {
-                            "status_message"
+                        // Modules from other protobuf revisions
+                        #[allow(unreachable_patterns)]
+                        Some(other) => {
+                            other_name = variant_name(other);
+                            &other_name
                         }
-                        Some(proto::module_config::PayloadVariant::TrafficManagement(_)) => {
-                            "traffic_management"
-                        }
-                        Some(proto::module_config::PayloadVariant::Tak(_)) => "tak",
-                        Some(proto::module_config::PayloadVariant::MeshBeacon(_)) => "mesh_beacon",
                         None => "unknown",
                     };
                     debug!("Received moduleConfig: {}", module_type);
@@ -2167,6 +2182,9 @@ impl MeshtasticReader {
                 Some(FRPayload::DeviceuiConfig(_)) => {
                     debug!("Received deviceuiConfig");
                 }
+                // Lockdown exists only in protobuf revisions >= v2.8; build.rs sets this cfg
+                // when the compiled schema defines LockdownStatus.
+                #[cfg(meshtastic_proto_lockdown)]
                 Some(FRPayload::LockdownStatus(ls)) => {
                     use proto::lockdown_status::State as LState;
                     match LState::try_from(ls.state) {
@@ -2192,17 +2210,20 @@ impl MeshtasticReader {
                         }
                     }
                 }
-                Some(FRPayload::RegionPresets(_)) => {
-                    debug!("Received regionPresets");
-                }
-                Some(FRPayload::DisplayFrame(_)) => {
-                    debug!("Received displayFrame");
-                }
-                Some(FRPayload::DisplayPalette(_)) => {
-                    debug!("Received displayPalette");
+                // Variants from other protobuf revisions that the BBS does not act on
+                #[allow(unreachable_patterns)]
+                Some(other) => {
+                    debug!(
+                        "Received unhandled FromRadio variant: {}",
+                        variant_name(other)
+                    );
                 }
                 None => {
-                    debug!("FromRadio message with no payload");
+                    // prost skips fields it does not know, so a variant introduced by firmware
+                    // newer than the compiled schema arrives here rather than failing to decode.
+                    debug!(
+                        "FromRadio message with no payload (or a variant unknown to this build)"
+                    );
                 }
             }
         }
@@ -2366,14 +2387,8 @@ impl MeshtasticWriter {
         let data_msg = Data {
             portnum: PortNum::TextMessageApp as i32,
             payload: ".".as_bytes().to_vec().into(), // Minimal non-intrusive payload
-            want_response: false,
-            dest: 0,
-            source: 0,
-            request_id: 0,
-            reply_id: 0,
-            emoji: 0,
-            bitfield: None,
-            xeddsa_signature: Default::default(),
+            // Remaining fields vary across protobuf revisions; defaults encode to nothing on the wire.
+            ..Default::default()
         };
 
         let from_node = self
@@ -2393,8 +2408,6 @@ impl MeshtasticWriter {
             channel,
             payload_variant: Some(MPPayload::Decoded(data_msg)),
             id: packet_id,
-            rx_time: None,
-            rx_snr: 0.0,
             hop_limit: 3,
             want_ack: true, // Critical: request routing ACK to confirm delivery
             priority: 10,   // Use ACK priority for faster delivery
@@ -2716,14 +2729,8 @@ impl MeshtasticWriter {
         let data_msg = Data {
             portnum: PortNum::TextMessageApp as i32,
             payload: msg.content.as_bytes().to_vec().into(),
-            want_response: false,
-            dest: 0,
-            source: 0,
-            request_id: 0,
-            reply_id: 0,
-            emoji: 0,
-            bitfield: None,
-            xeddsa_signature: Default::default(),
+            // Remaining fields vary across protobuf revisions; defaults encode to nothing on the wire.
+            ..Default::default()
         };
 
         let from_node = self
@@ -2784,8 +2791,6 @@ impl MeshtasticWriter {
             channel: msg.channel,
             payload_variant: Some(MPPayload::Decoded(data_msg)),
             id: packet_id,
-            rx_time: None,
-            rx_snr: 0.0,
             hop_limit: 3,
             want_ack: is_dm || wants_ack_broadcast,
             priority,
@@ -2951,14 +2956,8 @@ impl MeshtasticWriter {
         let data_msg = Data {
             portnum: PortNum::TextMessageApp as i32,
             payload: content.as_bytes().to_vec().into(),
-            want_response: false,
-            dest: 0,
-            source: 0,
-            request_id: 0,
-            reply_id: 0,
-            emoji: 0,
-            bitfield: None,
-            xeddsa_signature: Default::default(),
+            // Remaining fields vary across protobuf revisions; defaults encode to nothing on the wire.
+            ..Default::default()
         };
         let pkt = MeshPacket {
             from: from_node,
@@ -2966,8 +2965,6 @@ impl MeshtasticWriter {
             channel,
             payload_variant: Some(MPPayload::Decoded(data_msg)),
             id: packet_id,
-            rx_time: None,
-            rx_snr: 0.0,
             hop_limit: 3,
             want_ack: true,
             priority: 70,

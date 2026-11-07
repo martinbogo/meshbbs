@@ -2,7 +2,21 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+/// Optional schema capabilities, detected from the proto sources being compiled, exposed to the
+/// crate as `cfg` flags. This lets the same meshbbs source build against older and newer
+/// Meshtastic protobuf revisions (submodule bumps or MESHTASTIC_PROTO_DIR overrides).
+/// Each entry: (cfg name, text that must appear in some .proto file).
+const PROTO_FEATURES: &[(&str, &str)] = &[
+    // FromRadio.lockdown_status, introduced in the v2.8 protobufs
+    ("meshtastic_proto_lockdown", "message LockdownStatus"),
+];
+
 fn main() {
+    // Declare the capability cfgs so rustc's check-cfg lint knows them even when unset.
+    for (name, _) in PROTO_FEATURES {
+        println!("cargo:rustc-check-cfg=cfg({})", name);
+    }
+
     // Only run if feature is enabled
     if std::env::var("CARGO_FEATURE_MESHTASTIC_PROTO").is_err() {
         return;
@@ -124,4 +138,16 @@ fn main() {
     config
         .compile_protos(&unique, &includes)
         .expect("Failed to compile protos");
+
+    let sources: Vec<String> = unique
+        .iter()
+        .filter_map(|p| fs::read_to_string(p).ok())
+        .collect();
+    for (name, marker) in PROTO_FEATURES {
+        let present = sources.iter().any(|src| src.contains(marker));
+        eprintln!("build.rs: proto capability {} = {}", name, present);
+        if present {
+            println!("cargo:rustc-cfg={}", name);
+        }
+    }
 }

@@ -9,14 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed - Meshtastic Protobufs
 - Bumped `third_party/meshtastic-protobufs` from `46b81e8` (Sept 2025) to the `v2.8.2` release tag
-- `MeshPacket.rx_time` is now an optional field upstream; outbound packets send `None`
-- Outbound `Data` messages initialize the new `xeddsa_signature` field (left empty)
-- Handle new `FromRadio` variants: `lockdown_status`, `region_presets`, `display_frame`, `display_palette`
-- Handle new `ModuleConfig` variants: `statusmessage`, `traffic_management`, `tak`, `mesh_beacon`
-- Summarize new telemetry variants: `traffic_management_stats`, `soil_water_metrics`
+- Source stays compatible with the previous (pre-v2.8) schema as well as v2.8.2:
+  - Outbound `Data`/`MeshPacket` use `..Default::default()` instead of listing every field, so
+    `MeshPacket.rx_time` (`u32` before, `Option<u32>` now) and `Data.xeddsa_signature` (new) need
+    no version-specific code, and the bytes sent to the radio are identical under both schemas
+  - `FromRadio`, `Config`, `ModuleConfig` and telemetry matches fall back to a generic, named
+    handler for variants added or removed between revisions
+  - `build.rs` detects optional schema features and sets `cfg` flags (`meshtastic_proto_lockdown`)
 
 ### Added
-- Log radio lockdown state; a warning is emitted when the radio is locked, awaiting provisioning,
+- `tests/proto_compat.rs`: wire-compat tests (outbound field set, decoding of unknown fields,
+  variants and enum values), passing against both the old and new schemas
+- `just proto-compat [rev]`: builds and runs the compat tests against an older protobufs revision
+- Log radio lockdown state (when the schema has it); a warning is emitted when the radio is locked, awaiting provisioning,
   or rejected an unlock, since the BBS cannot operate until the device is unlocked
 
 ### Fixed
