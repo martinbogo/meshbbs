@@ -653,6 +653,21 @@ cargo build --features "serial,weather"
 
 For rich packet handling, enable the `meshtastic-proto` feature. Upstream protobuf definitions are included as a git submodule.
 
+The submodule is currently pinned to the Meshtastic protobufs **v2.8.2** release tag.
+
+meshbbs is written to tolerate schema drift in both directions:
+
+- **Older or newer firmware:** outbound packets set only the fields meshbbs needs, so the bytes on
+  the wire are the same whatever revision it was compiled against. Fields, oneof variants and enum
+  values that the compiled schema does not know are skipped or kept as raw values, so decoding
+  still succeeds.
+- **Older or newer `.proto` sources** (a different submodule pin or `MESHTASTIC_PROTO_DIR`): the code
+  builds against both the pre-v2.8 schema and v2.8.2. Features that exist only in some revisions
+  are detected by `build.rs` and exposed as `cfg` flags (currently `meshtastic_proto_lockdown`).
+
+Before bumping the submodule, run `just proto-compat` to confirm the build and the wire-compat
+tests (`tests/proto_compat.rs`) still pass against the previous revision.
+
 <details>
 <summary><strong>🔧 Protobuf Setup Instructions</strong></summary>
 

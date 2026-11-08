@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed - Meshtastic Protobufs
+- Bumped `third_party/meshtastic-protobufs` from `46b81e8` (Sept 2025) to the `v2.8.2` release tag
+- Source stays compatible with the previous (pre-v2.8) schema as well as v2.8.2:
+  - Outbound `Data`/`MeshPacket` use `..Default::default()` instead of listing every field, so
+    `MeshPacket.rx_time` (`u32` before, `Option<u32>` now) and `Data.xeddsa_signature` (new) need
+    no version-specific code, and the bytes sent to the radio are identical under both schemas
+  - `FromRadio`, `Config`, `ModuleConfig` and telemetry matches fall back to a generic, named
+    handler for variants added or removed between revisions
+  - `build.rs` detects optional schema features and sets `cfg` flags (`meshtastic_proto_lockdown`)
+
+### Added
+- `tests/proto_compat.rs`: wire-compat tests (outbound field set, decoding of unknown fields,
+  variants and enum values), passing against both the old and new schemas
+- `just proto-compat [rev]`: builds and runs the compat tests against an older protobufs revision
+- Log radio lockdown state (when the schema has it); a warning is emitted when the radio is locked, awaiting provisioning,
+  or rejected an unlock, since the BBS cannot operate until the device is unlocked
+
+### Fixed
+- `build.rs` now reruns when the protobufs submodule changes, so a submodule bump is not masked
+  by stale generated code
+
 ## [1.1.4] - 2025-10-17
 
 ### Added - Vending Machine System & Documentation
