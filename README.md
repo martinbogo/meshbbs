@@ -5,6 +5,7 @@
   
   **A modern Bulletin Board System for Meshtastic mesh networks**
   
+      [![CI](https://github.com/martinbogo/meshbbs/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/martinbogo/meshbbs/actions/workflows/ci.yml)
       [![Version](https://img.shields.io/badge/version-1.1.4-blue.svg)](https://github.com/martinbogo/meshbbs/releases)
    [![License](https://img.shields.io/badge/license-CC--BY--NC--4.0-green.svg)](LICENSE)
    [![Language](https://img.shields.io/badge/language-Rust-orange.svg)](https://www.rust-lang.org/)
@@ -665,7 +666,7 @@ meshbbs is written to tolerate schema drift in both directions:
   builds against both the pre-v2.8 schema and v2.8.2. Features that exist only in some revisions
   are detected by `build.rs` and exposed as `cfg` flags (currently `meshtastic_proto_lockdown`).
 
-Before bumping the submodule, run `just proto-compat` to confirm the build and the wire-compat
+Before bumping the submodule, run `just proto-compat` (or `scripts/proto_compat.sh`; CI runs it on every PR) to confirm the build and the wire-compat
 tests (`tests/proto_compat.rs`) still pass against the previous revision.
 
 <details>

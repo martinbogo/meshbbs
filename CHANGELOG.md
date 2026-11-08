@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - Continuous Integration
+- `.github/workflows/ci.yml`: on pushes to `main` and on every PR, builds all targets and runs the
+  full test suite on Linux, and runs the protobuf compatibility check against the previous schema
+- `scripts/proto_compat.sh`: shared by CI and `just proto-compat`
+
 ### Changed - Meshtastic Protobufs
 - Bumped `third_party/meshtastic-protobufs` from `46b81e8` (Sept 2025) to the `v2.8.2` release tag
 - Source stays compatible with the previous (pre-v2.8) schema as well as v2.8.2:
